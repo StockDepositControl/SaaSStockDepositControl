@@ -65,6 +65,7 @@ When generating database models, migrations, or seeding scripts, structure your 
 - Never perform database mutations or database reads without a valid `tenant_id` context.
 - Never introduce business logic or tax/fiscal calculation rules in database-level triggers; all calculations (like conditional VAT processing) belong to the core backend services layer.
 - Never hardcode credentials. All connection strings must be resolved dynamically using environment variables via `python-dotenv`.
+- Never work outside of the `/backend` directory, everything that you do must be inside of `/backend` directory
 - All relationships must specify cascade delete rules explicitly where appropriate, preventing dangling physical stock records when a parent deposit or article is audited/removed.
 - All foreign keys must have corresponding database-level indexes to prevent table scans during JOIN operations.
 
