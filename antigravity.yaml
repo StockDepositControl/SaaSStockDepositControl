@@ -4,6 +4,13 @@ project:
   type: "monorepo"
   allowed_directories: ["backend/", "frontend-mobile/", "frontend-web/"]
 
+mcpServers:
+  codebase-memory:
+    command: "npx"
+    args: ["-y", "@modelcontextprotocol/server-memory"]
+    env:
+      REPOSITORY_PATH: "./backend"
+
 # Declaración y registro de agentes del ecosistema
 agents:
   - id: "dba-agent"
@@ -31,3 +38,5 @@ orchestration:
   strict_boundaries: true # Evita que un agente escriba fuera de su target_dir
   shared_context:
     - "docs/architecture.md" # Contrato global de la API y modelo de datos relacional
+
+
