@@ -1,8 +1,13 @@
 import os
+import sys
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+
+# Add the parent directory to the python path to resolve 'backend' imports correctly
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+
 
 from backend.api.v1.health import router as health_router
 from backend.api.exception_handlers import register_exception_handlers

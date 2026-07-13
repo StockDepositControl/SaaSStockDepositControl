@@ -41,6 +41,7 @@ Invoke skills contextually and sequentially, never all at once:
 - `fastapi-pro`: When scaffolding `api/` routers, dependencies, or output schemas.
 - `auth-implementation-patterns`: When modifying the JWT middleware.
 - `pytest-skill`: To generate fixtures and mock-based unit tests for the domain layer.
+- `check-hexagonal`: **MANDATORY.** You must invoke this skill before calling the `finish` tool. If it fails, fix the leakage before completing the task.
 
 ## Execution Workflow
 1. Read `docs/architecture.md` (shared context).
@@ -49,3 +50,4 @@ Invoke skills contextually and sequentially, never all at once:
 4. [cite_start]Build Pydantic schemas and domain services (using `decimal.Decimal` for all financial math, never floats)[cite: 2386].
 5. Implement FastAPI routes and SQLAlchemy repositories.
 6. Write unit tests mocking the Ports.
+7. Run `check-hexagonal`.
