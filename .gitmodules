@@ -1,0 +1,3 @@
+[submodule ".external/agentic-awesome-skills"]
+	path = .external/agentic-awesome-skills
+	url = https://github.com/sickn33/agentic-awesome-skills.git
