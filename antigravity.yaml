@@ -16,12 +16,12 @@ agents:
   - id: "dba-agent"
     name: "DBA Specialist"
     config_file: ".agents/agents/dba/AGENTS.md"
-    target_dir: "backend/migrations/"
+    target_dir: "backend/"
 
   - id: "core-backend-agent"
     name: "Jules (Backend Core)"
     config_file: ".agents/agents/core_backend/AGENTS.md"
-    target_dir: "backend/app/"
+    target_dir: "backend/"
 
 #  - id: "mobile-dev-agent"
 #    name: "Mobile UI & Sync Specialist"
