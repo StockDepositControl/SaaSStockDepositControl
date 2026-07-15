@@ -15,28 +15,26 @@ mcpServers:
 agents:
   - id: "dba-agent"
     name: "DBA Specialist"
-    config_file: ".antigravity/agents/dba.agent"
-    target_dir: "backend/migrations/"
+    config_file: ".agents/agents/dba/AGENTS.md"
+    target_dir: "backend/"
 
   - id: "core-backend-agent"
     name: "Jules (Backend Core)"
-    config_file: ".antigravity/agents/core_backend.agent"
-    target_dir: "backend/app/"
+    config_file: ".agents/agents/core_backend/AGENTS.md"
+    target_dir: "backend/"
 
-  - id: "mobile-dev-agent"
-    name: "Mobile UI & Sync Specialist"
-    config_file: ".antigravity/agents/mobile_dev.agent"
-    target_dir: "frontend-mobile/"
+#  - id: "mobile-dev-agent"
+#    name: "Mobile UI & Sync Specialist"
+#    config_file: ".agents/agents/mobile_dev/AGENTS.md"
+#    target_dir: "frontend-mobile/"
 
-  - id: "web-analytics-agent"
-    name: "Web Analytics Dashboard Specialist"
-    config_file: ".antigravity/agents/web_analytics.agent"
-    target_dir: "frontend-web/"
+#  - id: "web-analytics-agent"
+#    name: "Web Analytics Dashboard Specialist"
+#    config_file: ".agents/agents/web_analytics/AGENTS.md"
+#    target_dir: "frontend-web/"
 
 # Reglas globales de sincronización y dependencias entre capas
 orchestration:
   strict_boundaries: true # Evita que un agente escriba fuera de su target_dir
   shared_context:
     - "docs/architecture.md" # Contrato global de la API y modelo de datos relacional
-
-
