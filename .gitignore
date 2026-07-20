@@ -1,6 +1,5 @@
-/docs
-/.antigravity
-./summary_project.md
-/api/README.md
-/adapters/README.md
-/app/README.md
+#docs
+docs/*
+
+#tasks
+backend/tasks/

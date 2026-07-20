@@ -70,3 +70,20 @@ class ArticuloUpdate(BaseModel):
 
 class Articulo(ArticuloBase):
     model_config = ConfigDict(from_attributes=True)
+
+
+class ArticuloPublicOut(BaseModel):
+    tenant_id: str
+    id_articulo: str
+    presentacion: Optional[str] = None
+    des_articulo: str
+    id_marca: Optional[int] = None
+    id_familia: Optional[int] = None
+    id_grupo: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ArticuloAdminOut(ArticuloPublicOut):
+    pcio_com_siva: Decimal
+

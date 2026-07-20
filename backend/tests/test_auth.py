@@ -1,0 +1,108 @@
+import pytest
+import time
+from fastapi import APIRouter, Depends
+from fastapi.testclient import TestClient
+from backend.api.main import app
+from backend.api.dependencies import get_token_provider
+from backend.api.dependencies.auth import get_current_user_claims, RoleChecker
+from backend.adapters.security.jwt_provider import PyJWTTokenProvider
+
+# Add a test router for authentication/authorization dependency verification
+test_router = APIRouter(prefix="/api/v1/test")
+
+@test_router.get("/protected")
+def protected_route(claims: dict = Depends(get_current_user_claims)):
+    return {"status": "authenticated", "claims": claims}
+
+@test_router.get("/admin-only")
+def admin_only_route(claims: dict = Depends(RoleChecker(["administrador"]))):
+    return {"status": "admin_access"}
+
+# Integrate test routes into main app instance
+app.include_router(test_router)
+
+client = TestClient(app)
+
+@pytest.fixture
+def test_token_provider():
+    # Use a predictable key for verifying claims
+    return PyJWTTokenProvider(secret_key="test-secret-key-123")
+
+def test_login_success_and_token_emission(test_token_provider):
+    app.dependency_overrides[get_token_provider] = lambda: test_token_provider
+
+    response = client.post("/api/v1/auth/login", json={
+        "email": "admin@globalmedica.com",
+        "password": "admin"
+    })
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+
+    # Decode and verify the claims
+    claims = test_token_provider.decode_token(data["access_token"])
+    assert claims["role"] == "administrador"
+    assert claims["id_sucursal"] == 1
+
+    app.dependency_overrides.clear()
+
+def test_login_invalid_credentials():
+    response = client.post("/api/v1/auth/login", json={
+        "email": "admin@globalmedica.com",
+        "password": "wrong_password"
+    })
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid credentials"
+
+def test_request_with_valid_token(test_token_provider):
+    app.dependency_overrides[get_token_provider] = lambda: test_token_provider
+
+    token = test_token_provider.create_token(data={"sub": "user@test.com", "role": "supervisor", "id_sucursal": 1})
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = client.get("/api/v1/test/protected", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["status"] == "authenticated"
+
+    app.dependency_overrides.clear()
+
+def test_request_with_invalid_or_expired_token(test_token_provider):
+    app.dependency_overrides[get_token_provider] = lambda: test_token_provider
+
+    # Invalid token signature
+    headers = {"Authorization": "Bearer invalid.token.payload"}
+    response = client.get("/api/v1/test/protected", headers=headers)
+    assert response.status_code == 401
+    assert "Invalid token" in response.json()["detail"]
+
+    # Expired token
+    expired_token = test_token_provider.create_token(data={"sub": "user@test.com"}, expires_delta=-1)
+    headers = {"Authorization": f"Bearer {expired_token}"}
+    response = client.get("/api/v1/test/protected", headers=headers)
+    assert response.status_code == 401
+    assert "Token has expired" in response.json()["detail"]
+
+    app.dependency_overrides.clear()
+
+def test_request_with_insufficient_privileges(test_token_provider):
+    app.dependency_overrides[get_token_provider] = lambda: test_token_provider
+
+    # A supervisor attempting to access admin-only route
+    token = test_token_provider.create_token(data={"sub": "user@test.com", "role": "supervisor", "id_sucursal": 1})
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    response = client.get("/api/v1/test/admin-only", headers=headers)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Operation not permitted for this role"
+
+    # Admin accessing admin-only route
+    admin_token = test_token_provider.create_token(data={"sub": "user@test.com", "role": "administrador", "id_sucursal": 1})
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+    
+    response = client.get("/api/v1/test/admin-only", headers=admin_headers)
+    assert response.status_code == 200
+    assert response.json()["status"] == "admin_access"
+
+    app.dependency_overrides.clear()
