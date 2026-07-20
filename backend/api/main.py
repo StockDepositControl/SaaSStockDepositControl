@@ -12,6 +12,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 from backend.api.v1.health import router as health_router
 from backend.api.exception_handlers import register_exception_handlers
 from backend.api.dependencies import get_connection_provider
+from backend.api.middlewares.tenant_auth import TenantAuthMiddleware
+from backend.api.v1.auth import router as auth_router
 
 # Load environment configuration
 load_dotenv()
@@ -43,6 +45,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(TenantAuthMiddleware)
 
 # Centralized exception handlers registration
 register_exception_handlers(app)
@@ -54,6 +57,7 @@ app.include_router(health_router, tags=["Health"])
 from fastapi import APIRouter
 v1_router = APIRouter(prefix="/api/v1")
 v1_router.include_router(health_router, tags=["Health"])
+v1_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
 # Include versioned router to layout future resources cleanly
 app.include_router(v1_router)
