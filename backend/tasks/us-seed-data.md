@@ -1,46 +1,80 @@
-# US-06: Smart Data Seeding for Multi-Tenant Security and Analytics Testing
+# TASK: Implement US-06 (DBA) — Database Schema Updates, Alembic Migrations & Data Seeding
+
+> **IMPORTANT DIRECTIVE FOR AI AGENTS**: Before planning or executing any database schema or seeding changes for this task, you MUST read and cross-reference `docs/functional_specs.md` (specifically Sections 3.1, 4.1, 5.2, and 6.2). `functional_specs.md` is the Single Source of Truth (SSoT) for financial rules, VAT calculations, and domain requirements.
+
+---
 
 ## 1. Context & Objectives
 
-Following the implementation of our security foundation (US-05), we need a robust, realistic data ecosystem to thoroughly validate tenant isolation, multi-tenancy boundaries (`id_sucursal`), and Role-Based Access Control (RBAC) rules.
+Following the implementation of our security foundation (US-05), we need a robust, realistic data ecosystem to thoroughly validate multi-tenancy boundaries (`tenant_id`, `id_sucursal`), Role-Based Access Control (RBAC) rules, and accurate stock valuation at purchase cost.
 
-Your task is to develop a smart data seeding script for "Global Medica (Phase 1)". This script will populate the database using the Faker library, generating realistic but fictitious operational data. The main objective is twofold:
+Your task as the **DBA Agent** is to prepare the database schema and implement a smart, parameter-driven data seeding script for **Global Medica (Phase 1)** using the `Faker` library.
 
-- Allow the generation of valid JWT tokens for diverse user profiles to test security middleware isolation.
-- Inject specific data anomalies (edge cases) that will stress-test downstream analytical reports and field-level restriction guards.
+The database and seeding script must support:
+1. **Security & Authentication**: Generate users assigned to proper roles (`administrador`, `supervisor`, `auditor`) and branches (`id_sucursal`) to validate logical isolation. Seed `is_active` flags for user status checks.
+2. **Fiscal & Cost Engine Integration**: Seed product families and inventory items adhering strictly to the purchase cost model (`pcio_com_siva`) and dynamic family-based VAT logic.
+3. **Data Degradation & Edge Cases**: Inject specific inventory anomalies (theoretical vs. real stock mismatches, expired batches) to stress-test downstream analytical reports.
 
-## 2. Technical Constraints & Standards
+---
+
+## 2. Technical Constraints & Business Guardrails
 
 You must strictly adhere to the following guardrails during implementation:
 
-- **Hexagonal Architecture Boundaries:** The seeding engine belongs strictly to the infrastructure layer (`backend/app/adapters/database/seeds/` or the designated database management CLI). It must interact with the system via application use cases or repository ports, ensuring that no infrastructure-specific generation logic bleeds into the pure domain layer.
-- **Financial Precision (Decimal):** Absolutely no float types are allowed for monetary or financial representation. Any generated price, cost, or financial valuation (such as `pcio_com_siva`) must strictly utilize `decimal.Decimal` to ensure zero rounding errors.
-- **Database Constraints:** This is a MariaDB project. The seeding script must use compatible SQLAlchemy constructs, raw SQL text optimized for MariaDB, or standard repository patterns. Do not write PostgreSQL-specific syntax, arrays, or JSONB operations.
-- **Determinism and Reproducibility:** The seeding script must accept an optional seed parameter for the Faker generator so identical, predictable datasets can be reproduced across different testing cycles.
+* **Ownership Boundaries**: You own and operate strictly within:
+  * `backend/migrations/` (Alembic migration scripts)
+  * `backend/scripts/` (Seeding scripts, e.g., `seed.py`)
+  * `backend/tests/db/` (Schema integrity and isolation tests)
+  * `backend/adapters/repositories/models.py` (SQLAlchemy Declarative Models)
+  * **PROHIBITED**: You must never create or edit any files in `backend/app/` or `backend/api/`.
+* **Single Source of Truth (SSoT)**: All domain rules regarding cost valuation and taxation must match `docs/functional_specs.md`.
+* **Cost-Only Pricing Model**: The system strictly operates on purchase cost prices (`pcio_com_siva`). **Do NOT seed, calculate, or expose sales prices (`pcio_venta`) or profit margin metrics.**
+* **Financial Precision (`decimal.Decimal`)**: Absolutely no `float` primitive types are allowed for monetary or financial values. All price, cost, and VAT percentage values generated via `Faker` must be explicitly converted to `decimal.Decimal`.
+* **Database Target**: MariaDB. The script must use SQLAlchemy declarative constructs compatible with MariaDB. Do not write PostgreSQL-specific syntax.
+* **Determinism & Reproducibility**: The seeding script must accept an optional `--seed` integer parameter for the `Faker` generator to produce identical datasets across testing cycles.
+
+---
 
 ## 3. Explicit Acceptance Criteria to Implement
 
-You are expected to build and verify the following components:
+### A. Database Schema Updates
+In [models.py](file:///home/fede/Proyectos/SaaSStockDepositControl/backend/adapters/repositories/models.py):
+* **Usuario Model**: Add `is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)`.
+* **StockPorDeposito Model**: Add `stock_teorico: Mapped[int] = mapped_column(Integer, default=0, nullable=False)`.
 
-### A. Parameterized Seeding Engine Configuration
+### B. Alembic Migrations
+* Generate a new reversible Alembic migration under `backend/migrations/versions/` reflecting the new columns.
+* Ensure a fully functioning `downgrade()` block is implemented.
 
-- Integrate the Faker library into a modular seeding script.
-- Parameterize the execution to inject a default volume of 500 articles, ensuring they are logically and evenly distributed across multiple warehouses (depósitos) and branches (sucursales).
+### C. Parameterized Seeding Engine Configuration
+* Implement the CLI seeding script in `backend/scripts/seed.py`.
+* Support CLI arguments via `argparse` allowing execution such as:
+  `python backend/scripts/seed.py --count 500 --seed 42`
+* Evenly distribute 500 generated articles across multiple warehouses (`depósitos`) and branches (`sucursales`).
+* Ensure all user passwords seeded are hashed properly to allow authentication.
 
-### B. Security & Tenant Mapping (Users, Roles & Branches)
+### D. Product Families & Dynamic Fiscal Rules (VAT / IVA)
+Seed product classifications and items adhering strictly to Section 3.1 of `docs/functional_specs.md`:
+1. **Family "Medicamentos"**: Exempt / 0% VAT.
+2. **Alternative Families (Perfumería, Cosmética, Accesorios, etc.)**: Taxable with configurable/manual VAT rate (Default 21% / `Decimal('0.21')`, but also seed edge cases with 10.5% / `Decimal('0.105')`).
 
-- Create test user accounts mapping exactly to the three system roles defined in the domain Enum: administrador, supervisor, and auditor.
-- Each generated user must be explicitly linked to a specific branch (`id_sucursal`).
-- The data structure generated must provide all necessary fields (for example, hashed passwords, active status, claims) to seamlessly enable the TokenProvider to issue valid JWT tokens simulating the access of each specific profile.
+### E. Analytical Edge Cases & Data Anomaly Injection
+* **Inventory Anomaly (Ghost Items)**: Inject a distinct subset of articles featuring a positive theoretical stock (`stock_teorico > 0`) but a real physical stock of exactly zero (`stock_real == 0`).
+* **Batch Expiration Stress**: Generate expired inventory lots (`LotePorDeposito` records with `vencimiento` in the past) distributed unevenly across warehouses.
 
-### C. Analytical Edge Cases & Data Degradation Injection
+---
 
-To properly stress analytical reports, the script must programmatically inject the following realistic defective states:
+## 4. Required Execution Workflow
 
-- **Inventory Anomaly:** Inject a significant subset of articles featuring a positive theoretical stock but a real physical stock of exactly zero.
-- **Batch Expiration Stress:** Generate a heavy, dense volume of expired inventory lots (lotes vencidos), distributed unevenly across warehouses to challenge date-filtering and risk-assessment analytics.
-- **Sensitive Financial Fields:** Ensure all generated inventory items include sensitive pricing fields (for example, `pcio_com_siva`) modeled strictly as `decimal.Decimal` to validate the field-stripping mechanisms built for non-admin roles.
+To successfully resolve this story, you must perform the following steps:
 
-### D. Execution & CLI Hook
-
-- Provide a clean CLI entry point (for example, `python manage.py db:seed --count 500`) allowing developers and automated CI/CD pipelines to run, reset, or scale the generated dataset easily.
+1. **Verify Current State**: Inspect `backend/adapters/repositories/models.py` and query Alembic configuration.
+2. **Update Models**: Modify `backend/adapters/repositories/models.py` to add `is_active` to `Usuario` and `stock_teorico` to `StockPorDeposito`.
+3. **Generate & Test Migrations**:
+   * Generate migration script: `alembic revision --autogenerate -m "add_user_is_active_and_stock_teorico"`
+   * Verify upgrade and downgrade commands:
+     `alembic upgrade head && alembic downgrade -1 && alembic upgrade head`
+4. **Implement Seeder**: Code the seeder at `backend/scripts/seed.py` mapping columns cleanly.
+5. **DB Integrity Tests**: Write database schema-level and constraints integrity tests inside `backend/tests/db/`.
+6. **Verify Seeding Execution**: Run the seeding command:
+   `python backend/scripts/seed.py --count 500 --seed 42`

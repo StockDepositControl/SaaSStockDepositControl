@@ -3,3 +3,6 @@ docs/*
 
 #tasks
 backend/tasks/
+
+#env
+backend/.env

@@ -30,7 +30,7 @@ agents:
       - "ask_question"
     skills:
       - id: "database-migrations-sql-migrations"
-        path: "//.agents/skills/database-migrations-sql-migrations"
+        path: "//.agents/skills/database-migrations-sql"
       - id: "saas-multi-tenant"
         path: "//.agents/skills/saas-multi-tenant"
       - id: "architecture-patterns"
