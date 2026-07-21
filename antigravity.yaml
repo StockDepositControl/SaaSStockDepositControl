@@ -81,3 +81,4 @@ orchestration:
   strict_boundaries: true # Evita que un agente escriba fuera de su target_dir
   shared_context:
     - "docs/architecture.md" # Contrato global de la API y modelo de datos relacional
+    - "docs/functional_specs.md" # Especificaciones funcionales de alto nivel

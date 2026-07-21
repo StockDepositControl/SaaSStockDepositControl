@@ -43,10 +43,13 @@ Upon confirming a discrepancy value, the operator selects massive interface targ
 ## 3. Module 2: Core Calculation & Expiration Engines (Backend)
 
 ### 3.1 Conditional Fiscal Calculation Engine (VAT / IVA)
-Financially modeling shrinkage or inventory adjustments requires tracking tax exemptions defined by catalog classifications:
+Financially modeling inventory movements and shrinkage requires tracking tax exemptions and parametric rates applied strictly to purchase costs (`pcio_com_siva`):
+* **Purchase Cost Basis Mandate:** All financial evaluations MUST use exclusively purchase costs (`pcio_com_siva`). Commercial sale prices (`precio_venta`), profit margins, and sales metrics are strictly out of scope.
 * **Tax Classification Lookup:** The service engine parses individual records checking foreign relation metadata associations: `id_familia` or `id_grupo`.
-* **Exemption Condition Logic:** * If the parent classification maps to the **"Medicamentos" (Medicines)** family, the fiscal calculator flags the element as untaxed. The gross monetary estimation evaluates purely on cost-price variables (`pcio_com_siva`).
-    * If the item maps to any alternative classification (such as perfumery, cosmetics, or auxiliary accessories), the engine applies the standard corporate value-added modifier (Standard VAT / IVA) directly over the base price before compiling structural balances.
+* **Exemption & Parametric VAT Logic:** * **"Medicamentos" Family (Untaxed / 0% VAT):** Items belonging to the "Medicamentos" family are exempt from VAT ($\text{VAT} = 0\%$). The total unit purchase cost equals `pcio_com_siva`.
+    * **Other Product Families (Parametric VAT):** For all other product families (e.g., perfumery, cosmetics, accessories), VAT applies over `pcio_com_siva`. The VAT percentage MUST NOT be hardcoded; it must be configurable/manual per transaction or system settings (defaulting to 21% / `0.21`).
+* **Total Unit Purchase Cost Formula:**
+  $$\text{Total Unit Cost} = \begin{cases} \text{pcio\_com\_siva} & \text{if Family = "Medicamentos"} \\ \text{pcio\_com\_siva} \times (1 + \text{VAT\_Rate}) & \text{for other families (e.g., VAT\_Rate = 0.21)} \end{cases}$$
 
 ### 3.2 FEFO (First Expired, First Out) Scheduling Engine
 Warehouse inventory management requires prioritizing items with closer shelf-life limits to limit fiscal deterioration. The engine executes under these strict constraints:
@@ -61,11 +64,14 @@ Warehouse inventory management requires prioritizing items with closer shelf-lif
 
 ## 4. Module 3: Management Analytical Dashboard (Web Panel)
 
-### 4.1 Daily Ledger Synchronization & Profitability Metrics
-The management analytical interface renders corporate operational efficiency values updated in real-time by database ledger operations.
-* **Core Balance Formula:** The main component updates a financial metric derived as follows:
-    $$\text{Day Net Balance} = \sum (\text{Financial Gains from Altas}) - \sum (\text{Financial Losses from Bajas})$$
-* **Value Multiplier:** Financial Loss/Gain is derived by evaluating the delta changes against item purchase costs (`pcio_com_siva`) combined with its conditional fiscal VAT factor.
+### 4.1 Daily Ledger Synchronization & Inventory Cost Metrics
+The management analytical interface renders corporate inventory valuation and loss metrics updated in real-time by audit ledger operations. (Sales, commercial profit margins, and gain metrics are explicitly excluded).
+* **Inventory Entry Cost Valuation (Altas):** Evaluates the total purchase cost of stock entries added during audits:
+    $$\text{Total Inflow Cost} = \sum (\text{Quantity Affected} \times \text{Total Unit Cost})$$
+* **Direct Loss Cost Valuation (Bajas):** Evaluates the financial loss incurred due to shrinkage, breakage, or expired items:
+    $$\text{Total Loss Cost} = \sum (\text{Quantity Affected} \times \text{Total Unit Cost})$$
+* **Net Inventory Movement Balance:** Measures the net movement of physical inventory capital valued strictly at purchase cost:
+    $$\text{Net Inventory Movement} = \text{Total Inflow Cost} - \text{Total Loss Cost}$$
 
 ### 4.2 Expiration Risk Overview Matrix
 The web dashboard renders interactive graphical distributions highlighting forthcoming product expiration vulnerabilities across the five system deposits. This grid prioritizes sorting lots inside the Critical Tier (30 days) to coordinate quick inventory adjustments or liquidations.
@@ -84,7 +90,7 @@ To test system thresholds safely without modifying live client infrastructures, 
 The seed generator must programmatically pollute the database with three intentional real-world inventory operational anomalies:
 * **Anomalous State A (The Ghost Item):** Items featuring a positive `Theoretical Stock` metric (>0) within the database tables, but whose `Physical Stock` values are written as zero. This forces mobile clients to evaluate shrinkage workflows.
 * **Anomalous State B (Expired Lot Clusters):** Programmatically allocate at least 25% of total lot rows with `fecha_vencimiento` stamps preset to previous calendar months. This guarantees that the FEFO scheduler returns critical alerts during testing.
-* **Anomalous State C (Fiscal Mix Testing Vector):** Construct a precise distribution split among catalog items: 50% must fall within the tax-exempt "Medicamentos" category, while the alternative 50% must match taxable items to test tax evaluation workflows.
+* **Anomalous State C (Fiscal Mix Testing Vector):** Construct a precise distribution split among catalog items: 50% must fall within the tax-exempt "Medicamentos" category (0% VAT), while the alternative 50% must match taxable items with a configurable VAT rate (e.g., 21%) applied over `pcio_com_siva`.
 
 ---
 
@@ -97,8 +103,8 @@ All created routes, data structures, and client components must satisfy these fu
 * **Evaluation Threshold:** Upon rebooting the mobile application and reconnecting the wireless interface, the network queue must broadcast payloads via batch transmission without record omission, updating target server MariaDB tables accurately.
 
 ### 6.2 Protocol B: Decimal Reconciliation Precision Check
-* **Execution Vector:** Process a test dataset containing exactly 5 items flagged within the "Medicamentos" category and 5 taxable items through the audit pipeline. Inject matching stock deficits into all of them.
-* **Evaluation Threshold:** The analytical dashboard's reported financial loss must reconcile down to the exact decimal point against a pre-calculated reference sheet. Any floating-point approximations or rounding anomalies will result in an immediate test failure.
+* **Execution Vector:** Process a test dataset containing exactly 5 items flagged within the "Medicamentos" category and 5 taxable items through the audit pipeline. Inject matching stock deficits (Bajas) into all of them.
+* **Evaluation Threshold:** The analytical dashboard's reported financial loss must reconcile down to the exact decimal point using purchase costs (`pcio_com_siva`) plus conditional VAT via `decimal.Decimal`. Any floating-point approximations or rounding anomalies will result in an immediate test failure.
 
 ### 6.3 Protocol C: Cross-Tenant Isolation Safeguard ("The Phantom Tenant")
 * **Execution Vector:** Establish concurrent client test connections: User X authenticated under `Tenant ID: GlobalMedica_01` and User Y authenticated under `Tenant ID: Farmanor_Branch_02`. Trigger simultaneous stock modification queries targeting the exact same generic product barcode string.
