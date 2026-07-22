@@ -39,6 +39,7 @@ class Usuario(Base):
     nombre_completo: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     rol: Mapped[UserRole] = mapped_column(Enum(UserRole), nullable=False)
     id_sucursal: Mapped[int] = mapped_column(Integer, nullable=False)
 
@@ -112,6 +113,7 @@ class StockPorDeposito(Base):
     id_deposito: Mapped[int] = mapped_column(Integer, primary_key=True)
     id_articulo: Mapped[str] = mapped_column(String(50), primary_key=True)
     stock_real: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    stock_teorico: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     fue_auditado: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     fecha_hora_auditacion: Mapped[Optional[datetime]] = mapped_column("fecha_hora_auditación", DateTime, nullable=True)
 

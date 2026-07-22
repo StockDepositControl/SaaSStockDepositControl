@@ -28,6 +28,15 @@ agents:
       - "run_command"
       - "call_mcp_tool"
       - "ask_question"
+    skills:
+      - id: "database-migrations-sql-migrations"
+        path: "//.agents/skills/database-migrations-sql"
+      - id: "saas-multi-tenant"
+        path: "//.agents/skills/saas-multi-tenant"
+      - id: "architecture-patterns"
+        path: "//.agents/skills/architecture-patterns"
+      - id: "pytest-skill"
+        path: "//.agents/skills/pytest-skill"
 
   - id: "core-backend-agent"
     name: "Senior Backend Engineer"
@@ -72,3 +81,4 @@ orchestration:
   strict_boundaries: true # Evita que un agente escriba fuera de su target_dir
   shared_context:
     - "docs/architecture.md" # Contrato global de la API y modelo de datos relacional
+    - "docs/functional_specs.md" # Especificaciones funcionales de alto nivel

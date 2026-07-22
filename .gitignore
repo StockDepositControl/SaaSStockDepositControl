@@ -3,3 +3,10 @@ docs/*
 
 #tasks
 backend/tasks/
+
+#env
+backend/.env
+
+# agents
+.agents/
+

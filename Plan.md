@@ -1,36 +1,33 @@
-## Action Plan for US-05: JWT Authentication and Three-Level RBAC Skeleton
+# Phase 3: Technical Execution Plan (Approved)
 
-### 1. Domain Layer Updates (`backend/app/`)
-- [x] **Users Domain (`backend/app/users/models.py`)**:
-  - Verify `UserRole` enum.
-  - Add schemas: `AuthToken` and `LoginCredentials`.
-- [x] **Articles Domain (`backend/app/articles/models.py`)**:
-  - Define `ArticuloPublicOut` (excludes `pcio_com_siva`).
-  - Define `ArticuloAdminOut` (includes `pcio_com_siva`).
+## 1. Architecture & Schema Design
+- **Usuario Model**: Add `is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)`
+- **StockPorDeposito Model**: Add `stock_teorico: Mapped[int] = mapped_column(Integer, default=0, nullable=False)`
 
-### 2. Application Layer Ports (`backend/app/ports/`)
-- [x] **Security Ports (`backend/app/ports/security.py`)**:
-  - Define abstract `TokenProvider` port.
-  - Define abstract `PasswordHasher` port.
+## 2. SQLAlchemy Declarative Models
+- Edit `/home/fede/Proyectos/SaaSStockDepositControl/backend/adapters/repositories/models.py` to include the fields mentioned above.
 
-### 3. Infrastructure Layer Adapters (`backend/adapters/`)
-- [x] **JWT Provider (`backend/adapters/security/jwt_provider.py`)**:
-  - Implement `PyJWTTokenProvider` using PyJWT.
-- [x] **Password Hasher (`backend/adapters/security/password_hasher.py`)**:
-  - Implement `BcryptPasswordHasher` using bcrypt.
+## 3. Alembic Migration Code
+- Execute Alembic revision autogeneration to create the migration schema.
+- Validate `upgrade()` and `downgrade()` functionality locally.
 
-### 4. Primary Adapters / API Layer (`backend/api/`)
-- [x] **Dependency Injection (`backend/api/dependencies/__init__.py`)**:
-  - Add singleton provider getters for token and password hashing adapters.
-- [x] **Tenant Auth Middleware (`backend/api/middlewares/tenant_auth.py`)**:
-  - Extract `id_sucursal` (tenant_id) from verified JWT and bind to async contextvar.
-- [x] **Auth Route/Dependencies (`backend/api/dependencies/auth.py`)**:
-  - Implement dynamic route guards (`RoleChecker`) and `get_current_user` dependency.
-- [x] **Login Router (`backend/api/v1/auth.py`)**:
-  - Create route `POST /api/v1/auth/login` to emit signed tokens.
-- [x] **Main App Bootstrapping (`backend/api/main.py`)**:
-  - Register `TenantAuthMiddleware` and `auth` router.
+## 4. Seeding Script (`seed.py`)
+- **Scale**: Default 500 items, distributed across 5 deposits and 2 branches (`sucursales`).
+- **Security Context**: Generate mock users spanning multiple `tenant_id` boundaries with roles. Passwords hashed using `BcryptPasswordHasher`.
+- **Fiscal Mix**: 50% "Medicamentos" (0% VAT), 50% alternative taxable families. Prices generated as `decimal.Decimal` representing pure `pcio_com_siva`.
+- **Data Anomalies Injection**:
+  - **State A (Ghost Items)**: Subset of `StockPorDeposito` records with `stock_teorico > 0` and `stock_real = 0`.
+  - **State B (Batch Expiration Stress)**: 25% of `LotePorDeposito` records allocated `vencimiento` dates placed historically in the past.
+  - **State C (Fiscal Mix)**: Addressed by the 50/50 family split.
 
-### 5. Verification & Testing
-- [x] Write unit tests verifying token emission, role guard access, schema restriction.
-- [x] Run pytest suite.
+## 5. Schema Tests
+- Write database schema integrity suite (`backend/tests/db/test_schema_integrity.py`) utilizing SQLAlchemy metadata reflection.
+
+## 6. Reconciliation & Verification Guide
+- Commands to execute:
+  1. `cd backend && PYTHONPATH=.. venv/bin/alembic revision --autogenerate -m "add_user_is_active_and_stock_teorico"`
+  2. `cd backend && PYTHONPATH=.. venv/bin/alembic upgrade head`
+  3. `cd backend && PYTHONPATH=.. venv/bin/alembic downgrade -1`
+  4. `cd backend && PYTHONPATH=.. venv/bin/alembic upgrade head`
+  5. `PYTHONPATH=. backend/venv/bin/python backend/scripts/seed.py --count 500 --seed 42`
+  6. `cd backend && PYTHONPATH=.. venv/bin/pytest tests/db/`
