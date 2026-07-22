@@ -44,16 +44,28 @@ async def run_seed(count: int, seed_val: int):
     depositos = [1, 2, 3, 4, 5]
 
     async with provider.session() as session:
+        # Clean existing table data to ensure idempotency
+        from sqlalchemy import delete
+        await session.raw_session.execute(delete(LotePorDeposito))
+        await session.raw_session.execute(delete(StockPorDeposito))
+        await session.raw_session.execute(delete(Articulo))
+        await session.raw_session.execute(delete(Grupo))
+        await session.raw_session.execute(delete(Familia))
+        await session.raw_session.execute(delete(Marca))
+        await session.raw_session.execute(delete(Usuario))
+        await session.raw_session.flush()
+
         # Create Users
         usuarios = []
         for i in range(10):
             tenant = random.choice(tenants)
             sucursal = random.choice(sucursales)
             rol = random.choice(roles)
+            unique_email = f"user_{i}_{random.randint(1000, 9999)}_{fake.email()}"
             usuarios.append(Usuario(
                 tenant_id=tenant,
                 nombre_completo=fake.name(),
-                email=fake.unique.email(),
+                email=unique_email,
                 password_hash=password_hash,
                 is_active=True,
                 rol=rol,

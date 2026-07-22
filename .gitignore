@@ -6,3 +6,7 @@ backend/tasks/
 
 #env
 backend/.env
+
+# agents
+.agents/
+

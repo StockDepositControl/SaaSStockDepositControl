@@ -42,13 +42,13 @@ graph TD
 ## 2. Monorepo Directory Structure & Folder Roles
 
 - **`backend/`**: Contains the Python FastAPI core service, Alembic database migrations, and seeding scripts.
-  - `backend/app/`: Domain and Application Layer (Pydantic V2 Domain Models, Pure Services, Abstract Ports). **Jules (Core Backend Agent) Target**.
+  - `backend/app/`: Domain and Application Layer (Pydantic V2 Domain Models, Pure Services, Abstract Ports).
   - `backend/adapters/`: Infrastructure Layer / Secondary Adapters (SQLAlchemy concrete repositories, database session setup, external clients).
   - `backend/api/`: Presentation Layer / Primary Adapters (FastAPI controllers, routers, authentication middleware, error handlers).
-  - `backend/migrations/`: Database schema versioning scripts (Alembic). **DBA Agent Target**.
-  - `backend/scripts/`: Seeding and setup script factory. **DBA Agent Target**.
-- **`frontend-mobile/`**: React Native / Expo mobile application. Used by Field Auditors for scanning barcodes and conducting real-time physical audits. **Mobile Dev Agent Target**.
-- **`frontend-web/`**: Next.js analytical web application. Used by Managers and Supervisors to view dashboards, reports, and expiration alerts. **Web Analytics Agent Target**.
+  - `backend/migrations/`: Database schema versioning scripts (Alembic).
+  - `backend/scripts/`: Seeding and setup script factory.
+- **`frontend-mobile/`**: React Native / Expo mobile application. Used by Field Auditors for scanning barcodes and conducting real-time physical audits.
+- **`frontend-web/`**: Next.js analytical web application. Used by Managers and Supervisors to view dashboards, reports, and expiration alerts. 
 - **`docs/`**: Global system design files and Single Source of Truth specifications.
 
 ---
@@ -59,8 +59,8 @@ To prevent multi-agent git conflicts and race conditions, the following strict f
 
 | Agent Role | Target Directory / File Pattern | Ownership Policy |
 |:---|:---|:---|
-| **Jules** (Core Backend) | `backend/app/` <br> `backend/api/` <br> `backend/adapters/repositories/*_repository.py` | Has full write access. Owns business logic, routes, and query execution logic. |
-| **DBA Specialist** | `backend/adapters/repositories/models.py` <br> `backend/migrations/` <br> `backend/scripts/` | **Sole owner** of the database schema mapping and migrations. Jules must NEVER edit `models.py` or create migration scripts. |
+| **Core Backend** | `backend/app/` <br> `backend/api/` <br> `backend/adapters/repositories/*_repository.py` | Has full write access. Owns business logic, routes, and query execution logic. |
+| **DBA Specialist** | `backend/adapters/repositories/models.py` <br> `backend/migrations/` <br> `backend/scripts/` | **Sole owner** of the database schema mapping and migrations. |
 | **Mobile Dev Agent** | `frontend-mobile/` | Owns React Native views, offline sync logic, and barcode scanning controllers. |
 | **Web Analytics Agent** | `frontend-web/` | Owns Next.js analytics dashboards, Tremor reports, and web routing. |
 
