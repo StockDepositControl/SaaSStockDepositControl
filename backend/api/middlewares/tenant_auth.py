@@ -3,8 +3,9 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from backend.api.dependencies import get_token_provider
 
-# Global context var to bind the resolved tenant ID to the active async context
-tenant_id_context: contextvars.ContextVar[int | None] = contextvars.ContextVar("tenant_id", default=None)
+# Async context vars for tenant isolation and branch scoping
+tenant_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar("tenant_id", default=None)
+sucursal_id_context: contextvars.ContextVar[int | None] = contextvars.ContextVar("sucursal_id", default=None)
 
 class TenantAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
@@ -13,10 +14,16 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
             token = auth_header.split(" ")[1]
             try:
                 provider = get_token_provider()
+                # Decode and verify the signed token
                 payload = provider.decode_token(token)
-                tenant_id = payload.get("id_sucursal")
+
+                tenant_id = payload.get("tenant_id")
                 if tenant_id is not None:
-                    tenant_id_context.set(int(tenant_id))
+                    tenant_id_context.set(str(tenant_id))
+
+                sucursal_id = payload.get("id_sucursal")
+                if sucursal_id is not None:
+                    sucursal_id_context.set(int(sucursal_id))
             except ValueError:
                 # Invalid or expired token; downstream authentication dependencies will reject it
                 pass

@@ -75,11 +75,11 @@ To protect the architecture from code regression, you MUST split every task exec
 
 When the user assigns you a task:
 1. **Analyze the environment:** Use your reading tools or the `codebase-memory` MCP server to inspect the database schemas, the current Alembic migration head, and `models.py`.
-2. **Generate the Action Plan:** Draft a detailed database migration and modeling plan. Specify the new schema changes, the composite keys, the indexing design, and the impact on seeding or testing.
-3. **Mandatory Pause:** DO NOT generate migration scripts or edit files on disk during this phase. Conclude your response with exactly: *"Technical plan presented. Awaiting approval command to begin writing files."*
+2. **Generate and Save the Action Plan:** Draft a detailed database migration and modeling plan. Specify the new schema changes, the composite keys, the indexing design, and the impact on seeding or testing. Save this plan to `Plan.md` in the project root (`/home/fede/Proyectos/SaaSStockDepositControl/docs/Plan.md`) using `write_to_file`.
+3. **Mandatory Pause:** DO NOT generate migration scripts or write/modify any database or application code during this phase. Conclude your response with exactly: *"Technical plan presented and written to Plan.md. Awaiting approval command to begin implementation."*
 4. **Approval triggers:** Treat the following user replies, and only these, as approval to enter Phase 2: "Proceed", "Plan approved", "Aprobado", "Adelante", or the CLI's native execution command. A vague or partial reply is NOT approval — ask for explicit confirmation instead.
 
-### PHASE 2: Tool Availability Preflight (Mandatory — runs before any disk write)
+### PHASE 2: Tool Availability Preflight (Mandatory — runs before any application code write)
 
 Before writing anything, confirm each of these three tools is present in your currently available tool list: `write_to_file`, `replace_file_content` (or `multi_replace_file_content`), `run_command`.
 - **If all three are available:** proceed to Phase 3.
@@ -89,7 +89,7 @@ Before writing anything, confirm each of these three tools is present in your cu
 
 ### PHASE 3: Autonomous Execution (Disk Writing & Verification)
 
-1. **Create the Plan File:** Your first tool call must be `write_to_file` to save the approved Markdown plan as `Plan.md` in the project root (`/home/fede/Proyectos/SaaSStockDepositControl/Plan.md`). If the file already exists, edit it or append to it to document your progress.
+1. **Execute the Approved Plan:** Read the `Plan.md` created in Phase 1 from `/home/fede/Proyectos/SaaSStockDepositControl/docs/Plan.md` and use it as your execution checklist.
 2. **FileSystem tool names (exact):** `write_to_file` to create files, `replace_file_content` / `multi_replace_file_content` to edit files, `run_command` to execute commands. Never call `create_file` or `edit_file`.
 3. **No code blocks in chat:** Do not paste new/modified file contents into your text response. Perform edits silently via tool calls.
 4. **No delegation:** You are authorized and required to modify the filesystem and run verification commands yourself. Never ask the user to copy-paste code or run commands manually — that pathway exists only as the explicit Phase-2 fallback.

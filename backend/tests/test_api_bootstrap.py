@@ -1,12 +1,11 @@
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import AsyncMock
 from contextlib import asynccontextmanager
 
 from backend.api.main import app
 from backend.api.dependencies import get_connection_provider
-from backend.app.ports.database import ConnectionProvider, DatabaseSession
+from backend.app.ports.database import ConnectionProvider
 from backend.app.exceptions import EntityNotFoundException, BusinessRuleViolationException, DomainException
 
 # Registers test routes directly on the app instance for test coverage of domain exceptions
@@ -25,27 +24,21 @@ async def trigger_generic_domain():
 
 # --- Mock Database Connections ---
 
-class HealthyMockDatabaseSession(DatabaseSession):
-    async def commit(self) -> None:
-        pass
-    async def rollback(self) -> None:
-        pass
-    @property
-    def raw_session(self) -> AsyncMock:
-        mock = AsyncMock()
-        mock.execute = AsyncMock()
-        return mock
-
 class HealthyMockConnectionProvider(ConnectionProvider):
     @asynccontextmanager
     async def session(self):
-        yield HealthyMockDatabaseSession()
+        yield  # Not used by health endpoint
+
+    async def check_connectivity(self) -> bool:
+        return True
 
 class UnhealthyMockConnectionProvider(ConnectionProvider):
     @asynccontextmanager
     async def session(self):
+        yield  # Not used by health endpoint
+
+    async def check_connectivity(self) -> bool:
         raise ConnectionRefusedError("Connection refused by host")
-        yield  # Yield to satisfy generator interface
 
 
 # --- Test Cases ---
