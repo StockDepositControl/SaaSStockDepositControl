@@ -26,7 +26,7 @@ client = TestClient(app)
 @pytest.fixture
 def test_token_provider():
     # Use a predictable key for verifying claims
-    return PyJWTTokenProvider(secret_key="test-secret-key-123")
+    return PyJWTTokenProvider(secret_key="test-secret-key-that-is-long-enough-for-hs256")
 
 def test_login_success_and_token_emission(test_token_provider):
     app.dependency_overrides[get_token_provider] = lambda: test_token_provider
@@ -44,6 +44,7 @@ def test_login_success_and_token_emission(test_token_provider):
     # Decode and verify the claims
     claims = test_token_provider.decode_token(data["access_token"])
     assert claims["role"] == "administrador"
+    assert claims["tenant_id"] == "GlobalMedica_01"
     assert claims["id_sucursal"] == 1
 
     app.dependency_overrides.clear()

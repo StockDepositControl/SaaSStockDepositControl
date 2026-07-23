@@ -85,6 +85,19 @@ class SQLAlchemyConnectionProvider(ConnectionProvider):
             finally:
                 await raw_session.close()
 
+    async def check_connectivity(self) -> bool:
+        """
+        Lightweight connectivity probe using SELECT 1.
+        Returns True if the database responds, False otherwise.
+        """
+        try:
+            from sqlalchemy import text
+            async with self.session_factory() as raw_session:
+                await raw_session.execute(text("SELECT 1"))
+            return True
+        except Exception:
+            return False
+
     async def dispose(self) -> None:
         """Disposes of connection pool resources."""
         await self.engine.dispose()

@@ -37,3 +37,11 @@ class ConnectionProvider(ABC):
         Returns an asynchronous context manager that yields an active DatabaseSession.
         """
         pass
+
+    @abstractmethod
+    async def check_connectivity(self) -> bool:
+        """
+        Verify that the underlying database is reachable.
+        Returns True if a lightweight probe succeeds, False otherwise.
+        """
+        pass

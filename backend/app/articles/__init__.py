@@ -1,0 +1,1 @@
+# Article Catalog domain module

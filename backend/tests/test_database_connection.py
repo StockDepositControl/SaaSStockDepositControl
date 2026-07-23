@@ -50,6 +50,9 @@ class MockConnectionProvider(ConnectionProvider):
     async def session(self):
         yield self.mock_session
 
+    async def check_connectivity(self) -> bool:
+        return True
+
 @pytest.mark.asyncio
 async def test_domain_layer_isolation():
     # Arrange

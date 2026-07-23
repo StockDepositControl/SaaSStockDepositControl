@@ -1,12 +1,15 @@
 #docs
-docs/*
+/docs/Plan.md
 
 #tasks
-backend/tasks/
+/backend/tasks/
 
 #env
-backend/.env
+/backend/.env
+
 
 # agents
 .agents/
 
+# Plan
+Plan.md
