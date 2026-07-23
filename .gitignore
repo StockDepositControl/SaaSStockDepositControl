@@ -2,14 +2,14 @@
 /docs/Plan.md
 
 #tasks
-/backend/tasks/
+/backend/tasks
 
 #env
 /backend/.env
 
 
 # agents
-.agents/
+.agents
 
 # Plan
 Plan.md
