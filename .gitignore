@@ -1,15 +1,17 @@
-#docs
+# Docs
 /docs/Plan.md
+Plan.md
 
-#tasks
-/backend/tasks
+# Tasks
+/backend/tasks/
 
-#env
+# Environment files
 /backend/.env
 
+# Python cache
+.pytest_cache/
+__pycache__/
+*.py[cod]
 
-# agents
-.agents
-
-# Plan
-Plan.md
+# Agents
+#.agents/
