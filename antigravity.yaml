@@ -29,6 +29,8 @@ agents:
       - "call_mcp_tool"
       - "ask_question"
     skills:
+      - id: "codebase-memory"
+        path: "//.agents/skills/codebase-memory"
       - id: "database-migrations-sql-migrations"
         path: "//.agents/skills/database-migrations-sql"
       - id: "saas-multi-tenant"
@@ -55,6 +57,8 @@ agents:
       - "call_mcp_tool"
       - "ask_question"
     skills:
+      - id: "codebase-memory"
+        path: "//.agents/skills/codebase-memory"
       - id: "architecture-patterns"
         path: "//.agents/skills/architecture-patterns"
       - id: "ddd-tactical-patterns"

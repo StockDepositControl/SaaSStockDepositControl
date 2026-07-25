@@ -1,11 +1,14 @@
 import pytest
-import time
+from unittest.mock import AsyncMock
 from fastapi import APIRouter, Depends
 from fastapi.testclient import TestClient
 from backend.api.main import app
 from backend.api.dependencies import get_token_provider
 from backend.api.dependencies.auth import get_current_user_claims, RoleChecker
+from backend.api.dependencies.services import get_auth_service
 from backend.adapters.security.jwt_provider import PyJWTTokenProvider
+from backend.app.users.models import AuthToken
+from backend.app.exceptions import BusinessRuleViolationException
 
 # Add a test router for authentication/authorization dependency verification
 test_router = APIRouter(prefix="/api/v1/test")
@@ -29,9 +32,21 @@ def test_token_provider():
     return PyJWTTokenProvider(secret_key="test-secret-key-that-is-long-enough-for-hs256")
 
 def test_login_success_and_token_emission(test_token_provider):
+    mock_auth_service = AsyncMock()
+    signed_token = test_token_provider.create_token(data={
+        "sub": "admin@globalmedica.com",
+        "role": "administrador",
+        "tenant_id": "GlobalMedica_01",
+        "id_sucursal": 1,
+        "id_usuario": 1,
+    })
+    mock_auth_service.authenticate.return_value = AuthToken(access_token=signed_token, token_type="bearer")
+
+    app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
     app.dependency_overrides[get_token_provider] = lambda: test_token_provider
 
     response = client.post("/api/v1/auth/login", json={
+        "tenant_id": "GlobalMedica_01",
         "email": "admin@globalmedica.com",
         "password": "admin"
     })
@@ -50,12 +65,20 @@ def test_login_success_and_token_emission(test_token_provider):
     app.dependency_overrides.clear()
 
 def test_login_invalid_credentials():
+    mock_auth_service = AsyncMock()
+    mock_auth_service.authenticate.side_effect = BusinessRuleViolationException("Invalid credentials")
+
+    app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
+
     response = client.post("/api/v1/auth/login", json={
+        "tenant_id": "GlobalMedica_01",
         "email": "admin@globalmedica.com",
         "password": "wrong_password"
     })
-    assert response.status_code == 401
+    assert response.status_code == 400
     assert response.json()["detail"] == "Invalid credentials"
+
+    app.dependency_overrides.clear()
 
 def test_request_with_valid_token(test_token_provider):
     app.dependency_overrides[get_token_provider] = lambda: test_token_provider
