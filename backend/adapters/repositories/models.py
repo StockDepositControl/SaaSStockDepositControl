@@ -153,7 +153,8 @@ class LotePorDeposito(Base):
 class AuditoriaRegistro(Base):
     __tablename__ = "auditorias_registro"
 
-    id_auditoria: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id_auditoria: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+
     tenant_id: Mapped[str] = mapped_column(String(50), nullable=False)
     id_sucursal: Mapped[int] = mapped_column(Integer, nullable=False)
     id_deposito: Mapped[int] = mapped_column(Integer, nullable=False)

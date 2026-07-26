@@ -101,3 +101,41 @@ class SQLAlchemyConnectionProvider(ConnectionProvider):
     async def dispose(self) -> None:
         """Disposes of connection pool resources."""
         await self.engine.dispose()
+        global _users_engine
+        if _users_engine is not None:
+            await _users_engine.dispose()
+
+
+_users_engine = None
+_users_session_factory = None
+
+def get_users_session_factory() -> async_sessionmaker:
+    """
+    Returns the session factory for the Users & Auth database (engine_users).
+    Phase 1: Uses USERS_DATABASE_URL (falls back to DATABASE_URL or DB_* environment variables).
+    """
+    global _users_engine, _users_session_factory
+    if _users_session_factory is None:
+        database_url = os.getenv("USERS_DATABASE_URL")
+        if not database_url:
+            database_url = os.getenv("DATABASE_URL")
+            if not database_url:
+                db_user = os.getenv("DB_USER", "root")
+                db_pass = os.getenv("DB_PASSWORD", "")
+                db_host = os.getenv("DB_HOST", "localhost")
+                db_port = os.getenv("DB_PORT", "3306")
+                db_name = os.getenv("DB_NAME", "stock_deposit_control")
+                database_url = f"mysql+aiomysql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+
+        _users_engine = create_async_engine(
+            database_url,
+            echo=False,
+            pool_pre_ping=True
+        )
+        _users_session_factory = async_sessionmaker(
+            bind=_users_engine,
+            expire_on_commit=False,
+            class_=AsyncSession
+        )
+    return _users_session_factory
+

@@ -1,11 +1,14 @@
-import contextvars
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from backend.api.dependencies import get_token_provider
-
-# Async context vars for tenant isolation and branch scoping
-tenant_id_context: contextvars.ContextVar[str | None] = contextvars.ContextVar("tenant_id", default=None)
-sucursal_id_context: contextvars.ContextVar[int | None] = contextvars.ContextVar("sucursal_id", default=None)
+from backend.adapters.database.multi_tenant import (
+    tenant_id_context,
+    sucursal_id_context,
+    user_id_context,
+    set_tenant_id,
+    set_sucursal_id,
+    set_user_id,
+)
 
 class TenantAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
@@ -19,11 +22,15 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
 
                 tenant_id = payload.get("tenant_id")
                 if tenant_id is not None:
-                    tenant_id_context.set(str(tenant_id))
+                    set_tenant_id(str(tenant_id))
 
                 sucursal_id = payload.get("id_sucursal")
                 if sucursal_id is not None:
-                    sucursal_id_context.set(int(sucursal_id))
+                    set_sucursal_id(int(sucursal_id))
+
+                user_id = payload.get("id_usuario")
+                if user_id is not None:
+                    set_user_id(int(user_id))
             except ValueError:
                 # Invalid or expired token; downstream authentication dependencies will reject it
                 pass
