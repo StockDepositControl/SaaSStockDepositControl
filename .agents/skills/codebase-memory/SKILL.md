@@ -23,26 +23,28 @@ When responding to requests that involve understanding codebase structure, findi
 
 | Operation / Need | Required Codebase Memory Tool | Prohibited Fallback |
 | :--- | :--- | :--- |
-| Check index state | `mcp_codebase-memory_index_status` | Direct file system guessing |
-| Index repository | `mcp_codebase-memory_index_repository` | Reading files one by one |
-| Search code/symbols | `mcp_codebase-memory_search_code` | Recursive `grep_search` or manual `view_file` |
-| Trace graph/dependencies | `mcp_codebase-memory_query_graph` / `trace_path` | Manual import tracing across multiple files |
-| Overview architecture | `mcp_codebase-memory_get_architecture` | Multiple `list_dir` calls across folder hierarchies |
-| Retrieve specific snippets | `mcp_codebase-memory_get_code_snippet` | Full file `view_file` reads when only a snippet is needed |
+| Check index state | `index_status` | Direct file system guessing |
+| Index repository | `index_repository` | Reading files one by one |
+| Search code/symbols | `search_code` | Recursive `grep_search` or manual `view_file` |
+| Trace graph/dependencies | `query_graph` / `trace_path` | Manual import tracing across multiple files |
+| Overview architecture | `get_architecture` | Multiple `list_dir` calls across folder hierarchies |
+| Retrieve specific snippets | `get_code_snippet` | Full file `view_file` reads when only a snippet is needed |
 
-### 3. Token Efficiency Protocol
-- Prefer `search_code` and `get_code_snippet` to retrieve only the relevant portion of code needed for the task.
-- Reserve `view_file` **only** for when precise file modifications (editing) are required, or when inspecting exhaustive full-file contents after locating the exact target via `codebase-memory`.
+### 3. Default Parameters & Protocol
+- **Default Project Parameter**: Always pass `project: "backend"` (or `"./backend"`) in all MCP tool calls (`search_code`, `index_status`, `query_graph`, `get_architecture`, `get_code_snippet`).
+- **Index Initialization**: If `index_status` returns not indexed, immediately execute `index_repository(repo_path: "./backend", mode: "full")`.
+- **Token Efficiency**: Prefer `search_code` (with `project: "backend"`) and `get_code_snippet` to retrieve only relevant code snippets.
+- **Editing Strategy**: Reserve `view_file` **only** for when preparing to edit a specific file identified via Codebase Memory.
 
 ---
 
 ## Workflow Checklist
 
 1. **Step 1: Check Index Status**
-   Call `index_status`. If not indexed, call `index_repository`.
+   Call `index_status(project: "backend")`. If not indexed, call `index_repository(repo_path: "./backend", mode: "full")`.
 2. **Step 2: Perform Semantic / Graph Queries**
-   Use `get_architecture`, `search_code`, or `query_graph` to locate relevant classes, methods, endpoints, or modules.
+   Use `get_architecture(project: "backend")`, `search_code(project: "backend", pattern: "...")`, or `query_graph(project: "backend", ...)` to locate relevant classes, methods, endpoints, or modules.
 3. **Step 3: Targeted Retrieval**
-   Use `get_code_snippet` to inspect implementation details with minimal token overhead.
+   Use `get_code_snippet(project: "backend", ...)` to inspect implementation details with minimal token overhead.
 4. **Step 4: Execute Code Modifications**
    Only open the specific target files with `view_file` or edit tools when preparing to write/replace code.
