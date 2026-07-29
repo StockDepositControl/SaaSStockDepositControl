@@ -39,10 +39,11 @@ elif db_target == "analytics":
     db_name = os.getenv("DB_NAME_ANALYTICS", "db_analytics")
 else:
     target_metadata = BaseArticles.metadata
-    db_name = os.getenv("DB_NAME", "stock_deposit_control")
+    db_name = os.getenv("DB_NAME_ARTICLES", os.getenv("DB_NAME", "db_articles"))
 
 # Update version_locations dynamically
-version_locations_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"versions_{db_target}"))
+versions_folder = "versions" if db_target == "articles" else f"versions_{db_target}"
+version_locations_path = os.path.abspath(os.path.join(os.path.dirname(__file__), versions_folder))
 # Use raw config setter for multple locations if needed, or set main option
 config.set_main_option("version_locations", version_locations_path)
 
