@@ -56,20 +56,20 @@ The system connects to **three separate and independent databases**. The domain 
 
 ### 2.1 Database Topology
 
-| Database | Engine | Content | Used By (Repositories) |
-|:---------|:-------|:--------|:-----------------------|
-| **Operational (Main)** | MariaDB | `articulos`, `familias`, `grupos`, `marcas`, `stock_por_deposito`, `lotes_por_deposito` | `ArticleRepository`, `StockRepository`, `MovementRepository` |
-| **Users & Authentication** | MariaDB / PostgreSQL | `usuarios`, credentials, roles, branch assignments | `UserRepository` → implements `UserRepositoryPort` |
-| **Reports & Historical Audits** | MariaDB / ClickHouse / PostgreSQL | `auditorias_registro`, historical valued movements, loss metrics, consolidated metrics | `ReportRepository`, `AuditLedgerRepository` → implements `AuditLedgerRepositoryPort` |
+| Database | Database Name | Engine | Content (Entities / Tables) | Used By (Repositories) |
+|:---------|:--------------|:-------|:----------------------------|:-----------------------|
+| **Users & Authentication** | `db_users` | MariaDB / PostgreSQL | `user` (id_user, name, lastname, email, password_hash, id_tenant, is_active, created_at, updated_at), `role` (id_role, name, description), `user_role` (id_user, id_role) | `UserRepository` → implements `UserRepositoryPort` |
+| **Reports & Analytics** | `db_analytics` | MariaDB / PostgreSQL / ClickHouse | `record_tenants`, `record_audit` (auditorías físicas/valorizadas), `made_diary_reports` (reportes diarios de precios y mermas por sucursal), `critics_alerts_merms` (alertas críticas de stock/vencimiento) | `ReportRepository`, `AuditLedgerRepository` → implements `AuditLedgerRepositoryPort` |
+| **Operational (Articles & Stock)** | `db_articles` | MariaDB | `articulos`, `familias`, `grupos`, `marcas`, `stock_por_deposito`, `lotes_por_deposito`, `codigos_barra_articulo` | `ArticleRepository`, `StockRepository`, `MovementRepository` |
 
 ### 2.2 Multi-DB Adapter Rule
 
 In `backend/adapters/database/connection.py`, define **separate** `AsyncEngine` instances and `async_sessionmaker` pools for each database:
 
 ```text
-engine_main    → async_session_main    → Operational DB
-engine_users   → async_session_users   → Users & Auth DB
-engine_reports → async_session_reports  → Reports & Audit DB
+engine_users     → async_session_users     → Users & Auth DB (db_users)
+engine_analytics → async_session_analytics → Reports & Analytics DB (db_analytics)
+engine_articles  → async_session_articles  → Articles & Stock DB (db_articles)
 ```
 
 Each concrete repository in `backend/adapters/repositories/` receives **only the session factory corresponding to its target database** through constructor injection. A repository MUST NEVER hold references to sessions from a database it does not own.
@@ -117,21 +117,22 @@ backend/
 │   ├── __init__.py
 │   ├── README.md                   # Adapter rules, DB session injection patterns
 │   ├── database/                   # Connections and Session Pools for the 3 DBs
-│   │   ├── connection.py           # AsyncSessionFactories: main_db, users_db, reports_db
-│   │   │                           #   (engine_main, engine_users, engine_reports)
+│   │   ├── connection.py           # AsyncSessionFactories: users_db, analytics_db, articles_db
+│   │   │                           #   (engine_users, engine_analytics, engine_articles)
 │   │   └── multi_tenant.py         # ContextVar binding for tenant_id per async connection
 │   ├── security/                   # Concrete security adapters
 │   │   ├── jwt_provider.py         # PyJWTTokenProvider — implements TokenProvider port
 │   │   └── password_hasher.py      # BcryptPasswordHasher — implements PasswordHasher port
-│   └── repositories/               # Concrete Repositories (SQLAlchemy 2.0 Async)
-│       ├── models_main.py          # ORM Models: Articulo, Familia, Grupo, Marca,
-│       │                           #   StockPorDeposito, LotePorDeposito (→ Main DB)
-│       ├── models_users.py         # ORM Models: Usuario (→ Users DB)
-│       ├── models_reports.py       # ORM Models: AuditoriaRegistro (→ Reports DB)
-│       ├── article_repository.py   # Connects to main_db → implements ArticleRepositoryPort
-│       ├── movement_repository.py  # Connects to main_db → implements StockRepositoryPort
+│   └── repositories/               # Concrete Repositories & ORM Models (SQLAlchemy 2.0 Async)
+│       ├── models/                 # ORM Models Package (OWNED EXCLUSIVELY BY DBA-AGENT)
+│       │   ├── __init__.py         # Re-exports Base classes and all entity models for backwards compatibility
+│       │   ├── articles.py         # ORM Models: BaseArticles, Familia, Grupo, Marca, Articulo, StockPorDeposito, LotePorDeposito, CodigoBarraArticulo (→ db_articles)
+│       │   ├── users.py            # ORM Models: BaseUsers, User, Role, UserRoleAssociation (→ db_users)
+│       │   └── analytics.py        # ORM Models: BaseAnalytics, RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert (→ db_analytics)
+│       ├── article_repository.py   # Connects to articles_db → implements ArticleRepositoryPort
+│       ├── movement_repository.py  # Connects to articles_db → implements StockRepositoryPort
 │       ├── user_repository.py      # Connects to users_db → implements UserRepositoryPort
-│       └── report_repository.py    # Connects to reports_db → implements AuditLedgerRepositoryPort
+│       └── report_repository.py    # Connects to analytics_db → implements AuditLedgerRepositoryPort
 │
 ├── api/                            # PRIMARY ADAPTERS (Driving Adapters — Presentation)
 │   ├── __init__.py
@@ -152,7 +153,7 @@ backend/
 │       ├── stock.py                # Count registration and stock movements (→ Main DB)
 │       └── reports.py              # Dashboard, FEFO alerts, loss metrics (→ Reports DB)
 │
-├── migrations/                     # Alembic migrations (OWNED BY DBA-AGENT — DO NOT MODIFY)
+├── migrations/                     # Alembic migrations & config (alembic.ini, alembic_users.ini, alembic_analytics.ini, env.py) (OWNED BY DBA-AGENT)
 ├── scripts/                        # Seeding and maintenance scripts (OWNED BY DBA-AGENT)
 └── tests/                          # Pytest Suite (Unit and Integration)
     ├── test_api_bootstrap.py
@@ -224,21 +225,22 @@ This layer implements the domain's abstract Ports with concrete infrastructure t
 
 | File | Target DB | Implements Port |
 |:-----|:----------|:----------------|
-| `article_repository.py` | `main_db` | `ArticleRepositoryPort` |
-| `movement_repository.py` | `main_db` | `StockRepositoryPort` |
+| `article_repository.py` | `articles_db` | `ArticleRepositoryPort` |
+| `movement_repository.py` | `articles_db` | `StockRepositoryPort` |
 | `user_repository.py` | `users_db` | `UserRepositoryPort` |
-| `report_repository.py` | `reports_db` | `AuditLedgerRepositoryPort` |
+| `report_repository.py` | `analytics_db` | `AuditLedgerRepositoryPort` |
 
-#### ORM Model Files (`adapters/repositories/models_*.py`)
+#### ORM Model Package (`adapters/repositories/models/`)
 
 | File | Database | ORM Classes |
 |:-----|:---------|:------------|
-| `models_main.py` | Operational (Main) | `Articulo`, `Familia`, `Grupo`, `Marca`, `StockPorDeposito`, `LotePorDeposito` |
-| `models_users.py` | Users & Auth | `Usuario` |
-| `models_reports.py` | Reports & Audit | `AuditoriaRegistro` |
+| `models/articles.py` | Operational Catalog & Stock (`db_articles`) | `BaseArticles`, `Familia`, `Grupo`, `Marca`, `Articulo`, `StockPorDeposito`, `LotePorDeposito`, `CodigoBarraArticulo` |
+| `models/users.py` | Users & Auth (`db_users`) | `BaseUsers`, `User`, `Role`, `UserRoleAssociation` |
+| `models/analytics.py` | Reports & Analytics (`db_analytics`) | `BaseAnalytics`, `RecordTenant`, `AuditRecord`, `DailyReport`, `CriticalShrinkageAlert`, `ActionType`, `RiskLevel` |
+| `models/__init__.py` | All Databases | Re-exports all declarative bases and entity models for package-level imports |
 
 > [!IMPORTANT]
-> The ORM model files (`models_*.py`) and all Alembic migrations are **exclusively owned by the DBA-Agent**. Jules MUST NOT modify these files directly. If a domain change requires a schema update, document the requirement and stop.
+> The ORM model package (`adapters/repositories/models/`) and all Alembic migrations (`backend/migrations/`) are **exclusively owned by the DBA-Agent**. Jules MUST NOT modify these files directly. If a domain change requires a schema update, document the requirement and stop.
 
 #### Adapter Rules
 
@@ -293,14 +295,14 @@ To prevent multi-agent git conflicts and maintain clear accountability:
 | | `backend/adapters/database/multi_tenant.py` | Full write access. Owns tenant context binding. |
 | | `backend/adapters/security/**` | Full write access. Owns JWT and hashing adapters. |
 | | `backend/tests/**` | Full write access. Owns all test files. |
-| **DBA-Agent** | `backend/adapters/repositories/models_*.py` | **Sole owner**. Owns all ORM table mappings and declarative base definitions. |
-| | `backend/migrations/**` | **Sole owner**. Owns Alembic migration scripts and env configuration. |
+| **DBA-Agent** | `backend/adapters/repositories/models/**` | **Sole owner**. Owns all ORM table mappings and declarative base definitions. |
+| | `backend/migrations/**` | **Sole owner**. Owns Alembic migration scripts and env configuration (`alembic.ini`, etc.). |
 | | `backend/scripts/**` | **Sole owner**. Owns seeding scripts and maintenance utilities. |
 | **Mobile Dev Agent** | `frontend-mobile/**` | Owns React Native views, offline sync, barcode scanning controllers. |
 | **Web Analytics Agent** | `frontend-web/**` | Owns Next.js dashboards, Tremor reports, web routing. |
 
 > [!IMPORTANT]
-> If **Jules** needs a database schema change (e.g., adding a column, splitting `models.py` into `models_main.py` / `models_users.py` / `models_reports.py`), Jules MUST document the required changes in a task description and stop. The **DBA-Agent** will then modify the ORM model files and generate the corresponding Alembic migrations.
+> If **Jules** needs a database schema change (e.g., adding a column, splitting ORM models), Jules MUST document the required changes in a task description and stop. The **DBA-Agent** will then modify the ORM model files inside `backend/adapters/repositories/models/` and generate the corresponding Alembic migrations.
 
 ---
 

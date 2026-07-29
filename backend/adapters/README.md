@@ -5,7 +5,7 @@ Esta capa representa los **Adaptadores Secundarios (Driven Adapters)** de la apl
 ## 📁 Contenido de esta Capa
 
 1. **Repositorios (`adapters/repositories/`)**: Implementaciones concretas de los puertos (interfaces) declarados en el dominio (`app/[modulo]/ports.py`). Utilizan SQLAlchemy 2.0 Async para interactuar con MariaDB.
-2. **Modelos de Base de Datos (`adapters/repositories/models.py`)**: Definiciones de tablas y mapeos declarativos ORM de SQLAlchemy.
+2. **Modelos de Base de Datos (`adapters/repositories/models/`)**: Paquete con las definiciones de tablas y mapeos declarativos ORM de SQLAlchemy (`articles.py`, `users.py`, `analytics.py` y `__init__.py`).
 3. **Configuración de Conexiones**: Lógica para resolver dinámicamente las conexiones por inquilino (Multi-Tenancy) y gestionar las sesiones (`AsyncSession`).
 
 ---
@@ -16,5 +16,5 @@ Esta capa representa los **Adaptadores Secundarios (Driven Adapters)** de la apl
 - **Sin Lógica de Negocio**: Los repositorios solo leen, persisten y estructuran datos. No validan reglas de negocio (ej. excepciones de IVA o semáforos de vencimiento).
 - **Límites de Propiedad (Ownership)**:
   - **Jules (Core Backend)**: Desarrolla y edita los repositorios concretos (`*_repository.py`).
-  - **DBA Specialist**: Posee y gestiona el archivo `models.py` y las migraciones de Alembic. **Jules no debe modificar `models.py` directamente**.
+  - **DBA Specialist**: Posee y gestiona el paquete `backend/adapters/repositories/models/` y las migraciones de Alembic (`backend/migrations/`). **Jules no debe modificar los modelos ORM ni las migraciones directamente**.
 - **Aislamiento Multi-Inquilino (Multi-Tenancy)**: Todos los repositorios deben appendear automáticamente el filtro de `tenant_id` y `id_sucursal` en las consultas de lectura y mutación para evitar fuga de datos entre inquilinos.

@@ -1,0 +1,47 @@
+from backend.adapters.repositories.models.articles import (
+    BaseArticles,
+    Familia,
+    Grupo,
+    Marca,
+    Articulo,
+    StockPorDeposito,
+    LotePorDeposito,
+    CodigoBarraArticulo,
+)
+from backend.adapters.repositories.models.users import (
+    BaseUsers,
+    User,
+    Role,
+    UserRoleAssociation,
+)
+from backend.adapters.repositories.models.analytics import (
+    BaseAnalytics,
+    ActionType,
+    RiskLevel,
+    RecordTenant,
+    AuditRecord,
+    DailyReport,
+    CriticalShrinkageAlert,
+)
+
+__all__ = [
+    "BaseArticles",
+    "Familia",
+    "Grupo",
+    "Marca",
+    "Articulo",
+    "StockPorDeposito",
+    "LotePorDeposito",
+    "CodigoBarraArticulo",
+    "BaseUsers",
+    "User",
+    "Role",
+    "UserRoleAssociation",
+    "BaseAnalytics",
+    "ActionType",
+    "RiskLevel",
+    "RecordTenant",
+    "AuditRecord",
+    "DailyReport",
+    "CriticalShrinkageAlert",
+]

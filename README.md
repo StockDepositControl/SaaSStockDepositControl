@@ -146,11 +146,11 @@ Every multi-tenant transaction table (`articulos`, `stock_por_deposito`, `lotes_
 Alembic manages all schema updates. Make sure you apply migrations to bring the database structure up to the latest revision:
 ```bash
 # Run inside backend/ directory
-alembic upgrade head
+alembic -c migrations/alembic.ini upgrade head
 ```
 To rollback the latest migration:
 ```bash
-alembic downgrade -1
+alembic -c migrations/alembic.ini downgrade -1
 ```
 
 ### Seeding Mock Data
@@ -175,7 +175,7 @@ Here is a quick reference guide of commands for local development:
 | `source venv/bin/activate` | `backend/` | Activate Python virtual environment |
 | `uvicorn api.main:app --reload` | `backend/` | Start backend development server (API at port 8000) |
 | `PYTHONPATH=. ./backend/venv/bin/pytest` | Root `/` | Run the Python test suite |
-| `alembic upgrade head` | `backend/` | Run all outstanding database migrations |
+| `alembic -c migrations/alembic.ini upgrade head` | `backend/` | Run all outstanding database migrations |
 | `npm run dev` | `frontend-web/` | Start Next.js Analytical Web Dashboard |
 | `npx expo start` | `frontend-mobile/` | Start React Native Expo server |
 
@@ -188,7 +188,7 @@ To maintain clean, safe code across our multi-agent pipeline, all developers and
 1.  **The Domain is Pure:** Never import `fastapi`, `sqlalchemy`, `alembic`, or `requests` inside `backend/app/`. The domain core must remain 100% pure Python and Pydantic.
 2.  **Strict File Ownership boundaries:**
     *   **Backend Core (Jules):** Owns `backend/app/`, `backend/api/`, and repositories (`backend/adapters/repositories/*_repository.py`).
-    *   **DBA Specialist:** Sole owner of `backend/adapters/repositories/models.py`, `backend/migrations/`, and `backend/scripts/`. Core backend agents must NEVER edit models or create migrations directly.
+    *   **DBA Specialist:** Sole owner of `backend/adapters/repositories/models/`, `backend/migrations/`, and `backend/scripts/`. Core backend agents must NEVER edit models or create migrations directly.
 3.  **Decimal Precision:** All financial calculations, item costs (`pcio_com_siva`), and calculated balances must strictly use Python's `decimal.Decimal` library. Floating-point operations are banned for cost/margin valuations.
 4.  **No Raw SQL:** Writing raw SQL string queries inside services, API routers, or adapters is prohibited. Use SQLAlchemy async ORM models and mapping objects to maintain query isolation.
 5.  **Role-Based Security:** Product purchase prices (`pcio_com_siva`) must be structurally stripped from API schemas returned to the `supervisor` and `auditor` roles. Always use distinct Pydantic Output models (e.g., public vs admin) to enforce this.

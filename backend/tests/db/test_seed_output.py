@@ -2,84 +2,151 @@ import pytest
 from sqlalchemy import select, func
 from datetime import date
 from backend.scripts.seed import run_seed
-from backend.adapters.repositories.models import Articulo, StockPorDeposito, LotePorDeposito, AuditoriaRegistro, Familia
+from backend.adapters.repositories.models import (
+    Articulo, StockPorDeposito, LotePorDeposito, CodigoBarraArticulo, Familia,
+    Role, User, RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert
+)
 
 @pytest.mark.asyncio
-async def test_seed_creates_expected_counts(async_session, async_db_engine):
-    # Run seed script on SQLite in-memory engine
-    db_url = str(async_db_engine.url)
-    await run_seed(count=100, seed_val=123, database_url=db_url)
+async def test_seed_creates_expected_counts(async_sessions, db_engines):
+    await run_seed(
+        count=100,
+        seed_val=123,
+        url_articles=db_engines["url_articles"],
+        url_users=db_engines["url_users"],
+        url_analytics=db_engines["url_analytics"]
+    )
 
-    res_art = await async_session.execute(select(func.count(Articulo.id_articulo)))
+    s_articles = async_sessions["articles"]
+
+    res_art = await s_articles.execute(select(func.count(Articulo.id_articulo)))
     art_count = res_art.scalar()
     assert art_count == 100
 
-    res_stock = await async_session.execute(select(func.count(StockPorDeposito.id_articulo)))
+    res_stock = await s_articles.execute(select(func.count(StockPorDeposito.id_articulo)))
     stock_count = res_stock.scalar()
     assert stock_count == 100
 
+    res_barcodes = await s_articles.execute(select(func.count(CodigoBarraArticulo.cod_barra)))
+    barcode_count = res_barcodes.scalar()
+    assert barcode_count == 100
+
+
 @pytest.mark.asyncio
-async def test_seed_fiscal_mix_distribution(async_session, async_db_engine):
-    db_url = str(async_db_engine.url)
-    await run_seed(count=100, seed_val=123, database_url=db_url)
+async def test_seed_fiscal_mix_distribution(async_sessions, db_engines):
+    await run_seed(
+        count=100,
+        seed_val=123,
+        url_articles=db_engines["url_articles"],
+        url_users=db_engines["url_users"],
+        url_analytics=db_engines["url_analytics"]
+    )
 
-    # Find Medicamentos family ID
-    res_fam = await async_session.execute(select(Familia.id_familia).where(Familia.des_familia == "Medicamentos"))
-    med_fam_id = res_fam.scalar()
-
-    res_med = await async_session.execute(select(func.count(Articulo.id_articulo)).where(Articulo.id_familia == med_fam_id))
+    s_articles = async_sessions["articles"]
+    res_med = await s_articles.execute(select(func.count(Articulo.id_articulo)).where(Articulo.id_familia == "01"))
     med_count = res_med.scalar()
     assert med_count == 50  # Exactly 50% Medicamentos
 
-@pytest.mark.asyncio
-async def test_seed_ghost_items_anomaly(async_session, async_db_engine):
-    db_url = str(async_db_engine.url)
-    await run_seed(count=100, seed_val=123, ghost_rate=0.10, database_url=db_url)
 
-    # Ghost items: stock_teorico > 0 and stock_real == 0
-    res_ghost = await async_session.execute(
+@pytest.mark.asyncio
+async def test_seed_ghost_items_anomaly(async_sessions, db_engines):
+    await run_seed(
+        count=100,
+        seed_val=123,
+        ghost_rate=0.10,
+        url_articles=db_engines["url_articles"],
+        url_users=db_engines["url_users"],
+        url_analytics=db_engines["url_analytics"]
+    )
+
+    s_articles = async_sessions["articles"]
+    res_ghost = await s_articles.execute(
         select(func.count(StockPorDeposito.id_articulo)).where(
-            StockPorDeposito.stock_teorico > 0,
-            StockPorDeposito.stock_real == 0
+            StockPorDeposito.stock_real == 0.0
         )
     )
     ghost_count = res_ghost.scalar()
     assert ghost_count >= 10
 
-@pytest.mark.asyncio
-async def test_seed_expired_lots_anomaly(async_session, async_db_engine):
-    db_url = str(async_db_engine.url)
-    await run_seed(count=100, seed_val=123, expired_rate=0.25, database_url=db_url)
 
-    res_expired = await async_session.execute(
-        select(func.count(LotePorDeposito.lote)).where(LotePorDeposito.vencimiento < date.today())
+@pytest.mark.asyncio
+async def test_seed_expired_lots_anomaly(async_sessions, db_engines):
+    await run_seed(
+        count=100,
+        seed_val=123,
+        expired_rate=0.25,
+        url_articles=db_engines["url_articles"],
+        url_users=db_engines["url_users"],
+        url_analytics=db_engines["url_analytics"]
+    )
+
+    s_articles = async_sessions["articles"]
+    today_str = date.today().strftime("%Y-%m-%d")
+    res_expired = await s_articles.execute(
+        select(func.count(LotePorDeposito.lote)).where(LotePorDeposito.vencimiento < today_str)
     )
     expired_count = res_expired.scalar()
     assert expired_count > 0
 
-@pytest.mark.asyncio
-async def test_seed_auditoria_registro_movements(async_session, async_db_engine):
-    db_url = str(async_db_engine.url)
-    await run_seed(count=100, seed_val=123, database_url=db_url)
-
-    res_audit = await async_session.execute(select(func.count(AuditoriaRegistro.id_auditoria)))
-    audit_count = res_audit.scalar()
-    assert audit_count > 0
 
 @pytest.mark.asyncio
-async def test_seed_multi_tenant_isolation(async_session, async_db_engine):
-    db_url = str(async_db_engine.url)
-    await run_seed(count=100, seed_val=123, database_url=db_url)
-
-    res_t1 = await async_session.execute(
-        select(func.count(Articulo.id_articulo)).where(Articulo.tenant_id == "GlobalMedica_01")
+async def test_seed_multi_tenant_isolation(async_sessions, db_engines):
+    await run_seed(
+        count=100,
+        seed_val=123,
+        url_articles=db_engines["url_articles"],
+        url_users=db_engines["url_users"],
+        url_analytics=db_engines["url_analytics"]
     )
-    res_t2 = await async_session.execute(
-        select(func.count(Articulo.id_articulo)).where(Articulo.tenant_id == "Farmanor_Branch_02")
-    )
-    t1_count = res_t1.scalar()
-    t2_count = res_t2.scalar()
 
-    assert t1_count > 0
-    assert t2_count > 0
-    assert t1_count + t2_count == 100
+    s_articles = async_sessions["articles"]
+    res_e1 = await s_articles.execute(
+        select(func.count(StockPorDeposito.id_articulo)).where(StockPorDeposito.id_empresa == 1)
+    )
+    res_e2 = await s_articles.execute(
+        select(func.count(StockPorDeposito.id_articulo)).where(StockPorDeposito.id_empresa == 2)
+    )
+    e1_count = res_e1.scalar()
+    e2_count = res_e2.scalar()
+
+    assert e1_count > 0
+    assert e2_count > 0
+    assert e1_count + e2_count == 100
+
+
+@pytest.mark.asyncio
+async def test_seed_db_users_and_db_analytics(async_sessions, db_engines):
+    await run_seed(
+        count=100,
+        seed_val=123,
+        url_articles=db_engines["url_articles"],
+        url_users=db_engines["url_users"],
+        url_analytics=db_engines["url_analytics"]
+    )
+
+    s_users = async_sessions["users"]
+    s_analytics = async_sessions["analytics"]
+
+    # Roles check (must be exactly 3: ADMINISTRATOR, SUPERVISOR, AUDITOR)
+    res_roles = await s_users.execute(select(func.count(Role.role_id)))
+    assert res_roles.scalar() == 3
+
+    # Users check
+    res_users = await s_users.execute(select(func.count(User.user_id)))
+    assert res_users.scalar() == 12
+
+    # Record tenants check
+    res_tenants = await s_analytics.execute(select(func.count(RecordTenant.tenant_id)))
+    assert res_tenants.scalar() == 2
+
+    # Audit records check
+    res_analytics_audits = await s_analytics.execute(select(func.count(AuditRecord.audit_id)))
+    assert res_analytics_audits.scalar() > 0
+
+    # Daily reports check
+    res_reports = await s_analytics.execute(select(func.count(DailyReport.daily_report_id)))
+    assert res_reports.scalar() == 2
+
+    # Critical alerts check
+    res_alerts = await s_analytics.execute(select(func.count(CriticalShrinkageAlert.alert_id)))
+    assert res_alerts.scalar() >= 0

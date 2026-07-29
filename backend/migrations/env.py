@@ -17,8 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 load_dotenv()
 
 # Import models metadata
-from backend.adapters.repositories.models import Base
-target_metadata = Base.metadata
+from backend.adapters.repositories.models import BaseArticles, BaseUsers, BaseAnalytics
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -29,24 +28,31 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Resolve DATABASE_URL dynamically using environment variables
-database_url = os.getenv("DATABASE_URL")
-if not database_url:
-    db_user = os.getenv("DB_USER", "root")
-    db_pass = os.getenv("DB_PASSWORD", "")
-    db_host = os.getenv("DB_HOST", "localhost")
-    db_port = os.getenv("DB_PORT", "3306")
+# Determine the target database to migrate
+db_target = os.getenv("DB_TARGET", "articles")
+
+if db_target == "users":
+    target_metadata = BaseUsers.metadata
+    db_name = os.getenv("DB_NAME_USERS", "db_users")
+elif db_target == "analytics":
+    target_metadata = BaseAnalytics.metadata
+    db_name = os.getenv("DB_NAME_ANALYTICS", "db_analytics")
+else:
+    target_metadata = BaseArticles.metadata
     db_name = os.getenv("DB_NAME", "stock_deposit_control")
-    database_url = f"mysql+aiomysql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+
+# Update version_locations dynamically
+version_locations_path = os.path.abspath(os.path.join(os.path.dirname(__file__), f"versions_{db_target}"))
+# Use raw config setter for multple locations if needed, or set main option
+config.set_main_option("version_locations", version_locations_path)
+
+db_user = os.getenv("DB_USER", "root")
+db_pass = os.getenv("DB_PASSWORD", "")
+db_host = os.getenv("DB_HOST", "localhost")
+db_port = os.getenv("DB_PORT", "3306")
+database_url = f"mysql+aiomysql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 
 config.set_main_option("sqlalchemy.url", database_url)
-
-
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
-
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
