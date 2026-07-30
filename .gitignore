@@ -6,6 +6,7 @@
 /backend/tasks/
 
 # Environment files
+.env
 /backend/.env
 
 # Python cache
