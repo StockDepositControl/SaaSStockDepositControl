@@ -7,6 +7,8 @@ import sys
 from datetime import timedelta, date, datetime
 from decimal import Decimal
 from faker import Faker
+from dotenv import load_dotenv
+load_dotenv()
 
 # Add project root to sys.path if not present
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
