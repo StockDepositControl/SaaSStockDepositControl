@@ -4,9 +4,9 @@ from backend.app.users.models import User
 
 class UserRepositoryPort(ABC):
     @abstractmethod
-    async def get_by_email(self, tenant_id: str, email: str) -> Optional[User]:
+    async def get_by_email(self, email: str) -> Optional[User]:
         """
-        Retrieve a domain User by tenant_id and email.
+        Retrieve a domain User by email.
         """
         pass
 
@@ -18,8 +18,8 @@ class UserRepositoryPort(ABC):
         pass
 
     @abstractmethod
-    async def get_password_hash(self, tenant_id: str, email: str) -> Optional[str]:
+    async def get_password_hash(self, email: str) -> Optional[str]:
         """
-        Retrieve the stored password hash for a given tenant_id and email.
+        Retrieve the stored password hash for a given email.
         """
         pass

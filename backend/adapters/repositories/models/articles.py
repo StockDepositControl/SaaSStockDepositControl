@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import List, Optional
 from sqlalchemy import (
     String,
@@ -5,6 +6,7 @@ from sqlalchemy import (
     Integer,
     SmallInteger,
     Float,
+    Numeric,
     ForeignKeyConstraint,
     Index,
 )
@@ -62,7 +64,7 @@ class Articulo(BaseArticles):
     id_marca: Mapped[int] = mapped_column(Integer, nullable=False)
     id_familia: Mapped[str] = mapped_column(String(2), nullable=False)
     id_grupo: Mapped[str] = mapped_column(String(2), nullable=False)
-    pcio_com_siva: Mapped[float] = mapped_column(Float, nullable=False)
+    pcio_com_siva: Mapped[Decimal] = mapped_column(Numeric(15, 4), nullable=False)
 
     marca: Mapped["Marca"] = relationship(back_populates="articulos")
     grupo: Mapped["Grupo"] = relationship(back_populates="articulos")
@@ -82,7 +84,9 @@ class Articulo(BaseArticles):
         ),
         Index("ix_articulos_id_marca", "id_marca"),
         Index("ix_articulos_id_familia_id_grupo", "id_familia", "id_grupo"),
+        Index("ft_articulos_des_articulo", "des_articulo", mysql_prefix="FULLTEXT"),
     )
+
 
 
 class StockPorDeposito(BaseArticles):

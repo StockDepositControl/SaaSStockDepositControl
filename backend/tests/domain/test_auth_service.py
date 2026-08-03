@@ -31,13 +31,13 @@ async def test_authenticate_success():
         access_token_expire_minutes=60
     )
 
-    result = await auth_service.authenticate("juan@tenant1.com", "secret123", "Tenant1")
+    result = await auth_service.authenticate("juan@tenant1.com", "secret123")
 
     assert isinstance(result, AuthToken)
     assert result.access_token == "mocked.jwt.token"
     assert result.token_type == "bearer"
 
-    mock_repo.get_by_email.assert_called_once_with(tenant_id="Tenant1", email="juan@tenant1.com")
+    mock_repo.get_by_email.assert_called_once_with(email="juan@tenant1.com")
     mock_hasher.verify.assert_called_once_with("secret123", "$2b$12$hashed")
     mock_token_provider.create_token.assert_called_once()
     
@@ -63,7 +63,7 @@ async def test_authenticate_user_not_found():
     )
 
     with pytest.raises(EntityNotFoundException) as exc_info:
-        await auth_service.authenticate("unknown@tenant1.com", "secret", "Tenant1")
+        await auth_service.authenticate("unknown@tenant1.com", "secret")
 
     assert "User not found" in str(exc_info.value)
 
@@ -93,6 +93,6 @@ async def test_authenticate_invalid_password():
     )
 
     with pytest.raises(BusinessRuleViolationException) as exc_info:
-        await auth_service.authenticate("user@tenant.com", "wrong_password", "Tenant1")
+        await auth_service.authenticate("user@tenant.com", "wrong_password")
 
     assert "Invalid credentials" in str(exc_info.value)

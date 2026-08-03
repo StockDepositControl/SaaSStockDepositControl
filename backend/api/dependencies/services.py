@@ -24,3 +24,18 @@ def get_auth_service(
         token_provider=token_provider,
         access_token_expire_minutes=expire_minutes
     )
+
+
+def get_article_search_service() -> "ArticleSearchService":
+    """
+    FastAPI dependency that instantiates the SQLAlchemyArticleRepository using the
+    Articles database session factory and returns the configured ArticleSearchService.
+    """
+    from backend.app.articles.services import ArticleSearchService
+    from backend.adapters.repositories.article_repository import SQLAlchemyArticleRepository
+    from backend.adapters.database.connection import get_articles_session_factory
+
+    session_factory = get_articles_session_factory()
+    repo = SQLAlchemyArticleRepository(session_factory)
+    return ArticleSearchService(article_repository=repo)
+

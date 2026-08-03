@@ -1,5 +1,6 @@
 from typing import Optional
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.app.users.models import User, UserRole
@@ -33,25 +34,32 @@ class SQLAlchemyUserRepository(UserRepositoryPort):
             id_sucursal=user_orm.branch_id or 1
         )
 
-    async def get_by_email(self, tenant_id: str, email: str) -> Optional[User]:
-        active_tenant = tenant_id or get_tenant_id()
+    async def get_by_email(self, email: str) -> Optional[User]:
         async with self.session_factory() as session:
-            stmt = select(UserORM).where(
-                UserORM.email == email,
-                UserORM.is_active == True
+            stmt = (
+                select(UserORM)
+                .options(selectinload(UserORM.roles))
+                .where(
+                    UserORM.email == email,
+                    UserORM.is_active == True
+                )
             )
             result = await session.execute(stmt)
             user_orm = result.scalar_one_or_none()
             if not user_orm:
                 return None
-            return self._to_domain(active_tenant, user_orm)
+            return self._to_domain(user_orm.tenant_id, user_orm)
 
     async def get_by_id(self, tenant_id: str, id_usuario: int) -> Optional[User]:
         active_tenant = tenant_id or get_tenant_id()
         async with self.session_factory() as session:
-            stmt = select(UserORM).where(
-                UserORM.user_id == id_usuario,
-                UserORM.is_active == True
+            stmt = (
+                select(UserORM)
+                .options(selectinload(UserORM.roles))
+                .where(
+                    UserORM.user_id == id_usuario,
+                    UserORM.is_active == True
+                )
             )
             result = await session.execute(stmt)
             user_orm = result.scalar_one_or_none()
@@ -59,7 +67,7 @@ class SQLAlchemyUserRepository(UserRepositoryPort):
                 return None
             return self._to_domain(active_tenant, user_orm)
 
-    async def get_password_hash(self, tenant_id: str, email: str) -> Optional[str]:
+    async def get_password_hash(self, email: str) -> Optional[str]:
         async with self.session_factory() as session:
             stmt = select(UserORM.password_hash).where(
                 UserORM.email == email,

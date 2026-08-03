@@ -137,7 +137,7 @@ async def run_seed(
                 is_med = i < half_count
                 f_id = med_fam_id if is_med else random.choice(taxable_fam_ids)
                 g_id = f"{random.randint(1, 3):02d}"
-                price_val = round(random.uniform(150.0, 12500.0), 2)
+                price_val = Decimal(str(round(random.uniform(150.0, 12500.0), 2)))
 
                 prefix = "MED" if is_med else "ART"
                 des_art = f"{prefix} {fake.word().capitalize()} {random.randint(10, 1000)}mg"[:255]
@@ -227,7 +227,9 @@ async def run_seed(
                 sucursal = sucursales[idx % len(sucursales)]
                 first, *last = fake.name().split()
                 last_name = " ".join(last) if last else "Doe"
+                tenant_str = "FARMA-001" if idx < 6 else "FARMA-002"
                 new_u = User(
+                    tenant_id=tenant_str,
                     first_name=first,
                     last_name=last_name,
                     email=f"user_{idx}@example.com",

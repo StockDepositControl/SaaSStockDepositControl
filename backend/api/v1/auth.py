@@ -16,6 +16,5 @@ async def login(
     """
     return await auth_service.authenticate(
         email=credentials.email,
-        password=credentials.password,
-        tenant_id=credentials.tenant_id
+        password=credentials.password
     )

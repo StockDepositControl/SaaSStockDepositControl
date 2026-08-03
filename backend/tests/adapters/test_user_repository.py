@@ -23,7 +23,7 @@ async def test_get_by_email_found():
     mock_session.execute.return_value = mock_result
 
     repo = SQLAlchemyUserRepository(mock_session_factory)
-    user = await repo.get_by_email(tenant_id="GlobalMedica_01", email="test@globalmedica.com")
+    user = await repo.get_by_email(email="test@globalmedica.com")
 
     assert user is not None
     assert user.id_usuario == 1
@@ -42,7 +42,7 @@ async def test_get_by_email_not_found():
     mock_session.execute.return_value = mock_result
 
     repo = SQLAlchemyUserRepository(mock_session_factory)
-    user = await repo.get_by_email(tenant_id="GlobalMedica_01", email="nonexistent@globalmedica.com")
+    user = await repo.get_by_email(email="nonexistent@globalmedica.com")
 
     assert user is None
 
@@ -57,6 +57,6 @@ async def test_get_password_hash():
     mock_session.execute.return_value = mock_result
 
     repo = SQLAlchemyUserRepository(mock_session_factory)
-    hash_val = await repo.get_password_hash(tenant_id="GlobalMedica_01", email="test@globalmedica.com")
+    hash_val = await repo.get_password_hash(email="test@globalmedica.com")
 
     assert hash_val == "$2b$12$hashedpasswordstring"

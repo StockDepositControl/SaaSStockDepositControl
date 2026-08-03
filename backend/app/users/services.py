@@ -17,16 +17,16 @@ class AuthService:
         self.token_provider = token_provider
         self.access_token_expire_minutes = access_token_expire_minutes
 
-    async def authenticate(self, email: str, password: str, tenant_id: str) -> AuthToken:
+    async def authenticate(self, email: str, password: str) -> AuthToken:
         """
-        Authenticates a user against tenant_id and email using password_hasher,
+        Authenticates a user by email using password_hasher,
         and returns a signed AuthToken containing JWT claims.
         """
-        user = await self.user_repository.get_by_email(tenant_id=tenant_id, email=email)
+        user = await self.user_repository.get_by_email(email=email)
         if not user:
             raise EntityNotFoundException("User not found")
 
-        stored_hash = await self.user_repository.get_password_hash(tenant_id=tenant_id, email=email)
+        stored_hash = await self.user_repository.get_password_hash(email=email)
         if not stored_hash or not self.password_hasher.verify(password, stored_hash):
             raise BusinessRuleViolationException("Invalid credentials")
 

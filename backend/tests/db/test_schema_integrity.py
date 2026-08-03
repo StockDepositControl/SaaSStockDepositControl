@@ -44,11 +44,18 @@ def test_codigos_barra_articulo_fk(inspector):
     assert articulos_fk is not None, "CodigoBarraArticulo must have a foreign key to Articulos"
     assert articulos_fk.get('options', {}).get('ondelete') == 'RESTRICT', "Foreign key should ON DELETE RESTRICT"
 
-def test_articulos_double_price(inspector):
+def test_articulos_decimal_price(inspector):
     columns = inspector.get_columns('articulos')
     pcio_col = next((c for c in columns if c['name'] == 'pcio_com_siva'), None)
     assert pcio_col is not None, "pcio_com_siva column missing from articulos"
-    assert 'FLOAT' in str(pcio_col['type']).upper() or 'DOUBLE' in str(pcio_col['type']).upper() or 'REAL' in str(pcio_col['type']).upper()
+    col_type_str = str(pcio_col['type']).upper()
+    assert 'NUMERIC' in col_type_str or 'DECIMAL' in col_type_str, f"Expected NUMERIC/DECIMAL for pcio_com_siva, got {col_type_str}"
+
+def test_articulos_fulltext_index_declared(inspector):
+    indexes = inspector.get_indexes('articulos')
+    idx_names = [idx['name'] for idx in indexes]
+    assert 'ft_articulos_des_articulo' in idx_names, "Missing fulltext index 'ft_articulos_des_articulo' on articulos table."
+
 
 def test_orm_relationship_cascades():
     # Verify ORM model declarations specify cascade rules
@@ -87,3 +94,26 @@ def test_analytics_indexes(inspector):
 
     alert_idx = inspector.get_indexes('critical_shrinkage_alerts')
     assert any('risk_level' in idx['column_names'] for idx in alert_idx)
+
+def test_users_has_tenant_id(inspector):
+    columns = [col['name'] for col in inspector.get_columns('users')]
+    assert 'tenant_id' in columns, "Table 'users' is missing multi-tenant identifier 'tenant_id'."
+
+def test_users_tenant_email_unique_index(inspector):
+    indexes = inspector.get_indexes('users')
+    tenant_email_idx = next(
+        (idx for idx in indexes if set(idx['column_names']) == {'tenant_id', 'email'} and idx.get('unique')),
+        None
+    )
+    assert tenant_email_idx is not None, "Missing unique composite index on (tenant_id, email) for users table."
+
+def test_users_no_global_email_uniqueness(inspector):
+    indexes = inspector.get_indexes('users')
+    unique_constraints = inspector.get_unique_constraints('users')
+    for idx in indexes:
+        if idx['column_names'] == ['email'] and idx.get('unique'):
+            raise AssertionError("Found standalone unique index on 'email' — must be scoped to (tenant_id, email).")
+    for uc in unique_constraints:
+        if uc['column_names'] == ['email']:
+            raise AssertionError("Found standalone unique constraint on 'email' — must be scoped to (tenant_id, email).")
+

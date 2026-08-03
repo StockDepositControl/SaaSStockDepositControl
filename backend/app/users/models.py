@@ -12,7 +12,6 @@ class AuthToken(BaseModel):
     token_type: str
 
 class LoginCredentials(BaseModel):
-    tenant_id: str
     email: str
     password: str
 

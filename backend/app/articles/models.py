@@ -48,13 +48,16 @@ class Marca(MarcaBase):
 
 
 class ArticuloBase(BaseModel):
-    tenant_id: str
+    tenant_id: Optional[str] = None
     id_articulo: str
     presentacion: Optional[str] = None
     des_articulo: str
     id_marca: Optional[int] = None
-    id_familia: Optional[int] = None
-    id_grupo: Optional[int] = None
+    des_marca: Optional[str] = None
+    id_familia: Optional[str] = None
+    des_familia: Optional[str] = None
+    id_grupo: Optional[str] = None
+    des_grupo: Optional[str] = None
     pcio_com_siva: Decimal
 
 class ArticuloCreate(ArticuloBase):
@@ -64,8 +67,11 @@ class ArticuloUpdate(BaseModel):
     presentacion: Optional[str] = None
     des_articulo: Optional[str] = None
     id_marca: Optional[int] = None
-    id_familia: Optional[int] = None
-    id_grupo: Optional[int] = None
+    des_marca: Optional[str] = None
+    id_familia: Optional[str] = None
+    des_familia: Optional[str] = None
+    id_grupo: Optional[str] = None
+    des_grupo: Optional[str] = None
     pcio_com_siva: Optional[Decimal] = None
 
 class Articulo(ArticuloBase):
@@ -73,17 +79,21 @@ class Articulo(ArticuloBase):
 
 
 class ArticuloPublicOut(BaseModel):
-    tenant_id: str
+    tenant_id: Optional[str] = None
     id_articulo: str
     presentacion: Optional[str] = None
     des_articulo: str
     id_marca: Optional[int] = None
-    id_familia: Optional[int] = None
-    id_grupo: Optional[int] = None
+    des_marca: Optional[str] = None
+    id_familia: Optional[str] = None
+    des_familia: Optional[str] = None
+    id_grupo: Optional[str] = None
+    des_grupo: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class ArticuloAdminOut(ArticuloPublicOut):
     pcio_com_siva: Decimal
+
 
