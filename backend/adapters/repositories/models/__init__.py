@@ -7,6 +7,9 @@ from backend.adapters.repositories.models.articles import (
     StockPorDeposito,
     LotePorDeposito,
     CodigoBarraArticulo,
+    Empresa,
+    Sucursal,
+    Deposito,
 )
 from backend.adapters.repositories.models.users import (
     BaseUsers,
@@ -33,6 +36,9 @@ __all__ = [
     "StockPorDeposito",
     "LotePorDeposito",
     "CodigoBarraArticulo",
+    "Empresa",
+    "Sucursal",
+    "Deposito",
     "BaseUsers",
     "User",
     "Role",

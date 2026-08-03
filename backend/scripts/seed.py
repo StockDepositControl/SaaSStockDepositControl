@@ -4,6 +4,7 @@ import math
 import os
 import random
 import sys
+import uuid
 from datetime import timedelta, date, datetime
 from decimal import Decimal
 from faker import Faker
@@ -15,6 +16,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 
 from backend.adapters.repositories.models import (
     Familia, Grupo, Marca, Articulo, StockPorDeposito, LotePorDeposito, CodigoBarraArticulo,
+    Empresa, Sucursal, Deposito,
     Role, User, UserRoleAssociation, RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert, ActionType, RiskLevel
 )
 from backend.adapters.database.connection import SQLAlchemyConnectionProvider
@@ -66,7 +68,7 @@ async def run_seed(
     hasher = BcryptPasswordHasher()
     password_hash = hasher.hash("password123")
 
-    sucursales = [1, 2]
+    sucursales_ids = [1, 2]
     depositos = list(range(1, num_deposits + 1))
 
     try:
@@ -100,6 +102,34 @@ async def run_seed(
             await s_articles.raw_session.execute(delete(Grupo))
             await s_articles.raw_session.execute(delete(Familia))
             await s_articles.raw_session.execute(delete(Marca))
+            await s_articles.raw_session.execute(delete(Deposito))
+            await s_articles.raw_session.execute(delete(Sucursal))
+            await s_articles.raw_session.execute(delete(Empresa))
+            await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
+
+            # 1.5. Seed Empresa, Sucursales, and Depositos
+            empresa_obj = Empresa(id_empresa=1, des_empresa="Empresa Principal")
+            s_articles.raw_session.add(empresa_obj)
+
+            sucursales_objs = [
+                Sucursal(id_sucursal=1, id_empresa=1, des_sucursal="Sucursal Central"),
+                Sucursal(id_sucursal=2, id_empresa=1, des_sucursal="Sucursal Norte")
+            ]
+            s_articles.raw_session.add_all(sucursales_objs)
+
+            depositos_objs = []
+            valid_deposito_pairs = []
+            for d_id in range(1, num_deposits + 1):
+                # Distribute deposits across sucursales
+                s_id = sucursales_ids[(d_id - 1) % len(sucursales_ids)]
+                depositos_objs.append(Deposito(
+                    id_sucursal=s_id,
+                    id_deposito=d_id,
+                    id_empresa=1,
+                    des_deposito=f"Deposito {d_id}"[:30]
+                ))
+                valid_deposito_pairs.append((s_id, d_id))
+            s_articles.raw_session.add_all(depositos_objs)
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
 
             # 2. Seed Families (State C Fiscal Mix requirement: Medicamentos 0% VAT, others taxable)
@@ -164,9 +194,8 @@ async def run_seed(
             ghost_indices = set(random.sample(range(count), ghost_count_target))
 
             for idx, art in enumerate(articulos):
-                empresa = 1 if (idx % 2 == 0) else 2
-                sucursal = random.choice(sucursales)
-                deposito = random.choice(depositos)
+                empresa = 1
+                sucursal, deposito = random.choice(valid_deposito_pairs)
                 is_ghost = idx in ghost_indices
 
                 stock_real = 0.0 if is_ghost else float(random.randint(10, 200))
@@ -224,7 +253,7 @@ async def run_seed(
             # 8. Seed Users & UserRoles (db_users)
             new_users = []
             for idx in range(12):
-                sucursal = sucursales[idx % len(sucursales)]
+                sucursal = sucursales_ids[idx % len(sucursales_ids)]
                 first, *last = fake.name().split()
                 last_name = " ".join(last) if last else "Doe"
                 tenant_str = "FARMA-001" if idx < 6 else "FARMA-002"
@@ -278,8 +307,10 @@ async def run_seed(
                     applied_unit_cost=unit_cost,
                     applied_vat_rate=applied_vat,
                     valorized_amount=val_amount,
-                    scan_timestamp=datetime.utcnow() - timedelta(days=random.randint(0, 30))
+                    scan_timestamp=datetime.utcnow() - timedelta(days=random.randint(0, 30)),
+                    client_uuid=str(uuid.uuid4())
                 ))
+
             s_analytics.raw_session.add_all(analytics_audits)
 
             # 11. Seed DailyReports (db_analytics)

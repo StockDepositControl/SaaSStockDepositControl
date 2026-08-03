@@ -1,6 +1,9 @@
 import pytest
 from sqlalchemy import create_engine, inspect
-from backend.adapters.repositories.models import BaseArticles, BaseUsers, BaseAnalytics, Familia, Grupo, Articulo, StockPorDeposito, LotePorDeposito, CodigoBarraArticulo
+from backend.adapters.repositories.models import (
+    BaseArticles, BaseUsers, BaseAnalytics, Familia, Grupo, Articulo,
+    StockPorDeposito, LotePorDeposito, CodigoBarraArticulo, Empresa, Sucursal, Deposito
+)
 
 @pytest.fixture(scope="module")
 def inspector():
@@ -10,6 +13,82 @@ def inspector():
     BaseUsers.metadata.create_all(engine)
     BaseAnalytics.metadata.create_all(engine)
     return inspect(engine)
+
+def test_empresas_table_exists(inspector):
+    tables = inspector.get_table_names()
+    assert 'empresas' in tables
+    cols = [col['name'] for col in inspector.get_columns('empresas')]
+    assert 'id_empresa' in cols
+    assert 'des_empresa' in cols
+
+def test_sucursales_table_exists(inspector):
+    tables = inspector.get_table_names()
+    assert 'sucursales' in tables
+    cols = [col['name'] for col in inspector.get_columns('sucursales')]
+    assert 'id_sucursal' in cols
+    assert 'id_empresa' in cols
+    assert 'des_sucursal' in cols
+
+def test_depositos_table_exists(inspector):
+    tables = inspector.get_table_names()
+    assert 'depositos' in tables
+    cols = [col['name'] for col in inspector.get_columns('depositos')]
+    assert 'id_sucursal' in cols
+    assert 'id_deposito' in cols
+    assert 'id_empresa' in cols
+    assert 'des_deposito' in cols
+
+def test_sucursales_fk_to_empresas(inspector):
+    fks = inspector.get_foreign_keys('sucursales')
+    emp_fk = next((fk for fk in fks if fk['referred_table'] == 'empresas'), None)
+    assert emp_fk is not None
+    assert emp_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+    assert emp_fk.get('options', {}).get('onupdate') == 'CASCADE'
+
+def test_depositos_fk_to_sucursales(inspector):
+    fks = inspector.get_foreign_keys('depositos')
+    suc_fk = next((fk for fk in fks if fk['referred_table'] == 'sucursales'), None)
+    assert suc_fk is not None
+    assert suc_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+    assert suc_fk.get('options', {}).get('onupdate') == 'CASCADE'
+
+def test_depositos_fk_to_empresas(inspector):
+    fks = inspector.get_foreign_keys('depositos')
+    emp_fk = next((fk for fk in fks if fk['referred_table'] == 'empresas'), None)
+    assert emp_fk is not None
+    assert emp_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+    assert emp_fk.get('options', {}).get('onupdate') == 'CASCADE'
+
+def test_stock_fk_to_empresas(inspector):
+    fks = inspector.get_foreign_keys('stock_por_deposito')
+    emp_fk = next((fk for fk in fks if fk['referred_table'] == 'empresas'), None)
+    assert emp_fk is not None
+    assert emp_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+
+def test_stock_fk_to_depositos(inspector):
+    fks = inspector.get_foreign_keys('stock_por_deposito')
+    dep_fk = next((fk for fk in fks if fk['referred_table'] == 'depositos'), None)
+    assert dep_fk is not None
+    assert dep_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+
+def test_lotes_fk_to_empresas(inspector):
+    fks = inspector.get_foreign_keys('lotes_por_deposito')
+    emp_fk = next((fk for fk in fks if fk['referred_table'] == 'empresas'), None)
+    assert emp_fk is not None
+    assert emp_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+
+def test_lotes_fk_to_depositos(inspector):
+    fks = inspector.get_foreign_keys('lotes_por_deposito')
+    dep_fk = next((fk for fk in fks if fk['referred_table'] == 'depositos'), None)
+    assert dep_fk is not None
+    assert dep_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+
+def test_empresa_orm_cascade():
+    assert "delete-orphan" in Empresa.sucursales.property.cascade
+    assert "delete-orphan" in Empresa.depositos.property.cascade
+
+def test_sucursal_orm_cascade():
+    assert "delete-orphan" in Sucursal.depositos.property.cascade
 
 def test_stock_and_lotes_have_id_empresa(inspector):
     empresa_tables = ['stock_por_deposito', 'lotes_por_deposito']
@@ -116,4 +195,14 @@ def test_users_no_global_email_uniqueness(inspector):
     for uc in unique_constraints:
         if uc['column_names'] == ['email']:
             raise AssertionError("Found standalone unique constraint on 'email' — must be scoped to (tenant_id, email).")
+
+
+def test_audit_records_has_client_uuid(inspector):
+    columns = [col['name'] for col in inspector.get_columns('audit_records')]
+    assert 'client_uuid' in columns, "Table 'audit_records' missing 'client_uuid' column."
+
+    indexes = inspector.get_indexes('audit_records')
+    idx_names = [idx['name'] for idx in indexes]
+    assert 'idx_audit_tenant_client_uuid' in idx_names or any('client_uuid' in idx['column_names'] for idx in indexes)
+
 

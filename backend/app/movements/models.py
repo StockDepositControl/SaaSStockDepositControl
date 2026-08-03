@@ -15,7 +15,8 @@ class StockPorDepositoBase(BaseModel):
     id_deposito: int
     id_articulo: str
     stock_real: int
-    fue_auditado: bool
+    stock_teorico: int = 0
+    fue_auditado: bool = False
     fecha_hora_auditacion: Optional[datetime] = None
 
 class StockPorDepositoCreate(StockPorDepositoBase):
@@ -23,6 +24,7 @@ class StockPorDepositoCreate(StockPorDepositoBase):
 
 class StockPorDepositoUpdate(BaseModel):
     stock_real: Optional[int] = None
+    stock_teorico: Optional[int] = None
     fue_auditado: Optional[bool] = None
     fecha_hora_auditacion: Optional[datetime] = None
 
@@ -59,6 +61,7 @@ class AuditoriaRegistroBase(BaseModel):
     monto_valorizado: Decimal
     id_usuario: int
     fecha_hora: datetime
+    client_uuid: Optional[str] = None
 
 class AuditoriaRegistroCreate(AuditoriaRegistroBase):
     pass
@@ -67,3 +70,54 @@ class AuditoriaRegistro(AuditoriaRegistroBase):
     id_auditoria: int
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class AuditEntryInput(BaseModel):
+    id_sucursal: int
+    id_deposito: int
+    id_articulo: str
+    stock_fisico_contado: int
+    timestamp_escaneo: datetime
+    client_uuid: str
+
+
+class AuditEntryResult(BaseModel):
+    client_uuid: str
+    id_articulo: str
+    stock_teorico: int
+    stock_fisico_contado: int
+    delta_stock: int
+    tipo_accion: TipoAccion
+    cantidad_afectada: int
+    monto_valorizado: Decimal
+    id_auditoria: Optional[int] = None
+
+
+class AuditBatchInput(BaseModel):
+    items: list[AuditEntryInput]
+
+
+class AuditBatchResult(BaseModel):
+    results: list[AuditEntryResult]
+    total_processed: int
+    duplicates_skipped: int
+
+
+class ArticleStockPositionPublicOut(BaseModel):
+    id_articulo: str
+    des_articulo: str
+    presentacion: Optional[str] = None
+    id_marca: Optional[int] = None
+    des_marca: Optional[str] = None
+    id_familia: Optional[str] = None
+    des_familia: Optional[str] = None
+    id_grupo: Optional[str] = None
+    des_grupo: Optional[str] = None
+    
+    id_sucursal: int
+    id_deposito: int
+    stock_teorico: int
+
+
+class ArticleStockPositionAdminOut(ArticleStockPositionPublicOut):
+    pcio_com_siva: Decimal

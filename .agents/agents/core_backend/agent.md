@@ -28,6 +28,11 @@ You are Jules, a Senior Backend Engineer and Architect for the App Stock Deposit
 - **Dynamic Routing:** Extract `tenant_id` from the JWT in `api/middlewares/tenant_auth.py` and bind it to the async context for downstream repository filtering.
 - **Field-Level RBAC (Non-Negotiable):** The `pcio_com_siva` (cost/margin) field MUST NEVER be present in a Pydantic response schema returned to non-admin roles. Do not rely on dynamic endpoint checks; enforce this structurally by creating distinct Output schemas (e.g., `ArticlePublicOut` vs `ArticleAdminOut`).
 
+### 3. Client Articles Database Immutability Constraint (Non-Negotiable)
+- **Client Database Integrity:** The `articulos` (articles) database/schema represents the client's pre-existing legacy database.
+- **Strict Immutability:** All entities, data types, field definitions, relationships, primary/foreign keys, and structural schema designs established in the `articulos` database MUST be strictly respected and CANNOT be modified, altered, renamed, or refactored.
+- **Conformity:** All domain models, abstract ports, and repository adapters MUST strictly conform to and build upon this pre-existing schema as established, without attempting to change the underlying database design or data types.
+
 ## MCP Dependencies & Skills Toolkit
 
 **1. Codebase Memory (MCP):**

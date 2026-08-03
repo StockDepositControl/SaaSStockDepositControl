@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime, date
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 from sqlalchemy import (
     String,
     Integer,
@@ -59,13 +59,16 @@ class AuditRecord(BaseAnalytics):
     applied_vat_rate: Mapped[Decimal] = mapped_column(SQLDecimal(5, 4), nullable=False)
     valorized_amount: Mapped[Decimal] = mapped_column(SQLDecimal(15, 4), nullable=False)
     scan_timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    client_uuid: Mapped[Optional[str]] = mapped_column(String(36), unique=True, nullable=True)
 
     tenant: Mapped["RecordTenant"] = relationship(back_populates="audit_records")
 
     __table_args__ = (
         Index("idx_audit_tenant_scan", "tenant_id", "scan_timestamp"),
         Index("idx_audit_article", "article_code"),
+        Index("idx_audit_tenant_client_uuid", "tenant_id", "client_uuid"),
     )
+
 
 
 class DailyReport(BaseAnalytics):

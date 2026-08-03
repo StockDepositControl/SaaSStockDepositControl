@@ -4,8 +4,31 @@ from datetime import date
 from backend.scripts.seed import run_seed
 from backend.adapters.repositories.models import (
     Articulo, StockPorDeposito, LotePorDeposito, CodigoBarraArticulo, Familia,
+    Empresa, Sucursal, Deposito,
     Role, User, RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert
 )
+
+@pytest.mark.asyncio
+async def test_seed_creates_empresa_sucursal_deposito(async_sessions, db_engines):
+    await run_seed(
+        count=100,
+        seed_val=123,
+        url_articles=db_engines["url_articles"],
+        url_users=db_engines["url_users"],
+        url_analytics=db_engines["url_analytics"]
+    )
+
+    s_articles = async_sessions["articles"]
+
+    res_emp = await s_articles.execute(select(func.count(Empresa.id_empresa)))
+    assert res_emp.scalar() == 1
+
+    res_suc = await s_articles.execute(select(func.count(Sucursal.id_sucursal)))
+    assert res_suc.scalar() == 2
+
+    res_dep = await s_articles.execute(select(func.count(Deposito.id_deposito)))
+    assert res_dep.scalar() == 5
+
 
 @pytest.mark.asyncio
 async def test_seed_creates_expected_counts(async_sessions, db_engines):
@@ -103,15 +126,9 @@ async def test_seed_multi_tenant_isolation(async_sessions, db_engines):
     res_e1 = await s_articles.execute(
         select(func.count(StockPorDeposito.id_articulo)).where(StockPorDeposito.id_empresa == 1)
     )
-    res_e2 = await s_articles.execute(
-        select(func.count(StockPorDeposito.id_articulo)).where(StockPorDeposito.id_empresa == 2)
-    )
     e1_count = res_e1.scalar()
-    e2_count = res_e2.scalar()
 
-    assert e1_count > 0
-    assert e2_count > 0
-    assert e1_count + e2_count == 100
+    assert e1_count == 100
 
 
 @pytest.mark.asyncio

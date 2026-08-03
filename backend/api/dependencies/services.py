@@ -39,3 +39,15 @@ def get_article_search_service() -> "ArticleSearchService":
     repo = SQLAlchemyArticleRepository(session_factory)
     return ArticleSearchService(article_repository=repo)
 
+
+def get_audit_service() -> "AuditService":
+    """
+    FastAPI dependency that instantiates stock and audit repositories and returns AuditService.
+    """
+    from backend.app.movements.services import AuditService
+    from backend.adapters.repositories.stock_repository import SQLAlchemyStockRepository
+    from backend.adapters.repositories.audit_repository import SQLAlchemyAuditRepository
+
+    stock_repo = SQLAlchemyStockRepository()
+    audit_repo = SQLAlchemyAuditRepository()
+    return AuditService(stock_repository=stock_repo, audit_repository=audit_repo)
