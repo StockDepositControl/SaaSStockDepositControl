@@ -31,7 +31,7 @@ class SQLAlchemyUserRepository(UserRepositoryPort):
             nombre_completo=f"{user_orm.first_name} {user_orm.last_name}".strip(),
             email=user_orm.email,
             rol=role_name,
-            id_sucursal=user_orm.branch_id or 1
+            branch_id=user_orm.branch_id
         )
 
     async def get_by_email(self, email: str) -> Optional[User]:

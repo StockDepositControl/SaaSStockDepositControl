@@ -24,9 +24,14 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
                 if tenant_id is not None:
                     set_tenant_id(str(tenant_id))
 
-                sucursal_id = payload.get("id_sucursal")
-                if sucursal_id is not None:
-                    set_sucursal_id(int(sucursal_id))
+                branch_id = payload.get("branch_id")
+                if branch_id is not None:
+                    set_sucursal_id(int(branch_id))
+                elif tenant_id is not None:
+                    try:
+                        set_sucursal_id(int(tenant_id))
+                    except (ValueError, TypeError):
+                        pass
 
                 user_id = payload.get("id_usuario")
                 if user_id is not None:

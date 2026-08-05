@@ -16,7 +16,7 @@ async def test_authenticate_success():
         nombre_completo="Juan Perez",
         email="juan@tenant1.com",
         rol=UserRole.SUPERVISOR,
-        id_sucursal=2
+        branch_id=2
     )
 
     mock_repo.get_by_email.return_value = dummy_user
@@ -45,7 +45,7 @@ async def test_authenticate_success():
     assert token_payload["sub"] == "juan@tenant1.com"
     assert token_payload["role"] == "supervisor"
     assert token_payload["tenant_id"] == "Tenant1"
-    assert token_payload["id_sucursal"] == 2
+    assert token_payload["branch_id"] == 2
     assert token_payload["id_usuario"] == 10
 
 @pytest.mark.asyncio
@@ -79,7 +79,7 @@ async def test_authenticate_invalid_password():
         nombre_completo="User",
         email="user@tenant.com",
         rol=UserRole.AUDITOR,
-        id_sucursal=1
+        branch_id=1
     )
 
     mock_repo.get_by_email.return_value = dummy_user

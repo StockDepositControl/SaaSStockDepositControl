@@ -20,7 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    op.add_column('users', sa.Column('tenant_id', sa.String(length=50), nullable=False, server_default=''))
+    op.add_column('users', sa.Column('tenant_id', sa.Integer(), nullable=False, server_default='1'))
     # Drop global unique constraint on email
     try:
         op.drop_constraint('email', 'users', type_='unique')

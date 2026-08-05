@@ -47,10 +47,26 @@ class SQLAlchemyStockRepository(StockRepositoryPort):
                 id_deposito=stock_orm.id_deposito,
                 id_articulo=str(stock_orm.id_articulo).strip(),
                 stock_real=stock_real_int,
-                stock_teorico=stock_real_int,
                 fue_auditado=False,
                 fecha_hora_auditacion=None,
             )
+
+    async def update_stock_real(
+        self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str, new_stock_real: int
+    ) -> None:
+        from sqlalchemy import update
+        async with self.session_factory() as session:
+            stmt = (
+                update(StockPorDepositoORM)
+                .where(
+                    StockPorDepositoORM.id_sucursal == id_sucursal,
+                    StockPorDepositoORM.id_deposito == id_deposito,
+                    StockPorDepositoORM.id_articulo == id_articulo,
+                )
+                .values(stock_real=float(new_stock_real))
+            )
+            await session.execute(stmt)
+            await session.commit()
 
 
     async def get_article_cost_info(

@@ -198,7 +198,7 @@ async def run_seed(
                 sucursal, deposito = random.choice(valid_deposito_pairs)
                 is_ghost = idx in ghost_indices
 
-                stock_real = 0.0 if is_ghost else float(random.randint(10, 200))
+                stock_real = 0 if is_ghost else random.randint(10, 200)
 
                 stocks.append(StockPorDeposito(
                     id_empresa=empresa,
@@ -226,7 +226,7 @@ async def run_seed(
                         days_offset = random.randint(61, 365)
 
                     vencimiento_date = date.today() + timedelta(days=days_offset)
-                    lote_stock = max(0.0, float(stock_real // num_lotes))
+                    lote_stock = max(0, int(stock_real // num_lotes))
 
                     lotes.append(LotePorDeposito(
                         id_empresa=empresa,
@@ -256,9 +256,9 @@ async def run_seed(
                 sucursal = sucursales_ids[idx % len(sucursales_ids)]
                 first, *last = fake.name().split()
                 last_name = " ".join(last) if last else "Doe"
-                tenant_str = "FARMA-001" if idx < 6 else "FARMA-002"
+                tenant_id = 1 if idx < 6 else 2
                 new_u = User(
-                    tenant_id=tenant_str,
+                    tenant_id=tenant_id,
                     first_name=first,
                     last_name=last_name,
                     email=f"user_{idx}@example.com",
@@ -297,18 +297,22 @@ async def run_seed(
                 unit_cost = Decimal(str(art.pcio_com_siva))
                 val_amount = (unit_cost * (Decimal('1') + applied_vat) * Decimal(str(cant))).quantize(Decimal('0.0001'))
 
+                act_type_str = act_type.value if hasattr(act_type, "value") else str(act_type)
+                audit_qty = max(0, random.randint(10, 200) - cant)
                 analytics_audits.append(AuditRecord(
                     tenant_id=t_obj.tenant_id,
                     warehouse_id=random.choice(depositos),
                     article_code=art.id_articulo.strip(),
                     user_id=random.choice(new_users).user_id,
-                    action_type=act_type,
+                    action_type=act_type_str,
                     affected_amount=cant,
+                    audit_quantity=audit_qty,
                     applied_unit_cost=unit_cost,
                     applied_vat_rate=applied_vat,
                     valorized_amount=val_amount,
                     scan_timestamp=datetime.utcnow() - timedelta(days=random.randint(0, 30)),
-                    client_uuid=str(uuid.uuid4())
+                    client_uuid=str(uuid.uuid4()),
+                    observation=f"Automated audit check for {art.id_articulo.strip()}"
                 ))
 
             s_analytics.raw_session.add_all(analytics_audits)

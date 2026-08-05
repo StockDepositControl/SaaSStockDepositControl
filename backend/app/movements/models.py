@@ -15,7 +15,6 @@ class StockPorDepositoBase(BaseModel):
     id_deposito: int
     id_articulo: str
     stock_real: int
-    stock_teorico: int = 0
     fue_auditado: bool = False
     fecha_hora_auditacion: Optional[datetime] = None
 
@@ -24,7 +23,6 @@ class StockPorDepositoCreate(StockPorDepositoBase):
 
 class StockPorDepositoUpdate(BaseModel):
     stock_real: Optional[int] = None
-    stock_teorico: Optional[int] = None
     fue_auditado: Optional[bool] = None
     fecha_hora_auditacion: Optional[datetime] = None
 
@@ -62,6 +60,8 @@ class AuditoriaRegistroBase(BaseModel):
     id_usuario: int
     fecha_hora: datetime
     client_uuid: Optional[str] = None
+    observation: Optional[str] = None
+    audit_action_type: Optional[str] = None
 
 class AuditoriaRegistroCreate(AuditoriaRegistroBase):
     pass
@@ -73,18 +73,18 @@ class AuditoriaRegistro(AuditoriaRegistroBase):
 
 
 class AuditEntryInput(BaseModel):
-    id_sucursal: int
-    id_deposito: int
+    id_sucursal: Optional[int] = None
+    id_deposito: Optional[int] = None
     id_articulo: str
     stock_fisico_contado: int
-    timestamp_escaneo: datetime
-    client_uuid: str
+    observation: Optional[str] = None
+    audit_action_type: Optional[str] = None
 
 
 class AuditEntryResult(BaseModel):
     client_uuid: str
     id_articulo: str
-    stock_teorico: int
+    stock_real: int
     stock_fisico_contado: int
     delta_stock: int
     tipo_accion: TipoAccion
@@ -104,19 +104,15 @@ class AuditBatchResult(BaseModel):
 
 
 class ArticleStockPositionPublicOut(BaseModel):
-    id_articulo: str
     des_articulo: str
     presentacion: Optional[str] = None
-    id_marca: Optional[int] = None
     des_marca: Optional[str] = None
-    id_familia: Optional[str] = None
     des_familia: Optional[str] = None
-    id_grupo: Optional[str] = None
     des_grupo: Optional[str] = None
     
     id_sucursal: int
     id_deposito: int
-    stock_teorico: int
+    stock_real: int
 
 
 class ArticleStockPositionAdminOut(ArticleStockPositionPublicOut):

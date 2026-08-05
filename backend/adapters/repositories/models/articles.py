@@ -96,7 +96,7 @@ class StockPorDeposito(BaseArticles):
     id_sucursal: Mapped[int] = mapped_column(Integer, primary_key=True)
     id_deposito: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     id_articulo: Mapped[str] = mapped_column(CHAR(25), primary_key=True)
-    stock_real: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    stock_real: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     articulo: Mapped["Articulo"] = relationship()
     empresa: Mapped["Empresa"] = relationship()
@@ -142,7 +142,7 @@ class LotePorDeposito(BaseArticles):
     id_articulo: Mapped[str] = mapped_column(CHAR(25), primary_key=True)
     lote: Mapped[str] = mapped_column(String(10), primary_key=True)
     vencimiento: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    stock_real: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    stock_real: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     articulo: Mapped["Articulo"] = relationship()
     empresa: Mapped["Empresa"] = relationship()

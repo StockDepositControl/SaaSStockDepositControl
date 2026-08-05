@@ -20,7 +20,7 @@ class UserBase(BaseModel):
     nombre_completo: str
     email: str
     rol: UserRole
-    id_sucursal: int
+    branch_id: Optional[int] = None
 
 class UserCreate(UserBase):
     password: str
@@ -29,7 +29,7 @@ class UserUpdate(BaseModel):
     nombre_completo: Optional[str] = None
     email: Optional[str] = None
     rol: Optional[UserRole] = None
-    id_sucursal: Optional[int] = None
+    branch_id: Optional[int] = None
     password: Optional[str] = None
 
 class User(UserBase):

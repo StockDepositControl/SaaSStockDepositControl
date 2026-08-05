@@ -34,7 +34,7 @@ class AuthService:
             "sub": user.email,
             "role": user.rol.value if hasattr(user.rol, "value") else str(user.rol),
             "tenant_id": user.tenant_id,
-            "id_sucursal": user.id_sucursal,
+            "branch_id": user.branch_id,
             "id_usuario": user.id_usuario,
         }
 

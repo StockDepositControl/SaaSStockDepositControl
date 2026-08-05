@@ -52,6 +52,8 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
                 valorized_amount=record.monto_valorizado,
                 scan_timestamp=record.fecha_hora,
                 client_uuid=record.client_uuid,
+                observation=record.observation,
+                audit_action_type=record.audit_action_type,
             )
             session.add(orm_record)
             await session.commit()
@@ -69,6 +71,8 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
                 id_usuario=record.id_usuario,
                 fecha_hora=record.fecha_hora,
                 client_uuid=orm_record.client_uuid,
+                observation=record.observation,
+                audit_action_type=record.audit_action_type,
             )
 
     async def exists_by_client_uuid(

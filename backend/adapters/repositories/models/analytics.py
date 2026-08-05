@@ -53,13 +53,15 @@ class AuditRecord(BaseAnalytics):
     warehouse_id: Mapped[int] = mapped_column(Integer, nullable=True)
     article_code: Mapped[str] = mapped_column(String(100), nullable=False)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    action_type: Mapped[ActionType] = mapped_column(Enum(ActionType), nullable=False)
+    action_type: Mapped[str] = mapped_column(String(50), nullable=False)
     affected_amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    audit_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     applied_unit_cost: Mapped[Decimal] = mapped_column(SQLDecimal(15, 4), nullable=False)
     applied_vat_rate: Mapped[Decimal] = mapped_column(SQLDecimal(5, 4), nullable=False)
     valorized_amount: Mapped[Decimal] = mapped_column(SQLDecimal(15, 4), nullable=False)
     scan_timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     client_uuid: Mapped[Optional[str]] = mapped_column(String(36), unique=True, nullable=True)
+    observation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     tenant: Mapped["RecordTenant"] = relationship(back_populates="audit_records")
 

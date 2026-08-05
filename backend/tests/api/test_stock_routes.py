@@ -28,12 +28,12 @@ def test_get_stock_position_admin_includes_cost(mock_search_service, mock_audit_
     app.dependency_overrides[require_audit_roles] = lambda: {
         "sub": "admin@example.com",
         "role": "administrador",
-        "tenant_id": "tenant-01",
+        "tenant_id": "1",
         "id_usuario": 1
     }
 
     mock_article = Articulo(
-        tenant_id="tenant-01",
+        tenant_id="1",
         id_articulo="1042",
         presentacion="Caja x 20",
         des_articulo="Ibuprofeno 400mg",
@@ -48,12 +48,11 @@ def test_get_stock_position_admin_includes_cost(mock_search_service, mock_audit_
     mock_search_service.get_article_by_id.return_value = mock_article
     
     mock_stock_pos = StockPorDeposito(
-        tenant_id="tenant-01",
+        tenant_id="1",
         id_sucursal=1,
         id_deposito=1,
         id_articulo="1042",
-        stock_real=100,
-        stock_teorico=95
+        stock_real=95,
     )
     mock_audit_service.stock_repository.get_stock_position.return_value = mock_stock_pos
 
@@ -61,13 +60,15 @@ def test_get_stock_position_admin_includes_cost(mock_search_service, mock_audit_
     app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
 
     client = TestClient(app)
-    response = client.get("/api/v1/stock/position?id_articulo=1042&id_sucursal=1&id_deposito=1")
+    # Query without id_sucursal and id_deposito, testing fallback to tenant_id=1
+    response = client.get("/api/v1/stock/position?id_articulo=1042")
 
     assert response.status_code == 200
     data = response.json()
-    assert data["id_articulo"] == "1042"
     assert data["des_articulo"] == "Ibuprofeno 400mg"
-    assert data["stock_teorico"] == 95
+    assert data["stock_real"] == 95
+    assert "id_articulo" not in data
+    assert "stock_teorico" not in data
     assert "pcio_com_siva" in data
     assert Decimal(str(data["pcio_com_siva"])) == Decimal("150.00")
 
@@ -79,12 +80,12 @@ def test_get_stock_position_auditor_hides_cost(mock_search_service, mock_audit_s
     app.dependency_overrides[require_audit_roles] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
-        "tenant_id": "tenant-01",
+        "tenant_id": "1",
         "id_usuario": 2
     }
 
     mock_article = Articulo(
-        tenant_id="tenant-01",
+        tenant_id="1",
         id_articulo="1042",
         des_articulo="Ibuprofeno 400mg",
         pcio_com_siva=Decimal("150.00")
@@ -92,12 +93,11 @@ def test_get_stock_position_auditor_hides_cost(mock_search_service, mock_audit_s
     mock_search_service.get_article_by_id.return_value = mock_article
     
     mock_stock_pos = StockPorDeposito(
-        tenant_id="tenant-01",
+        tenant_id="1",
         id_sucursal=1,
         id_deposito=1,
         id_articulo="1042",
-        stock_real=100,
-        stock_teorico=95
+        stock_real=95,
     )
     mock_audit_service.stock_repository.get_stock_position.return_value = mock_stock_pos
 
@@ -109,7 +109,7 @@ def test_get_stock_position_auditor_hides_cost(mock_search_service, mock_audit_s
 
     assert response.status_code == 200
     data = response.json()
-    assert data["stock_teorico"] == 95
+    assert data["stock_real"] == 95
     assert "pcio_com_siva" not in data
 
     app.dependency_overrides.clear()
@@ -120,7 +120,7 @@ def test_get_stock_position_not_found(mock_search_service, mock_audit_service):
     app.dependency_overrides[require_audit_roles] = lambda: {
         "sub": "admin@example.com",
         "role": "administrador",
-        "tenant_id": "tenant-01",
+        "tenant_id": "1",
         "id_usuario": 1
     }
 

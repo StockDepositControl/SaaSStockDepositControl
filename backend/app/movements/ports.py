@@ -13,7 +13,16 @@ class StockRepositoryPort(ABC):
         self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str
     ) -> Optional[StockPorDeposito]:
         """
-        Retrieves current stock position (stock_real and stock_teorico) for a specific deposit and article.
+        Retrieves current stock position (stock_real) for a specific deposit and article.
+        """
+        pass
+
+    @abstractmethod
+    async def update_stock_real(
+        self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str, new_stock_real: int
+    ) -> None:
+        """
+        Updates stock_real in StockPorDeposito entity.
         """
         pass
 

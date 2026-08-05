@@ -15,7 +15,7 @@ async def test_get_by_email_found():
     mock_usuario.nombre_completo = "Test User"
     mock_usuario.email = "test@globalmedica.com"
     mock_usuario.rol = UserRole.ADMINISTRADOR
-    mock_usuario.id_sucursal = 1
+    mock_usuario.branch_id = 1
     mock_usuario.is_active = True
 
     mock_result = MagicMock()

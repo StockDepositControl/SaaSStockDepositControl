@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, status
-from typing import Union
+from typing import Union, Optional
 from backend.app.movements.models import (
     AuditEntryInput,
     AuditEntryResult,
@@ -41,6 +41,63 @@ async def register_single_audit(
     )
     return result
 
+@router.get(
+    "/position",
+    response_model=Union[ArticleStockPositionAdminOut, ArticleStockPositionPublicOut],
+    status_code=status.HTTP_200_OK,
+    summary="Fetch Article Stock Position",
+    description="Retrieves article catalog metadata alongside its current stock position scoped to a specific deposit.",
+)
+async def get_article_stock_position(
+    id_articulo: str = Query(..., description="Article Identifier"),
+    id_sucursal: Optional[int] = Query(None, description="Branch/Store ID"),
+    id_deposito: Optional[int] = Query(None, description="Warehouse/Deposit ID"),
+    claims: dict = Depends(require_audit_roles),
+    search_service: ArticleSearchService = Depends(get_article_search_service),
+    audit_service: AuditService = Depends(get_audit_service),
+) -> Union[ArticleStockPositionAdminOut, ArticleStockPositionPublicOut]:
+    tenant_id = str(claims.get("tenant_id", "1"))
+    user_role = claims.get("role", "").lower()
+    is_admin = (user_role == "administrador")
+
+    try:
+        tenant_int = int(tenant_id)
+    except (ValueError, TypeError):
+        tenant_int = 1
+
+    resolved_sucursal = id_sucursal if id_sucursal is not None else tenant_int
+    resolved_deposito = id_deposito if id_deposito is not None else tenant_int
+
+    # 1. Fetch Article Metadata
+    article = await search_service.get_article_by_id(id_articulo)
+
+    # 2. Fetch Stock Position
+    stock_pos = await audit_service.stock_repository.get_stock_position(
+        tenant_id=tenant_id,
+        id_sucursal=resolved_sucursal,
+        id_deposito=resolved_deposito,
+        id_articulo=id_articulo,
+    )
+
+    # 3. Combine Data
+    stock_real = stock_pos.stock_real if stock_pos else 0
+
+    base_data = {
+        "des_articulo": article.des_articulo,
+        "presentacion": article.presentacion,
+        "des_marca": article.des_marca,
+        "des_familia": article.des_familia,
+        "des_grupo": article.des_grupo,
+        "id_sucursal": resolved_sucursal,
+        "id_deposito": resolved_deposito,
+        "stock_real": stock_real,
+    }
+
+    if is_admin:
+        base_data["pcio_com_siva"] = article.pcio_com_siva
+        return ArticleStockPositionAdminOut(**base_data)
+    else:
+        return ArticleStockPositionPublicOut(**base_data)
 
 @router.post(
     "/audit/batch",
@@ -63,58 +120,3 @@ async def register_batch_audit(
         batch=batch,
     )
     return result
-
-@router.get(
-    "/position",
-    response_model=Union[ArticleStockPositionAdminOut, ArticleStockPositionPublicOut],
-    status_code=status.HTTP_200_OK,
-    summary="Fetch Article Stock Position",
-    description="Retrieves article catalog metadata alongside its current theoretical stock scoped to a specific deposit.",
-)
-async def get_article_stock_position(
-    id_articulo: str = Query(..., description="Article Identifier"),
-    id_sucursal: int = Query(..., description="Branch/Store ID"),
-    id_deposito: int = Query(..., description="Warehouse/Deposit ID"),
-    claims: dict = Depends(require_audit_roles),
-    search_service: ArticleSearchService = Depends(get_article_search_service),
-    audit_service: AuditService = Depends(get_audit_service),
-) -> Union[ArticleStockPositionAdminOut, ArticleStockPositionPublicOut]:
-    tenant_id = str(claims.get("tenant_id", "1"))
-    user_role = claims.get("role", "").lower()
-    is_admin = (user_role == "administrador")
-
-    # 1. Fetch Article Metadata
-    article = await search_service.get_article_by_id(id_articulo)
-
-    # 2. Fetch Stock Position
-    stock_pos = await audit_service.stock_repository.get_stock_position(
-        tenant_id=tenant_id,
-        id_sucursal=id_sucursal,
-        id_deposito=id_deposito,
-        id_articulo=id_articulo,
-    )
-
-    # 3. Combine Data
-    stock_teorico = stock_pos.stock_teorico if stock_pos else 0
-
-    base_data = {
-        "id_articulo": article.id_articulo,
-        "des_articulo": article.des_articulo,
-        "presentacion": article.presentacion,
-        "id_marca": article.id_marca,
-        "des_marca": article.des_marca,
-        "id_familia": article.id_familia,
-        "des_familia": article.des_familia,
-        "id_grupo": article.id_grupo,
-        "des_grupo": article.des_grupo,
-        "id_sucursal": id_sucursal,
-        "id_deposito": id_deposito,
-        "stock_teorico": stock_teorico,
-    }
-
-    if is_admin:
-        base_data["pcio_com_siva"] = article.pcio_com_siva
-        return ArticleStockPositionAdminOut(**base_data)
-    else:
-        return ArticleStockPositionPublicOut(**base_data)
-

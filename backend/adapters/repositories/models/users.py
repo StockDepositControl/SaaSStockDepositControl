@@ -19,7 +19,7 @@ class User(BaseUsers):
     __tablename__ = "users"
 
     user_id: Mapped[int] = mapped_column(Integer().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
-    tenant_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(Integer, nullable=False)
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(255), nullable=False)
