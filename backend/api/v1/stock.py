@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from typing import Union, Optional
 from backend.app.movements.models import (
-    AuditEntryInput,
+    AuditEntryRequest,
     AuditEntryResult,
     AuditBatchInput,
     AuditBatchResult,
@@ -24,15 +24,28 @@ require_audit_roles = RoleChecker(allowed_roles=["administrador", "supervisor", 
     response_model=AuditEntryResult,
     status_code=status.HTTP_201_CREATED,
     summary="Register single stock audit entry",
-    description="Registers physical stock audit count, computes theoretical discrepancy (delta), voucher classification, and valorized cost.",
+    description="Registers physical stock audit count or variance, computes theoretical discrepancy (delta), voucher classification, and valorized cost.",
 )
 async def register_single_audit(
-    entry: AuditEntryInput,
+    entry: AuditEntryRequest,
     claims: dict = Depends(require_audit_roles),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuditEntryResult:
     tenant_id = str(claims.get("tenant_id", "1"))
-    id_usuario = int(claims.get("id_usuario", 1))
+    branch_id = claims.get("branch_id")
+    id_usuario = int(claims.get("user_id") or claims.get("id_usuario", 1))
+
+    try:
+        tenant_int = int(tenant_id)
+    except (ValueError, TypeError):
+        tenant_int = 1
+
+    resolved_branch = branch_id if branch_id is not None else tenant_int
+
+    if entry.id_sucursal is None:
+        entry.id_sucursal = resolved_branch
+    if entry.id_deposito is None:
+        entry.id_deposito = tenant_int
 
     result = await audit_service.register_single_audit(
         tenant_id=tenant_id,
@@ -57,6 +70,7 @@ async def get_article_stock_position(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Union[ArticleStockPositionAdminOut, ArticleStockPositionPublicOut]:
     tenant_id = str(claims.get("tenant_id", "1"))
+    branch_id = claims.get("branch_id")
     user_role = claims.get("role", "").lower()
     is_admin = (user_role == "administrador")
 
@@ -65,14 +79,14 @@ async def get_article_stock_position(
     except (ValueError, TypeError):
         tenant_int = 1
 
-    resolved_sucursal = id_sucursal if id_sucursal is not None else tenant_int
+    resolved_sucursal = id_sucursal if id_sucursal is not None else (branch_id if branch_id is not None else tenant_int)
     resolved_deposito = id_deposito if id_deposito is not None else tenant_int
 
     # 1. Fetch Article Metadata
     article = await search_service.get_article_by_id(id_articulo)
 
-    # 2. Fetch Stock Position
-    stock_pos = await audit_service.stock_repository.get_stock_position(
+    # 2. Fetch Stock Position using fallback logic
+    stock_pos = await audit_service.stock_lookup_service.get_effective_stock(
         tenant_id=tenant_id,
         id_sucursal=resolved_sucursal,
         id_deposito=resolved_deposito,
@@ -112,7 +126,7 @@ async def register_batch_audit(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuditBatchResult:
     tenant_id = str(claims.get("tenant_id", "1"))
-    id_usuario = int(claims.get("id_usuario", 1))
+    id_usuario = int(claims.get("user_id") or claims.get("id_usuario", 1))
 
     result = await audit_service.register_batch_audit(
         tenant_id=tenant_id,

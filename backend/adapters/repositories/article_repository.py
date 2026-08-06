@@ -24,9 +24,7 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
     def __init__(self, session_factory: Optional[async_sessionmaker] = None):
         self.session_factory = session_factory or get_articles_session_factory()
 
-    def _to_domain(self, art_orm: ArticuloORM, tenant_id: Optional[str] = None) -> Articulo:
-        active_tenant = tenant_id or get_tenant_id() or ""
-
+    def _to_domain(self, art_orm: ArticuloORM) -> Articulo:
         # Extract eager-loaded descriptions safely
         des_marca = art_orm.marca.des_marca if art_orm.marca else None
         des_grupo = art_orm.grupo.des_grupo if art_orm.grupo else None
@@ -36,7 +34,6 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
         cost_decimal = Decimal(str(art_orm.pcio_com_siva)) if art_orm.pcio_com_siva is not None else Decimal("0.00")
 
         return Articulo(
-            tenant_id=active_tenant,
             id_articulo=str(art_orm.id_articulo).strip(),
             presentacion=art_orm.presentacion.strip() if art_orm.presentacion else None,
             des_articulo=art_orm.des_articulo.strip() if art_orm.des_articulo else "",

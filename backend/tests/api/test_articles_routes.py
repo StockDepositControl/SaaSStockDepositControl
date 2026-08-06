@@ -24,7 +24,6 @@ def test_search_articles_endpoint_as_admin(mock_search_service, monkeypatch):
     }
 
     mock_article = Articulo(
-        tenant_id="tenant-01",
         id_articulo="1042",
         presentacion="Caja x 20",
         des_articulo="Ibuprofeno 400mg",
@@ -65,7 +64,6 @@ def test_search_articles_endpoint_as_auditor(mock_search_service):
     }
 
     mock_article = Articulo(
-        tenant_id="tenant-01",
         id_articulo="1042",
         presentacion="Caja x 20",
         des_articulo="Ibuprofeno 400mg",

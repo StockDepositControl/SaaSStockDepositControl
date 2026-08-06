@@ -14,7 +14,6 @@ def mock_article_repo():
 @pytest.fixture
 def sample_article():
     return Articulo(
-        tenant_id="tenant-01",
         id_articulo="1042",
         presentacion="Caja x 20",
         des_articulo="Ibuprofeno 400mg",

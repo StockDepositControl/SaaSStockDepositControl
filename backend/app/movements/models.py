@@ -10,91 +10,98 @@ class TipoAccion(str, Enum):
     SIN_ACCION = "Sin Acción"
 
 class StockPorDepositoBase(BaseModel):
-    tenant_id: str
+    id_empresa: int
     id_sucursal: int
     id_deposito: int
     id_articulo: str
     stock_real: int
-    fue_auditado: bool = False
-    fecha_hora_auditacion: Optional[datetime] = None
 
 class StockPorDepositoCreate(StockPorDepositoBase):
     pass
 
 class StockPorDepositoUpdate(BaseModel):
     stock_real: Optional[int] = None
-    fue_auditado: Optional[bool] = None
-    fecha_hora_auditacion: Optional[datetime] = None
 
 class StockPorDeposito(StockPorDepositoBase):
     model_config = ConfigDict(from_attributes=True)
 
 
 class LotePorDepositoBase(BaseModel):
-    tenant_id: str
+    id_empresa: int
+    id_sucursal: int
     id_deposito: int
     id_articulo: str
     lote: str
-    vencimiento: date
+    vencimiento: Optional[str] = None
     stock_real: int
 
 class LotePorDepositoCreate(LotePorDepositoBase):
     pass
 
 class LotePorDepositoUpdate(BaseModel):
-    vencimiento: Optional[date] = None
+    vencimiento: Optional[str] = None
     stock_real: Optional[int] = None
 
 class LotePorDeposito(LotePorDepositoBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class AuditoriaRegistroBase(BaseModel):
-    tenant_id: str
-    id_sucursal: int
-    id_deposito: int
-    id_articulo: str
-    tipo_accion: TipoAccion
-    cantidad_afectada: int
-    monto_valorizado: Decimal
-    id_usuario: int
-    fecha_hora: datetime
+class AuditRecordBase(BaseModel):
+    tenant_id: int
+    branch_id: int
+    warehouse_id: int
+    article_code: str
+    action_type: TipoAccion
+    affected_amount: int
+    audit_quantity: int
+    applied_unit_cost: Decimal
+    applied_vat_rate: Decimal
+    valorized_amount: Decimal
+    user_id: int
+    scan_timestamp: datetime
     client_uuid: Optional[str] = None
     observation: Optional[str] = None
-    audit_action_type: Optional[str] = None
 
-class AuditoriaRegistroCreate(AuditoriaRegistroBase):
+class AuditRecordCreate(AuditRecordBase):
     pass
 
-class AuditoriaRegistro(AuditoriaRegistroBase):
-    id_auditoria: int
+class AuditRecord(AuditRecordBase):
+    audit_id: int
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class AuditEntryInput(BaseModel):
+class StockLookupResult(BaseModel):
+    id_articulo: str
+    stock_real: int
+    source: str
+
+
+class AuditEntryRequest(BaseModel):
     id_sucursal: Optional[int] = None
     id_deposito: Optional[int] = None
     id_articulo: str
-    stock_fisico_contado: int
+    stock_fisico_contado: Optional[int] = None
+    cantidad_afectada: Optional[int] = None
+    tipo_accion: Optional[TipoAccion] = None
     observation: Optional[str] = None
-    audit_action_type: Optional[str] = None
 
 
 class AuditEntryResult(BaseModel):
     client_uuid: str
     id_articulo: str
     stock_real: int
-    stock_fisico_contado: int
+    stock_fisico_contado: Optional[int] = None
     delta_stock: int
     tipo_accion: TipoAccion
     cantidad_afectada: int
+    audit_quantity: int
     monto_valorizado: Decimal
-    id_auditoria: Optional[int] = None
+    audit_id: Optional[int] = None
 
 
 class AuditBatchInput(BaseModel):
-    items: list[AuditEntryInput]
+    items: list[AuditEntryRequest]
 
 
 class AuditBatchResult(BaseModel):

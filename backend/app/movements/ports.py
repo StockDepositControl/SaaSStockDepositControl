@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Optional, Tuple
-from backend.app.movements.models import StockPorDeposito, AuditoriaRegistroCreate, AuditoriaRegistro
+from backend.app.movements.models import StockPorDeposito, AuditRecordCreate, AuditRecord
 
 class StockRepositoryPort(ABC):
     """
@@ -10,21 +10,13 @@ class StockRepositoryPort(ABC):
     """
     @abstractmethod
     async def get_stock_position(
-        self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str
+        self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str, id_empresa: Optional[int] = None
     ) -> Optional[StockPorDeposito]:
         """
         Retrieves current stock position (stock_real) for a specific deposit and article.
         """
         pass
 
-    @abstractmethod
-    async def update_stock_real(
-        self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str, new_stock_real: int
-    ) -> None:
-        """
-        Updates stock_real in StockPorDeposito entity.
-        """
-        pass
 
     @abstractmethod
     async def get_article_cost_info(
@@ -44,8 +36,8 @@ class AuditRepositoryPort(ABC):
     """
     @abstractmethod
     async def create_audit_record(
-        self, record: AuditoriaRegistroCreate
-    ) -> AuditoriaRegistro:
+        self, record: AuditRecordCreate
+    ) -> AuditRecord:
         """
         Persists a new audit movement record in db_analytics.
         """
@@ -57,5 +49,14 @@ class AuditRepositoryPort(ABC):
     ) -> bool:
         """
         Checks whether an audit record with the given client_uuid already exists for idempotency.
+        """
+        pass
+
+    @abstractmethod
+    async def get_latest_audit_record(
+        self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str
+    ) -> Optional[AuditRecord]:
+        """
+        Retrieves the most recent audit record for an article in a specific deposit.
         """
         pass

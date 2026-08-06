@@ -7,6 +7,7 @@ from backend.api.main import app
 from backend.api.dependencies.services import get_article_search_service, get_audit_service
 from backend.app.articles.models import Articulo
 from backend.app.movements.models import StockPorDeposito
+from backend.app.movements.models import StockPorDeposito, StockLookupResult
 from backend.app.articles.services import ArticleSearchService
 from backend.app.movements.services import AuditService
 from backend.app.exceptions import EntityNotFoundException
@@ -17,9 +18,10 @@ def mock_search_service():
 
 @pytest.fixture
 def mock_audit_service():
-    # AuditService contains stock_repository
+    # AuditService contains stock_repository and stock_lookup_service
     service = AsyncMock(spec=AuditService)
     service.stock_repository = AsyncMock()
+    service.stock_lookup_service = AsyncMock()
     return service
 
 def test_get_stock_position_admin_includes_cost(mock_search_service, mock_audit_service):
@@ -33,7 +35,6 @@ def test_get_stock_position_admin_includes_cost(mock_search_service, mock_audit_
     }
 
     mock_article = Articulo(
-        tenant_id="1",
         id_articulo="1042",
         presentacion="Caja x 20",
         des_articulo="Ibuprofeno 400mg",
@@ -47,14 +48,12 @@ def test_get_stock_position_admin_includes_cost(mock_search_service, mock_audit_
     )
     mock_search_service.get_article_by_id.return_value = mock_article
     
-    mock_stock_pos = StockPorDeposito(
-        tenant_id="1",
-        id_sucursal=1,
-        id_deposito=1,
+    mock_stock_pos = StockLookupResult(
         id_articulo="1042",
         stock_real=95,
+        source="db_articles",
     )
-    mock_audit_service.stock_repository.get_stock_position.return_value = mock_stock_pos
+    mock_audit_service.stock_lookup_service.get_effective_stock.return_value = mock_stock_pos
 
     app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
     app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
@@ -85,21 +84,18 @@ def test_get_stock_position_auditor_hides_cost(mock_search_service, mock_audit_s
     }
 
     mock_article = Articulo(
-        tenant_id="1",
         id_articulo="1042",
         des_articulo="Ibuprofeno 400mg",
         pcio_com_siva=Decimal("150.00")
     )
     mock_search_service.get_article_by_id.return_value = mock_article
     
-    mock_stock_pos = StockPorDeposito(
-        tenant_id="1",
-        id_sucursal=1,
-        id_deposito=1,
+    mock_stock_pos = StockLookupResult(
         id_articulo="1042",
         stock_real=95,
+        source="db_articles",
     )
-    mock_audit_service.stock_repository.get_stock_position.return_value = mock_stock_pos
+    mock_audit_service.stock_lookup_service.get_effective_stock.return_value = mock_stock_pos
 
     app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
     app.dependency_overrides[get_audit_service] = lambda: mock_audit_service

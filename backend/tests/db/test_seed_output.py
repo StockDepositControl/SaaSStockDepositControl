@@ -24,10 +24,10 @@ async def test_seed_creates_empresa_sucursal_deposito(async_sessions, db_engines
     assert res_emp.scalar() == 1
 
     res_suc = await s_articles.execute(select(func.count(Sucursal.id_sucursal)))
-    assert res_suc.scalar() == 2
+    assert res_suc.scalar() == 1
 
     res_dep = await s_articles.execute(select(func.count(Deposito.id_deposito)))
-    assert res_dep.scalar() == 5
+    assert res_dep.scalar() == 1
 
 
 @pytest.mark.asyncio
@@ -144,7 +144,7 @@ async def test_seed_db_users_and_db_analytics(async_sessions, db_engines):
     s_users = async_sessions["users"]
     s_analytics = async_sessions["analytics"]
 
-    # Roles check (must be exactly 3: ADMINISTRATOR, SUPERVISOR, AUDITOR)
+    # Roles check (must be exactly 3: administrador, supervisor, auditor)
     res_roles = await s_users.execute(select(func.count(Role.role_id)))
     assert res_roles.scalar() == 3
 
@@ -156,9 +156,9 @@ async def test_seed_db_users_and_db_analytics(async_sessions, db_engines):
     res_tenants = await s_analytics.execute(select(func.count(RecordTenant.tenant_id)))
     assert res_tenants.scalar() == 2
 
-    # Audit records check
+    # Audit records check (Clean state constraint per Observation 7: NO simulated audit records)
     res_analytics_audits = await s_analytics.execute(select(func.count(AuditRecord.audit_id)))
-    assert res_analytics_audits.scalar() > 0
+    assert res_analytics_audits.scalar() == 0
 
     # Daily reports check
     res_reports = await s_analytics.execute(select(func.count(DailyReport.daily_report_id)))
@@ -167,3 +167,23 @@ async def test_seed_db_users_and_db_analytics(async_sessions, db_engines):
     # Critical alerts check
     res_alerts = await s_analytics.execute(select(func.count(CriticalShrinkageAlert.alert_id)))
     assert res_alerts.scalar() >= 0
+
+
+@pytest.mark.asyncio
+async def test_seed_role_names_are_spanish(async_sessions, db_engines):
+    """Seeded role names must be lowercase Spanish to match UserRole enum."""
+    await run_seed(
+        count=100,
+        seed_val=123,
+        url_articles=db_engines["url_articles"],
+        url_users=db_engines["url_users"],
+        url_analytics=db_engines["url_analytics"]
+    )
+
+    s_users = async_sessions["users"]
+    result = await s_users.execute(select(Role.name))
+    role_names = {row[0] for row in result.all()}
+    assert role_names == {"administrador", "supervisor", "auditor"}, (
+        f"Seeded roles must use Spanish enum values. Found: {role_names}"
+    )
+

@@ -50,6 +50,7 @@ class AuditRecord(BaseAnalytics):
 
     audit_id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     tenant_id: Mapped[int] = mapped_column(ForeignKey("record_tenants.tenant_id", ondelete="RESTRICT", onupdate="CASCADE"), nullable=False)
+    branch_id: Mapped[int] = mapped_column(Integer, nullable=False)
     warehouse_id: Mapped[int] = mapped_column(Integer, nullable=True)
     article_code: Mapped[str] = mapped_column(String(100), nullable=False)
     user_id: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -69,6 +70,7 @@ class AuditRecord(BaseAnalytics):
         Index("idx_audit_tenant_scan", "tenant_id", "scan_timestamp"),
         Index("idx_audit_article", "article_code"),
         Index("idx_audit_tenant_client_uuid", "tenant_id", "client_uuid"),
+        Index("idx_audit_fallback", "tenant_id", "branch_id", "warehouse_id", "article_code", "scan_timestamp"),
     )
 
 

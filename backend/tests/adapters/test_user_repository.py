@@ -9,12 +9,16 @@ async def test_get_by_email_found():
     mock_session_factory = MagicMock(return_value=mock_session)
     mock_session.__aenter__.return_value = mock_session
 
+    mock_role = MagicMock()
+    mock_role.name = "administrador"
+
     mock_usuario = MagicMock()
-    mock_usuario.id_usuario = 1
-    mock_usuario.tenant_id = "GlobalMedica_01"
-    mock_usuario.nombre_completo = "Test User"
+    mock_usuario.user_id = 1
+    mock_usuario.tenant_id = 1
+    mock_usuario.first_name = "Test"
+    mock_usuario.last_name = "User"
     mock_usuario.email = "test@globalmedica.com"
-    mock_usuario.rol = UserRole.ADMINISTRADOR
+    mock_usuario.roles = [mock_role]
     mock_usuario.branch_id = 1
     mock_usuario.is_active = True
 
@@ -26,10 +30,10 @@ async def test_get_by_email_found():
     user = await repo.get_by_email(email="test@globalmedica.com")
 
     assert user is not None
-    assert user.id_usuario == 1
+    assert user.user_id == 1
     assert user.email == "test@globalmedica.com"
-    assert user.rol == UserRole.ADMINISTRADOR
-    assert user.tenant_id == "GlobalMedica_01"
+    assert user.roles == [UserRole.ADMINISTRADOR]
+    assert user.tenant_id == 1
 
 @pytest.mark.asyncio
 async def test_get_by_email_not_found():

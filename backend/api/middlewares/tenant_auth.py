@@ -33,7 +33,7 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
                     except (ValueError, TypeError):
                         pass
 
-                user_id = payload.get("id_usuario")
+                user_id = payload.get("user_id")
                 if user_id is not None:
                     set_user_id(int(user_id))
             except ValueError:

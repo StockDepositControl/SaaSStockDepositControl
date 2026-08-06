@@ -25,7 +25,7 @@ from backend.adapters.security.password_hasher import BcryptPasswordHasher
 async def run_seed(
     count: int = 500,
     seed_val: int = 42,
-    num_deposits: int = 5,
+    num_deposits: int = 1,
     ghost_rate: float = 0.10,
     expired_rate: float = 0.25,
     vat_rate: float = 0.21,
@@ -68,7 +68,7 @@ async def run_seed(
     hasher = BcryptPasswordHasher()
     password_hash = hasher.hash("password123")
 
-    sucursales_ids = [1, 2]
+    sucursales_ids = [1]
     depositos = list(range(1, num_deposits + 1))
 
     try:
@@ -112,8 +112,7 @@ async def run_seed(
             s_articles.raw_session.add(empresa_obj)
 
             sucursales_objs = [
-                Sucursal(id_sucursal=1, id_empresa=1, des_sucursal="Sucursal Central"),
-                Sucursal(id_sucursal=2, id_empresa=1, des_sucursal="Sucursal Norte")
+                Sucursal(id_sucursal=1, id_empresa=1, des_sucursal="Sucursal Central")
             ]
             s_articles.raw_session.add_all(sucursales_objs)
 
@@ -244,9 +243,9 @@ async def run_seed(
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
 
             # 7. Seed Roles (db_users)
-            role_admin = Role(name="ADMINISTRATOR", description="Full system access and global configuration")
-            role_sup = Role(name="SUPERVISOR", description="Branch-level management and audit validation permissions")
-            role_aud = Role(name="AUDITOR", description="Field auditing, counting, and scan execution permissions")
+            role_admin = Role(name="administrador", description="Acceso total al sistema y configuración global")
+            role_sup = Role(name="supervisor", description="Gestión a nivel de sucursal y validación de auditorías")
+            role_aud = Role(name="auditor", description="Ejecución de auditoría, conteo y escaneo en campo")
             s_users.raw_session.add_all([role_admin, role_sup, role_aud])
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
 
@@ -286,36 +285,8 @@ async def run_seed(
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
 
             # 10. Seed AuditRecords (db_analytics)
+            # Enforce Clean Analytics State Constraint: NO AuditRecords generated.
             analytics_audits = []
-            actions = [ActionType.ADDITION, ActionType.REMOVAL, ActionType.NO_ACTION]
-            audit_sample = random.sample(articulos, min(200, len(articulos)))
-            for art in audit_sample:
-                t_obj = random.choice(rec_tenants)
-                act_type = random.choice(actions)
-                cant = 0 if act_type == ActionType.NO_ACTION else random.randint(1, 20)
-                applied_vat = Decimal('0.0000') if art.id_familia == med_fam_id else Decimal(str(vat_rate))
-                unit_cost = Decimal(str(art.pcio_com_siva))
-                val_amount = (unit_cost * (Decimal('1') + applied_vat) * Decimal(str(cant))).quantize(Decimal('0.0001'))
-
-                act_type_str = act_type.value if hasattr(act_type, "value") else str(act_type)
-                audit_qty = max(0, random.randint(10, 200) - cant)
-                analytics_audits.append(AuditRecord(
-                    tenant_id=t_obj.tenant_id,
-                    warehouse_id=random.choice(depositos),
-                    article_code=art.id_articulo.strip(),
-                    user_id=random.choice(new_users).user_id,
-                    action_type=act_type_str,
-                    affected_amount=cant,
-                    audit_quantity=audit_qty,
-                    applied_unit_cost=unit_cost,
-                    applied_vat_rate=applied_vat,
-                    valorized_amount=val_amount,
-                    scan_timestamp=datetime.utcnow() - timedelta(days=random.randint(0, 30)),
-                    client_uuid=str(uuid.uuid4()),
-                    observation=f"Automated audit check for {art.id_articulo.strip()}"
-                ))
-
-            s_analytics.raw_session.add_all(analytics_audits)
 
             # 11. Seed DailyReports (db_analytics)
             daily_reports = []
@@ -377,7 +348,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Parametric Database Seeding Script.")
     parser.add_argument("--count", type=int, default=500, help="Total articles to generate.")
     parser.add_argument("--seed", type=int, default=42, help="RNG seed for reproducibility.")
-    parser.add_argument("--deposits", type=int, default=5, help="Number of virtual deposits.")
+    parser.add_argument("--deposits", type=int, default=1, help="Number of virtual deposits.")
     parser.add_argument("--ghost-rate", type=float, default=0.10, help="Fraction of Ghost items.")
     parser.add_argument("--expired-rate", type=float, default=0.25, help="Fraction of expired lots.")
     parser.add_argument("--vat-rate", type=float, default=0.21, help="Default VAT rate for taxable items.")

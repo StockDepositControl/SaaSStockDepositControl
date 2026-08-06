@@ -11,11 +11,12 @@ async def test_authenticate_success():
     mock_token_provider = MagicMock()
 
     dummy_user = User(
-        id_usuario=10,
-        tenant_id="Tenant1",
-        nombre_completo="Juan Perez",
+        user_id=10,
+        tenant_id=1,
+        first_name="Juan",
+        last_name="Perez",
         email="juan@tenant1.com",
-        rol=UserRole.SUPERVISOR,
+        roles=[UserRole.SUPERVISOR],
         branch_id=2
     )
 
@@ -44,9 +45,9 @@ async def test_authenticate_success():
     token_payload = mock_token_provider.create_token.call_args[1]["data"]
     assert token_payload["sub"] == "juan@tenant1.com"
     assert token_payload["role"] == "supervisor"
-    assert token_payload["tenant_id"] == "Tenant1"
+    assert token_payload["tenant_id"] == 1
     assert token_payload["branch_id"] == 2
-    assert token_payload["id_usuario"] == 10
+    assert token_payload["user_id"] == 10
 
 @pytest.mark.asyncio
 async def test_authenticate_user_not_found():
@@ -74,11 +75,12 @@ async def test_authenticate_invalid_password():
     mock_token_provider = MagicMock()
 
     dummy_user = User(
-        id_usuario=1,
-        tenant_id="Tenant1",
-        nombre_completo="User",
+        user_id=1,
+        tenant_id=1,
+        first_name="User",
+        last_name="Test",
         email="user@tenant.com",
-        rol=UserRole.AUDITOR,
+        roles=[UserRole.AUDITOR],
         branch_id=1
     )
 

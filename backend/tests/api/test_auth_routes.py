@@ -38,6 +38,7 @@ def test_login_success_and_token_emission(test_token_provider):
         "role": "administrador",
         "tenant_id": "GlobalMedica_01",
         "branch_id": 1,
+        "user_id": 1,
         "id_usuario": 1,
     })
     mock_auth_service.authenticate.return_value = AuthToken(access_token=signed_token, token_type="bearer")

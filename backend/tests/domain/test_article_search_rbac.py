@@ -6,7 +6,6 @@ from backend.app.articles.models import Articulo, ArticuloPublicOut, ArticuloAdm
 @pytest.fixture
 def sample_domain_article():
     return Articulo(
-        tenant_id="tenant-01",
         id_articulo="ART-500",
         presentacion="Caja x 30 comprimidos",
         des_articulo="Paracetamol 500mg",
