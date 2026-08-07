@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Optional, Tuple
-from backend.app.movements.models import StockPorDeposito, AuditRecordCreate, AuditRecord
+from backend.app.movements.domain import StockPorDeposito, AuditRecordCreate, AuditRecord
 
 class StockRepositoryPort(ABC):
     """

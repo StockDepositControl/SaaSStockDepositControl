@@ -6,8 +6,7 @@ from fastapi.testclient import TestClient
 from backend.api.main import app
 from backend.api.dependencies.services import get_article_search_service, get_audit_service
 from backend.app.articles.models import Articulo
-from backend.app.movements.models import StockPorDeposito
-from backend.app.movements.models import StockPorDeposito, StockLookupResult
+from backend.app.movements.domain import StockPorDeposito, StockLookupResult
 from backend.app.articles.services import ArticleSearchService
 from backend.app.movements.services import AuditService
 from backend.app.exceptions import EntityNotFoundException

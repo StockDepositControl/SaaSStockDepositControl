@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Optional
@@ -75,52 +75,3 @@ class StockLookupResult(BaseModel):
     id_articulo: str
     stock_real: int
     source: str
-
-
-class AuditEntryRequest(BaseModel):
-    id_sucursal: Optional[int] = None
-    id_deposito: Optional[int] = None
-    id_articulo: str
-    stock_fisico_contado: Optional[int] = None
-    cantidad_afectada: Optional[int] = None
-    tipo_accion: Optional[TipoAccion] = None
-    observation: Optional[str] = None
-
-
-class AuditEntryResult(BaseModel):
-    client_uuid: str
-    id_articulo: str
-    stock_real: int
-    stock_fisico_contado: Optional[int] = None
-    delta_stock: int
-    tipo_accion: TipoAccion
-    cantidad_afectada: int
-    audit_quantity: int
-    monto_valorizado: Decimal
-    audit_id: Optional[int] = None
-
-
-class AuditBatchInput(BaseModel):
-    items: list[AuditEntryRequest]
-
-
-class AuditBatchResult(BaseModel):
-    results: list[AuditEntryResult]
-    total_processed: int
-    duplicates_skipped: int
-
-
-class ArticleStockPositionPublicOut(BaseModel):
-    des_articulo: str
-    presentacion: Optional[str] = None
-    des_marca: Optional[str] = None
-    des_familia: Optional[str] = None
-    des_grupo: Optional[str] = None
-    
-    id_sucursal: int
-    id_deposito: int
-    stock_real: int
-
-
-class ArticleStockPositionAdminOut(ArticleStockPositionPublicOut):
-    pcio_com_siva: Decimal

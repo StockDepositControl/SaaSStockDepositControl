@@ -3,12 +3,14 @@ from datetime import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock
 
-from backend.app.movements.models import (
+from backend.app.movements.domain import (
     TipoAccion,
     StockPorDeposito,
+    AuditRecord,
+)
+from backend.app.movements.schemas import (
     AuditEntryRequest,
     AuditBatchInput,
-    AuditRecord,
 )
 from backend.app.movements.services import AuditService, StockLookupService
 from backend.app.exceptions import EntityNotFoundException, BusinessRuleViolationException
