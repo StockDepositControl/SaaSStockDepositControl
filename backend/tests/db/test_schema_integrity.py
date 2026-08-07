@@ -148,7 +148,7 @@ def test_db_users_tables_exist(inspector):
 
 def test_db_analytics_tables_exist(inspector):
     tables = inspector.get_table_names()
-    for analytics_table in ['record_tenants', 'audit_records', 'daily_reports', 'critical_shrinkage_alerts']:
+    for analytics_table in ['record_tenants', 'work_sessions', 'audit_records', 'daily_reports', 'critical_shrinkage_alerts']:
         assert analytics_table in tables, f"Table '{analytics_table}' missing from schema."
 
 def test_user_roles_cascade(inspector):

@@ -32,6 +32,11 @@ class RiskLevel(str, enum.Enum):
     GREEN = "GREEN"
 
 
+class SessionStatus(str, enum.Enum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+
+
 class RecordTenant(BaseAnalytics):
     __tablename__ = "record_tenants"
 
@@ -43,6 +48,27 @@ class RecordTenant(BaseAnalytics):
     audit_records: Mapped[List["AuditRecord"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     daily_reports: Mapped[List["DailyReport"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     critical_shrinkage_alerts: Mapped[List["CriticalShrinkageAlert"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
+    work_sessions: Mapped[List["WorkSession"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
+
+
+class WorkSession(BaseAnalytics):
+    __tablename__ = "work_sessions"
+
+    session_id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("record_tenants.tenant_id", ondelete="RESTRICT", onupdate="CASCADE"), nullable=False)
+    branch_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    opened_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="OPEN", server_default="OPEN")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    tenant: Mapped["RecordTenant"] = relationship(back_populates="work_sessions")
+    audit_records: Mapped[List["AuditRecord"]] = relationship(back_populates="work_session", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index("idx_ws_lookup", "tenant_id", "branch_id", "opened_at", "closed_at"),
+        Index("idx_ws_status", "tenant_id", "branch_id", "status"),
+    )
 
 
 class AuditRecord(BaseAnalytics):
@@ -50,6 +76,7 @@ class AuditRecord(BaseAnalytics):
 
     audit_id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     tenant_id: Mapped[int] = mapped_column(ForeignKey("record_tenants.tenant_id", ondelete="RESTRICT", onupdate="CASCADE"), nullable=False)
+    session_id: Mapped[int] = mapped_column(ForeignKey("work_sessions.session_id", ondelete="RESTRICT", onupdate="CASCADE"), nullable=False)
     branch_id: Mapped[int] = mapped_column(Integer, nullable=False)
     warehouse_id: Mapped[int] = mapped_column(Integer, nullable=True)
     article_code: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -65,13 +92,16 @@ class AuditRecord(BaseAnalytics):
     observation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     tenant: Mapped["RecordTenant"] = relationship(back_populates="audit_records")
+    work_session: Mapped["WorkSession"] = relationship(back_populates="audit_records")
 
     __table_args__ = (
         Index("idx_audit_tenant_scan", "tenant_id", "scan_timestamp"),
         Index("idx_audit_article", "article_code"),
         Index("idx_audit_tenant_client_uuid", "tenant_id", "client_uuid"),
         Index("idx_audit_fallback", "tenant_id", "branch_id", "warehouse_id", "article_code", "scan_timestamp"),
+        Index("idx_audit_session_article", "session_id", "article_code"),
     )
+
 
 
 
