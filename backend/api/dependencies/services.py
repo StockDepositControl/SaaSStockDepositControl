@@ -24,3 +24,35 @@ def get_auth_service(
         token_provider=token_provider,
         access_token_expire_minutes=expire_minutes
     )
+
+
+def get_article_search_service() -> "ArticleSearchService":
+    """
+    FastAPI dependency that instantiates the SQLAlchemyArticleRepository using the
+    Articles database session factory and returns the configured ArticleSearchService.
+    """
+    from backend.app.articles.services import ArticleSearchService
+    from backend.adapters.repositories.article_repository import SQLAlchemyArticleRepository
+    from backend.adapters.database.connection import get_articles_session_factory
+
+    session_factory = get_articles_session_factory()
+    repo = SQLAlchemyArticleRepository(session_factory)
+    return ArticleSearchService(article_repository=repo)
+
+
+def get_audit_service() -> "AuditService":
+    """
+    FastAPI dependency that instantiates stock and audit repositories and returns AuditService.
+    """
+    from backend.app.movements.services import AuditService, StockLookupService
+    from backend.adapters.repositories.stock_repository import SQLAlchemyStockRepository
+    from backend.adapters.repositories.audit_repository import SQLAlchemyAuditRepository
+
+    stock_repo = SQLAlchemyStockRepository()
+    audit_repo = SQLAlchemyAuditRepository()
+    stock_lookup_svc = StockLookupService(stock_repository=stock_repo, audit_repository=audit_repo)
+    return AuditService(
+        stock_repository=stock_repo,
+        audit_repository=audit_repo,
+        stock_lookup_service=stock_lookup_svc
+    )

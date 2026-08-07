@@ -14,6 +14,8 @@ from backend.api.exception_handlers import register_exception_handlers
 from backend.api.dependencies import get_connection_provider
 from backend.api.middlewares.tenant_auth import TenantAuthMiddleware
 from backend.api.v1.auth import router as auth_router
+from backend.api.v1.articles import router as articles_router
+from backend.api.v1.stock import router as stock_router
 
 # Load environment configuration
 load_dotenv()
@@ -58,6 +60,10 @@ from fastapi import APIRouter
 v1_router = APIRouter(prefix="/api/v1")
 v1_router.include_router(health_router, tags=["Health"])
 v1_router.include_router(auth_router, prefix="/auth", tags=["Auth"])
+v1_router.include_router(articles_router, prefix="/articles", tags=["Articles"])
+v1_router.include_router(stock_router, prefix="/stock", tags=["Stock & Audit"])
 
 # Include versioned router to layout future resources cleanly
 app.include_router(v1_router)
+
+

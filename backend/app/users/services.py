@@ -17,25 +17,29 @@ class AuthService:
         self.token_provider = token_provider
         self.access_token_expire_minutes = access_token_expire_minutes
 
-    async def authenticate(self, email: str, password: str, tenant_id: str) -> AuthToken:
+    async def authenticate(self, email: str, password: str) -> AuthToken:
         """
-        Authenticates a user against tenant_id and email using password_hasher,
+        Authenticates a user by email using password_hasher,
         and returns a signed AuthToken containing JWT claims.
         """
-        user = await self.user_repository.get_by_email(tenant_id=tenant_id, email=email)
+        user = await self.user_repository.get_by_email(email=email)
         if not user:
             raise EntityNotFoundException("User not found")
 
-        stored_hash = await self.user_repository.get_password_hash(tenant_id=tenant_id, email=email)
+        stored_hash = await self.user_repository.get_password_hash(email=email)
         if not stored_hash or not self.password_hasher.verify(password, stored_hash):
             raise BusinessRuleViolationException("Invalid credentials")
 
+        first_role = user.roles[0] if user.roles else "administrador"
+        role_str = first_role.value if hasattr(first_role, "value") else str(first_role)
+
         token_data = {
             "sub": user.email,
-            "role": user.rol.value if hasattr(user.rol, "value") else str(user.rol),
+            "role": role_str,
             "tenant_id": user.tenant_id,
-            "id_sucursal": user.id_sucursal,
-            "id_usuario": user.id_usuario,
+            "branch_id": user.branch_id,
+            "user_id": user.user_id,
+            "id_usuario": user.user_id,
         }
 
         access_token = self.token_provider.create_token(
@@ -45,11 +49,11 @@ class AuthService:
 
         return AuthToken(access_token=access_token, token_type="bearer")
 
-    async def get_current_user(self, id_usuario: int, tenant_id: str) -> User:
+    async def get_current_user(self, user_id: int, tenant_id: int) -> User:
         """
-        Retrieves user domain model by id_usuario and tenant_id.
+        Retrieves user domain model by user_id and tenant_id.
         """
-        user = await self.user_repository.get_by_id(tenant_id=tenant_id, id_usuario=id_usuario)
+        user = await self.user_repository.get_by_id(tenant_id=tenant_id, user_id=user_id)
         if not user:
             raise EntityNotFoundException("User not found")
         return user

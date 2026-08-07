@@ -37,7 +37,8 @@ def test_login_success_and_token_emission(test_token_provider):
         "sub": "admin@globalmedica.com",
         "role": "administrador",
         "tenant_id": "GlobalMedica_01",
-        "id_sucursal": 1,
+        "branch_id": 1,
+        "user_id": 1,
         "id_usuario": 1,
     })
     mock_auth_service.authenticate.return_value = AuthToken(access_token=signed_token, token_type="bearer")
@@ -60,7 +61,7 @@ def test_login_success_and_token_emission(test_token_provider):
     claims = test_token_provider.decode_token(data["access_token"])
     assert claims["role"] == "administrador"
     assert claims["tenant_id"] == "GlobalMedica_01"
-    assert claims["id_sucursal"] == 1
+    assert claims["branch_id"] == 1
 
     app.dependency_overrides.clear()
 
@@ -83,7 +84,7 @@ def test_login_invalid_credentials():
 def test_request_with_valid_token(test_token_provider):
     app.dependency_overrides[get_token_provider] = lambda: test_token_provider
 
-    token = test_token_provider.create_token(data={"sub": "user@test.com", "role": "supervisor", "id_sucursal": 1})
+    token = test_token_provider.create_token(data={"sub": "user@test.com", "role": "supervisor", "branch_id": 1})
     headers = {"Authorization": f"Bearer {token}"}
     
     response = client.get("/api/v1/test/protected", headers=headers)
@@ -114,7 +115,7 @@ def test_request_with_insufficient_privileges(test_token_provider):
     app.dependency_overrides[get_token_provider] = lambda: test_token_provider
 
     # A supervisor attempting to access admin-only route
-    token = test_token_provider.create_token(data={"sub": "user@test.com", "role": "supervisor", "id_sucursal": 1})
+    token = test_token_provider.create_token(data={"sub": "user@test.com", "role": "supervisor", "branch_id": 1})
     headers = {"Authorization": f"Bearer {token}"}
     
     response = client.get("/api/v1/test/admin-only", headers=headers)
@@ -122,7 +123,7 @@ def test_request_with_insufficient_privileges(test_token_provider):
     assert response.json()["detail"] == "Operation not permitted for this role"
 
     # Admin accessing admin-only route
-    admin_token = test_token_provider.create_token(data={"sub": "user@test.com", "role": "administrador", "id_sucursal": 1})
+    admin_token = test_token_provider.create_token(data={"sub": "user@test.com", "role": "administrador", "branch_id": 1})
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
     
     response = client.get("/api/v1/test/admin-only", headers=admin_headers)

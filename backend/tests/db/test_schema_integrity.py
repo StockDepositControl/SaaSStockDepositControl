@@ -1,6 +1,9 @@
 import pytest
 from sqlalchemy import create_engine, inspect
-from backend.adapters.repositories.models import BaseArticles, BaseUsers, BaseAnalytics, Familia, Grupo, Articulo, StockPorDeposito, LotePorDeposito, CodigoBarraArticulo
+from backend.adapters.repositories.models import (
+    BaseArticles, BaseUsers, BaseAnalytics, Familia, Grupo, Articulo,
+    StockPorDeposito, LotePorDeposito, CodigoBarraArticulo, Empresa, Sucursal, Deposito
+)
 
 @pytest.fixture(scope="module")
 def inspector():
@@ -10,6 +13,82 @@ def inspector():
     BaseUsers.metadata.create_all(engine)
     BaseAnalytics.metadata.create_all(engine)
     return inspect(engine)
+
+def test_empresas_table_exists(inspector):
+    tables = inspector.get_table_names()
+    assert 'empresas' in tables
+    cols = [col['name'] for col in inspector.get_columns('empresas')]
+    assert 'id_empresa' in cols
+    assert 'des_empresa' in cols
+
+def test_sucursales_table_exists(inspector):
+    tables = inspector.get_table_names()
+    assert 'sucursales' in tables
+    cols = [col['name'] for col in inspector.get_columns('sucursales')]
+    assert 'id_sucursal' in cols
+    assert 'id_empresa' in cols
+    assert 'des_sucursal' in cols
+
+def test_depositos_table_exists(inspector):
+    tables = inspector.get_table_names()
+    assert 'depositos' in tables
+    cols = [col['name'] for col in inspector.get_columns('depositos')]
+    assert 'id_sucursal' in cols
+    assert 'id_deposito' in cols
+    assert 'id_empresa' in cols
+    assert 'des_deposito' in cols
+
+def test_sucursales_fk_to_empresas(inspector):
+    fks = inspector.get_foreign_keys('sucursales')
+    emp_fk = next((fk for fk in fks if fk['referred_table'] == 'empresas'), None)
+    assert emp_fk is not None
+    assert emp_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+    assert emp_fk.get('options', {}).get('onupdate') == 'CASCADE'
+
+def test_depositos_fk_to_sucursales(inspector):
+    fks = inspector.get_foreign_keys('depositos')
+    suc_fk = next((fk for fk in fks if fk['referred_table'] == 'sucursales'), None)
+    assert suc_fk is not None
+    assert suc_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+    assert suc_fk.get('options', {}).get('onupdate') == 'CASCADE'
+
+def test_depositos_fk_to_empresas(inspector):
+    fks = inspector.get_foreign_keys('depositos')
+    emp_fk = next((fk for fk in fks if fk['referred_table'] == 'empresas'), None)
+    assert emp_fk is not None
+    assert emp_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+    assert emp_fk.get('options', {}).get('onupdate') == 'CASCADE'
+
+def test_stock_fk_to_empresas(inspector):
+    fks = inspector.get_foreign_keys('stock_por_deposito')
+    emp_fk = next((fk for fk in fks if fk['referred_table'] == 'empresas'), None)
+    assert emp_fk is not None
+    assert emp_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+
+def test_stock_fk_to_depositos(inspector):
+    fks = inspector.get_foreign_keys('stock_por_deposito')
+    dep_fk = next((fk for fk in fks if fk['referred_table'] == 'depositos'), None)
+    assert dep_fk is not None
+    assert dep_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+
+def test_lotes_fk_to_empresas(inspector):
+    fks = inspector.get_foreign_keys('lotes_por_deposito')
+    emp_fk = next((fk for fk in fks if fk['referred_table'] == 'empresas'), None)
+    assert emp_fk is not None
+    assert emp_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+
+def test_lotes_fk_to_depositos(inspector):
+    fks = inspector.get_foreign_keys('lotes_por_deposito')
+    dep_fk = next((fk for fk in fks if fk['referred_table'] == 'depositos'), None)
+    assert dep_fk is not None
+    assert dep_fk.get('options', {}).get('ondelete') == 'RESTRICT'
+
+def test_empresa_orm_cascade():
+    assert "delete-orphan" in Empresa.sucursales.property.cascade
+    assert "delete-orphan" in Empresa.depositos.property.cascade
+
+def test_sucursal_orm_cascade():
+    assert "delete-orphan" in Sucursal.depositos.property.cascade
 
 def test_stock_and_lotes_have_id_empresa(inspector):
     empresa_tables = ['stock_por_deposito', 'lotes_por_deposito']
@@ -44,11 +123,18 @@ def test_codigos_barra_articulo_fk(inspector):
     assert articulos_fk is not None, "CodigoBarraArticulo must have a foreign key to Articulos"
     assert articulos_fk.get('options', {}).get('ondelete') == 'RESTRICT', "Foreign key should ON DELETE RESTRICT"
 
-def test_articulos_double_price(inspector):
+def test_articulos_decimal_price(inspector):
     columns = inspector.get_columns('articulos')
     pcio_col = next((c for c in columns if c['name'] == 'pcio_com_siva'), None)
     assert pcio_col is not None, "pcio_com_siva column missing from articulos"
-    assert 'FLOAT' in str(pcio_col['type']).upper() or 'DOUBLE' in str(pcio_col['type']).upper() or 'REAL' in str(pcio_col['type']).upper()
+    col_type_str = str(pcio_col['type']).upper()
+    assert 'NUMERIC' in col_type_str or 'DECIMAL' in col_type_str, f"Expected NUMERIC/DECIMAL for pcio_com_siva, got {col_type_str}"
+
+def test_articulos_fulltext_index_declared(inspector):
+    indexes = inspector.get_indexes('articulos')
+    idx_names = [idx['name'] for idx in indexes]
+    assert 'ft_articulos_des_articulo' in idx_names, "Missing fulltext index 'ft_articulos_des_articulo' on articulos table."
+
 
 def test_orm_relationship_cascades():
     # Verify ORM model declarations specify cascade rules
@@ -87,3 +173,59 @@ def test_analytics_indexes(inspector):
 
     alert_idx = inspector.get_indexes('critical_shrinkage_alerts')
     assert any('risk_level' in idx['column_names'] for idx in alert_idx)
+
+def test_users_has_tenant_id(inspector):
+    columns = [col['name'] for col in inspector.get_columns('users')]
+    assert 'tenant_id' in columns, "Table 'users' is missing multi-tenant identifier 'tenant_id'."
+
+def test_users_tenant_email_unique_index(inspector):
+    indexes = inspector.get_indexes('users')
+    tenant_email_idx = next(
+        (idx for idx in indexes if set(idx['column_names']) == {'tenant_id', 'email'} and idx.get('unique')),
+        None
+    )
+    assert tenant_email_idx is not None, "Missing unique composite index on (tenant_id, email) for users table."
+
+def test_users_no_global_email_uniqueness(inspector):
+    indexes = inspector.get_indexes('users')
+    unique_constraints = inspector.get_unique_constraints('users')
+    for idx in indexes:
+        if idx['column_names'] == ['email'] and idx.get('unique'):
+            raise AssertionError("Found standalone unique index on 'email' — must be scoped to (tenant_id, email).")
+    for uc in unique_constraints:
+        if uc['column_names'] == ['email']:
+            raise AssertionError("Found standalone unique constraint on 'email' — must be scoped to (tenant_id, email).")
+
+
+def test_audit_records_has_client_uuid(inspector):
+    columns = [col['name'] for col in inspector.get_columns('audit_records')]
+    assert 'client_uuid' in columns, "Table 'audit_records' missing 'client_uuid' column."
+
+    indexes = inspector.get_indexes('audit_records')
+    idx_names = [idx['name'] for idx in indexes]
+    assert 'idx_audit_tenant_client_uuid' in idx_names or any('client_uuid' in idx['column_names'] for idx in indexes)
+
+def test_audit_records_refactored_attributes(inspector):
+    columns = inspector.get_columns('audit_records')
+    col_names = [col['name'] for col in columns]
+    assert 'audit_quantity' in col_names, "Table 'audit_records' missing 'audit_quantity' column."
+    assert 'observation' in col_names, "Table 'audit_records' missing 'observation' column."
+    assert 'action_type' in col_names, "Table 'audit_records' missing 'action_type' column."
+
+def test_user_no_id_sucursal_and_tenant_id_type(inspector):
+    columns = inspector.get_columns('users')
+    col_names = [col['name'] for col in columns]
+    assert 'id_sucursal' not in col_names, "Table 'users' should NOT contain 'id_sucursal'."
+    assert 'branch_id' in col_names, "Table 'users' should contain 'branch_id'."
+    tenant_col = next((c for c in columns if c['name'] == 'tenant_id'), None)
+    assert tenant_col is not None
+    assert 'INT' in str(tenant_col['type']).upper(), f"Expected INTEGER for tenant_id, got {tenant_col['type']}"
+
+def test_stock_por_deposito_stock_real_int(inspector):
+    columns = inspector.get_columns('stock_por_deposito')
+    stock_real_col = next((c for c in columns if c['name'] == 'stock_real'), None)
+    assert stock_real_col is not None
+    assert 'INT' in str(stock_real_col['type']).upper(), f"Expected INTEGER for stock_real, got {stock_real_col['type']}"
+
+
+

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import List, Optional
 from sqlalchemy import (
     String,
@@ -5,6 +6,7 @@ from sqlalchemy import (
     Integer,
     SmallInteger,
     Float,
+    Numeric,
     ForeignKeyConstraint,
     Index,
 )
@@ -62,7 +64,7 @@ class Articulo(BaseArticles):
     id_marca: Mapped[int] = mapped_column(Integer, nullable=False)
     id_familia: Mapped[str] = mapped_column(String(2), nullable=False)
     id_grupo: Mapped[str] = mapped_column(String(2), nullable=False)
-    pcio_com_siva: Mapped[float] = mapped_column(Float, nullable=False)
+    pcio_com_siva: Mapped[Decimal] = mapped_column(Numeric(15, 4), nullable=False)
 
     marca: Mapped["Marca"] = relationship(back_populates="articulos")
     grupo: Mapped["Grupo"] = relationship(back_populates="articulos")
@@ -82,7 +84,9 @@ class Articulo(BaseArticles):
         ),
         Index("ix_articulos_id_marca", "id_marca"),
         Index("ix_articulos_id_familia_id_grupo", "id_familia", "id_grupo"),
+        Index("ft_articulos_des_articulo", "des_articulo", mysql_prefix="FULLTEXT"),
     )
+
 
 
 class StockPorDeposito(BaseArticles):
@@ -92,14 +96,35 @@ class StockPorDeposito(BaseArticles):
     id_sucursal: Mapped[int] = mapped_column(Integer, primary_key=True)
     id_deposito: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     id_articulo: Mapped[str] = mapped_column(CHAR(25), primary_key=True)
-    stock_real: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    stock_real: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     articulo: Mapped["Articulo"] = relationship()
+    empresa: Mapped["Empresa"] = relationship()
+    sucursal: Mapped["Sucursal"] = relationship()
+    deposito: Mapped["Deposito"] = relationship(overlaps="sucursal")
 
     __table_args__ = (
         ForeignKeyConstraint(
             ["id_articulo"],
             ["articulos.id_articulo"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT"
+        ),
+        ForeignKeyConstraint(
+            ["id_empresa"],
+            ["empresas.id_empresa"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT"
+        ),
+        ForeignKeyConstraint(
+            ["id_sucursal"],
+            ["sucursales.id_sucursal"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT"
+        ),
+        ForeignKeyConstraint(
+            ["id_sucursal", "id_deposito"],
+            ["depositos.id_sucursal", "depositos.id_deposito"],
             onupdate="CASCADE",
             ondelete="RESTRICT"
         ),
@@ -117,14 +142,35 @@ class LotePorDeposito(BaseArticles):
     id_articulo: Mapped[str] = mapped_column(CHAR(25), primary_key=True)
     lote: Mapped[str] = mapped_column(String(10), primary_key=True)
     vencimiento: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
-    stock_real: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    stock_real: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
     articulo: Mapped["Articulo"] = relationship()
+    empresa: Mapped["Empresa"] = relationship()
+    sucursal: Mapped["Sucursal"] = relationship()
+    deposito: Mapped["Deposito"] = relationship(overlaps="sucursal")
 
     __table_args__ = (
         ForeignKeyConstraint(
             ["id_articulo"],
             ["articulos.id_articulo"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT"
+        ),
+        ForeignKeyConstraint(
+            ["id_empresa"],
+            ["empresas.id_empresa"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT"
+        ),
+        ForeignKeyConstraint(
+            ["id_sucursal"],
+            ["sucursales.id_sucursal"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT"
+        ),
+        ForeignKeyConstraint(
+            ["id_sucursal", "id_deposito"],
+            ["depositos.id_sucursal", "depositos.id_deposito"],
             onupdate="CASCADE",
             ondelete="RESTRICT"
         ),
@@ -152,3 +198,63 @@ class CodigoBarraArticulo(BaseArticles):
         Index("ix_codigos_barra_cod_barra", "cod_barra"),
         Index("ix_codigos_barra_id_articulo", "id_articulo"),
     )
+
+
+class Empresa(BaseArticles):
+    __tablename__ = "empresas"
+
+    id_empresa: Mapped[int] = mapped_column(Integer, primary_key=True)
+    des_empresa: Mapped[str] = mapped_column(String(40), nullable=False)
+
+    sucursales: Mapped[List["Sucursal"]] = relationship(back_populates="empresa", cascade="all, delete-orphan")
+    depositos: Mapped[List["Deposito"]] = relationship(back_populates="empresa", cascade="all, delete-orphan")
+
+
+class Sucursal(BaseArticles):
+    __tablename__ = "sucursales"
+
+    id_sucursal: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id_empresa: Mapped[int] = mapped_column(Integer, nullable=False)
+    des_sucursal: Mapped[str] = mapped_column(String(40), nullable=False)
+
+    empresa: Mapped["Empresa"] = relationship(back_populates="sucursales")
+    depositos: Mapped[List["Deposito"]] = relationship(back_populates="sucursal", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["id_empresa"],
+            ["empresas.id_empresa"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT"
+        ),
+        Index("ix_sucursales_id_empresa", "id_empresa"),
+    )
+
+
+class Deposito(BaseArticles):
+    __tablename__ = "depositos"
+
+    id_sucursal: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id_deposito: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    id_empresa: Mapped[int] = mapped_column(Integer, nullable=False)
+    des_deposito: Mapped[str] = mapped_column(String(30), nullable=False)
+
+    sucursal: Mapped["Sucursal"] = relationship(back_populates="depositos")
+    empresa: Mapped["Empresa"] = relationship(back_populates="depositos")
+
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["id_sucursal"],
+            ["sucursales.id_sucursal"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT"
+        ),
+        ForeignKeyConstraint(
+            ["id_empresa"],
+            ["empresas.id_empresa"],
+            onupdate="CASCADE",
+            ondelete="RESTRICT"
+        ),
+        Index("ix_depositos_id_empresa", "id_empresa"),
+    )
+

@@ -19,9 +19,10 @@ class User(BaseUsers):
     __tablename__ = "users"
 
     user_id: Mapped[int] = mapped_column(Integer().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    tenant_id: Mapped[int] = mapped_column(Integer, nullable=False)
     first_name: Mapped[str] = mapped_column(String(100), nullable=False)
     last_name: Mapped[str] = mapped_column(String(100), nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     branch_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -31,6 +32,8 @@ class User(BaseUsers):
     roles: Mapped[List["Role"]] = relationship(secondary="user_roles", back_populates="users")
 
     __table_args__ = (
+        Index("idx_users_tenant_id", "tenant_id"),
+        Index("idx_users_tenant_email", "tenant_id", "email", unique=True),
         Index("idx_users_branch_id", "branch_id"),
     )
 

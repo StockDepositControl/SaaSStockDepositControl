@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
 
 class UserRole(str, Enum):
@@ -12,28 +12,31 @@ class AuthToken(BaseModel):
     token_type: str
 
 class LoginCredentials(BaseModel):
-    tenant_id: str
     email: str
     password: str
 
 class UserBase(BaseModel):
-    tenant_id: str
-    nombre_completo: str
+    tenant_id: int
+    first_name: str
+    last_name: str
     email: str
-    rol: UserRole
-    id_sucursal: int
+    branch_id: Optional[int] = None
+    is_active: bool = True
+    roles: List[UserRole] = []
 
 class UserCreate(UserBase):
     password: str
 
 class UserUpdate(BaseModel):
-    nombre_completo: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     email: Optional[str] = None
-    rol: Optional[UserRole] = None
-    id_sucursal: Optional[int] = None
+    branch_id: Optional[int] = None
+    is_active: Optional[bool] = None
+    roles: Optional[List[UserRole]] = None
     password: Optional[str] = None
 
 class User(UserBase):
-    id_usuario: int
+    user_id: int
 
     model_config = ConfigDict(from_attributes=True)

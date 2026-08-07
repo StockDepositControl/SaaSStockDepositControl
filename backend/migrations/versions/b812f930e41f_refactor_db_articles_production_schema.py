@@ -90,7 +90,7 @@ def upgrade() -> None:
         sa.Column('id_sucursal', sa.Integer(), nullable=False),
         sa.Column('id_deposito', sa.SmallInteger(), nullable=False),
         sa.Column('id_articulo', sa.CHAR(length=25), nullable=False),
-        sa.Column('stock_real', sa.Float(), nullable=True),
+        sa.Column('stock_real', sa.Integer(), nullable=False, server_default='0'),
         sa.ForeignKeyConstraint(
             ['id_articulo'], ['articulos.id_articulo'],
             onupdate='CASCADE', ondelete='RESTRICT'
@@ -109,7 +109,7 @@ def upgrade() -> None:
         sa.Column('id_articulo', sa.CHAR(length=25), nullable=False),
         sa.Column('lote', sa.String(length=10), nullable=False),
         sa.Column('vencimiento', sa.String(length=10), nullable=True),
-        sa.Column('stock_real', sa.Float(), nullable=True),
+        sa.Column('stock_real', sa.Integer(), nullable=False, server_default='0'),
         sa.ForeignKeyConstraint(
             ['id_articulo'], ['articulos.id_articulo'],
             onupdate='CASCADE', ondelete='RESTRICT'

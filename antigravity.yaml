@@ -2,7 +2,7 @@ version: "2026.1"
 project:
   name: "app-stock-deposit-control"
   type: "monorepo"
-  allowed_directories: ["backend/", "frontend-mobile/", "frontend-web/"]
+  allowed_directories: ["backend/", "frontend-mobile/", "frontend-web/", "docker/", "scripts/", "docs/"]
 
 mcpServers:
   codebase-memory:
@@ -81,6 +81,47 @@ agents:
         path: "//.agents/skills/auth-implementation-patterns"
       - id: "pytest-skill"
         path: "//.agents/skills/pytest-skill"
+
+  - id: "devops-deploy-agent"
+    name: "DevOps & SRE Specialist"
+    config_file: ".agents/agents/devops_deploy/agent.md"
+    target_dir: "./"
+    tools:
+      - "view_file"
+      - "grep_search"
+      - "write_to_file"
+      - "replace_file_content"
+      - "multi_replace_file_content"
+      - "run_command"
+      - "ask_question"
+      - "index_repository"
+      - "search_graph"
+      - "query_graph"
+      - "trace_path"
+      - "get_code_snippet"
+      - "get_architecture"
+      - "search_code"
+      - "index_status"
+      - "detect_changes"
+    skills:
+      - id: "codebase-memory"
+        path: "//.agents/skills/codebase-memory"
+      - id: "docker-expert"
+        path: "//.agents/skills/docker-expert"
+      - id: "container-security-hardening"
+        path: "//.agents/skills/container-security-hardening"
+      - id: "bash-scripting"
+        path: "//.agents/skills/bash-scripting"
+      - id: "bash-pro"
+        path: "//.agents/skills/bash-pro"
+      - id: "devops-deploy"
+        path: "//.agents/skills/devops-deploy"
+      - id: "database-admin"
+        path: "//.agents/skills/database-admin"
+      - id: "database-architect"
+        path: "//.agents/skills/database-architect"
+      - id: "systematic-debugging"
+        path: "//.agents/skills/systematic-debugging"
 
 #  - id: "mobile-dev-agent"
 #    name: "Mobile UI & Sync Specialist"

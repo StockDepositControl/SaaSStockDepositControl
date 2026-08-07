@@ -12,14 +12,14 @@ class FamiliaUpdate(BaseModel):
     des_familia: Optional[str] = None
 
 class Familia(FamiliaBase):
-    id_familia: int
+    id_familia: str
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class GrupoBase(BaseModel):
-    id_familia: int
-    id_grupo: int
+    id_familia: str
+    id_grupo: str
     des_grupo: str
 
 class GrupoCreate(GrupoBase):
@@ -48,13 +48,15 @@ class Marca(MarcaBase):
 
 
 class ArticuloBase(BaseModel):
-    tenant_id: str
     id_articulo: str
     presentacion: Optional[str] = None
     des_articulo: str
     id_marca: Optional[int] = None
-    id_familia: Optional[int] = None
-    id_grupo: Optional[int] = None
+    des_marca: Optional[str] = None
+    id_familia: Optional[str] = None
+    des_familia: Optional[str] = None
+    id_grupo: Optional[str] = None
+    des_grupo: Optional[str] = None
     pcio_com_siva: Decimal
 
 class ArticuloCreate(ArticuloBase):
@@ -64,8 +66,11 @@ class ArticuloUpdate(BaseModel):
     presentacion: Optional[str] = None
     des_articulo: Optional[str] = None
     id_marca: Optional[int] = None
-    id_familia: Optional[int] = None
-    id_grupo: Optional[int] = None
+    des_marca: Optional[str] = None
+    id_familia: Optional[str] = None
+    des_familia: Optional[str] = None
+    id_grupo: Optional[str] = None
+    des_grupo: Optional[str] = None
     pcio_com_siva: Optional[Decimal] = None
 
 class Articulo(ArticuloBase):
@@ -73,17 +78,20 @@ class Articulo(ArticuloBase):
 
 
 class ArticuloPublicOut(BaseModel):
-    tenant_id: str
     id_articulo: str
     presentacion: Optional[str] = None
     des_articulo: str
     id_marca: Optional[int] = None
-    id_familia: Optional[int] = None
-    id_grupo: Optional[int] = None
+    des_marca: Optional[str] = None
+    id_familia: Optional[str] = None
+    des_familia: Optional[str] = None
+    id_grupo: Optional[str] = None
+    des_grupo: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class ArticuloAdminOut(ArticuloPublicOut):
     pcio_com_siva: Decimal
+
 
