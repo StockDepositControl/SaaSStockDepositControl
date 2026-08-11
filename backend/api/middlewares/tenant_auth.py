@@ -22,7 +22,10 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
 
                 tenant_id = payload.get("tenant_id")
                 if tenant_id is not None:
-                    set_tenant_id(str(tenant_id))
+                    try:
+                        set_tenant_id(int(tenant_id))
+                    except (ValueError, TypeError):
+                        pass
 
                 branch_id = payload.get("branch_id")
                 if branch_id is not None:

@@ -2,15 +2,15 @@ import contextvars
 from typing import Optional
 
 # Async ContextVars for request-scoped tenant isolation and user context
-tenant_id_context: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar("tenant_id", default=None)
+tenant_id_context: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar("tenant_id", default=None)
 sucursal_id_context: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar("sucursal_id", default=None)
 user_id_context: contextvars.ContextVar[Optional[int]] = contextvars.ContextVar("user_id", default=None)
 
-def get_tenant_id() -> Optional[str]:
+def get_tenant_id() -> Optional[int]:
     """Returns the current request's tenant_id bound to the async ContextVar."""
     return tenant_id_context.get()
 
-def set_tenant_id(tenant_id: Optional[str]) -> None:
+def set_tenant_id(tenant_id: Optional[int]) -> None:
     """Binds tenant_id to the current async request ContextVar."""
     tenant_id_context.set(tenant_id)
 

@@ -21,7 +21,9 @@ def mock_stock_repo():
 
 @pytest.fixture
 def mock_audit_repo():
-    return AsyncMock()
+    repo = AsyncMock()
+    repo.get_active_session_id.return_value = 1
+    return repo
 
 @pytest.fixture
 def mock_lookup_service(mock_stock_repo, mock_audit_repo):
@@ -86,7 +88,8 @@ async def test_register_single_audit_happy_path(audit_service, mock_stock_repo, 
     mock_stock_repo.get_article_cost_info.return_value = (Decimal("50.0000"), "Medicamentos")
     mock_audit_repo.create_audit_record.return_value = AuditRecord(
         audit_id=99,
-        tenant_id=1,
+        session_id=1,
+        tenant_id="1",
         branch_id=1,
         warehouse_id=1,
         article_code="ART-001",
@@ -138,7 +141,8 @@ async def test_register_single_audit_variance_decrease(audit_service, mock_stock
     mock_stock_repo.get_article_cost_info.return_value = (Decimal("50.0000"), "Medicamentos")
     mock_audit_repo.create_audit_record.return_value = AuditRecord(
         audit_id=101,
-        tenant_id=1,
+        session_id=1,
+        tenant_id="1",
         branch_id=1,
         warehouse_id=1,
         article_code="ART-001",
@@ -203,7 +207,8 @@ async def test_register_batch_audit(audit_service, mock_stock_repo, mock_audit_r
     mock_stock_repo.get_article_cost_info.return_value = (Decimal("100.0000"), "Perfumeria")
     mock_audit_repo.create_audit_record.return_value = AuditRecord(
         audit_id=100,
-        tenant_id=1,
+        session_id=1,
+        tenant_id="1",
         branch_id=1,
         warehouse_id=1,
         article_code="ART-002",

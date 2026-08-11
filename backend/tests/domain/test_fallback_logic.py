@@ -13,10 +13,10 @@ class MockStockRepo:
         self.cost_info = cost_info
         self.update_called = False
 
-    async def get_stock_position(self, tenant_id, id_sucursal, id_deposito, id_articulo):
+    async def get_stock_position(self, id_sucursal, id_deposito, id_articulo):
         return self.position
 
-    async def get_article_cost_info(self, tenant_id, id_articulo):
+    async def get_article_cost_info(self, id_articulo):
         return self.cost_info
         
     async def update_stock_real(self, *args, **kwargs):
@@ -28,13 +28,17 @@ class MockAuditRepo:
         self.latest_record = latest_record
         self.created_records = []
 
-    async def get_latest_audit_record(self, tenant_id, id_sucursal, id_deposito, id_articulo):
+    async def get_latest_audit_record(self, id_sucursal, id_deposito, id_articulo):
         return self.latest_record
+
+    async def get_active_session_id(self, branch_id):
+        return 1
         
     async def create_audit_record(self, record: AuditRecordCreate):
         self.created_records.append(record)
         return AuditRecord(
             audit_id=1,
+            session_id=record.session_id,
             tenant_id=record.tenant_id,
             branch_id=record.branch_id,
             warehouse_id=record.warehouse_id,
@@ -60,7 +64,7 @@ async def test_stock_lookup_fallback_to_articles():
     audit_repo = MockAuditRepo(latest_record=None)
     
     svc = StockLookupService(stock_repo, audit_repo)
-    result = await svc.get_effective_stock("1", 1, 1, "ART1")
+    result = await svc.get_effective_stock(1, 1, "ART1")
     
     assert result.stock_real == 100
     assert result.source == "db_articles"
@@ -73,14 +77,15 @@ async def test_stock_lookup_uses_audit():
     ))
     audit_repo = MockAuditRepo(latest_record=AuditRecord(
         audit_id=1,
-        tenant_id=1, branch_id=1, warehouse_id=1, article_code="ART1",
+        session_id=1,
+        tenant_id="1", branch_id=1, warehouse_id=1, article_code="ART1",
         action_type=TipoAccion.BAJA, affected_amount=5, audit_quantity=95,
         applied_unit_cost=Decimal("10.0"), applied_vat_rate=Decimal("0.0"),
         valorized_amount=Decimal("50"), user_id=1, scan_timestamp=datetime.now()
     ))
     
     svc = StockLookupService(stock_repo, audit_repo)
-    result = await svc.get_effective_stock("1", 1, 1, "ART1")
+    result = await svc.get_effective_stock(1, 1, "ART1")
     
     assert result.stock_real == 95
     assert result.source == "db_analytics"

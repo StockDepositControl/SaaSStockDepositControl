@@ -56,3 +56,41 @@ def get_audit_service() -> "AuditService":
         audit_repository=audit_repo,
         stock_lookup_service=stock_lookup_svc
     )
+
+
+def get_work_session_service() -> "WorkSessionService":
+    """
+    FastAPI dependency for WorkSessionService.
+    """
+    from backend.app.work_sessions.services import WorkSessionService
+    from backend.adapters.repositories.work_session_repository import SQLAlchemyWorkSessionRepository
+    from backend.adapters.database.connection import get_analytics_session_factory
+
+    session_factory = get_analytics_session_factory()
+    repo = SQLAlchemyWorkSessionRepository(session_factory)
+    return WorkSessionService(repository=repo)
+
+
+def get_enterprise_service() -> "EnterpriseService":
+    """
+    FastAPI dependency for EnterpriseService.
+    """
+    from backend.app.enterprises.services import EnterpriseService
+    from backend.adapters.repositories.enterprise_repository import SQLAlchemyEnterpriseRepository
+
+    enterprise_repo = SQLAlchemyEnterpriseRepository()
+    return EnterpriseService(enterprise_repository=enterprise_repo)
+
+
+def get_branch_service() -> "BranchService":
+    """
+    FastAPI dependency for BranchService.
+    """
+    from backend.app.branches.services import BranchService
+    from backend.adapters.repositories.branch_repository import SQLAlchemyBranchRepository
+    from backend.adapters.repositories.enterprise_repository import SQLAlchemyEnterpriseRepository
+
+    enterprise_repo = SQLAlchemyEnterpriseRepository()
+    branch_repo = SQLAlchemyBranchRepository()
+    return BranchService(branch_repository=branch_repo, enterprise_repository=enterprise_repo)
+

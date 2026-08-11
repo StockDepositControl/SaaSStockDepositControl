@@ -58,6 +58,7 @@ class ArticuloBase(BaseModel):
     id_grupo: Optional[str] = None
     des_grupo: Optional[str] = None
     pcio_com_siva: Decimal
+    fue_auditado: bool = False
 
 class ArticuloCreate(ArticuloBase):
     pass
@@ -87,6 +88,7 @@ class ArticuloPublicOut(BaseModel):
     des_familia: Optional[str] = None
     id_grupo: Optional[str] = None
     des_grupo: Optional[str] = None
+    fue_auditado: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

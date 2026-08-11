@@ -13,6 +13,8 @@ from backend.adapters.repositories.models.articles import (
 )
 from backend.adapters.repositories.models.users import (
     BaseUsers,
+    Enterprise,
+    Branch,
     User,
     Role,
     UserRoleAssociation,
@@ -42,6 +44,8 @@ __all__ = [
     "Sucursal",
     "Deposito",
     "BaseUsers",
+    "Enterprise",
+    "Branch",
     "User",
     "Role",
     "UserRoleAssociation",

@@ -22,10 +22,10 @@ class StockLookupService:
         self.audit_repository = audit_repository
 
     async def get_effective_stock(
-        self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str
+        self, id_sucursal: int, id_deposito: int, id_articulo: str
     ) -> StockLookupResult:
         latest_audit = await self.audit_repository.get_latest_audit_record(
-            tenant_id, id_sucursal, id_deposito, id_articulo
+            id_sucursal, id_deposito, id_articulo
         )
         if latest_audit:
             return StockLookupResult(
@@ -35,7 +35,7 @@ class StockLookupService:
             )
 
         stock_pos = await self.stock_repository.get_stock_position(
-            tenant_id, id_sucursal, id_deposito, id_articulo
+            id_sucursal, id_deposito, id_articulo
         )
         if not stock_pos:
             raise EntityNotFoundException(
@@ -113,17 +113,11 @@ class AuditService:
         scan_timestamp = datetime.now(timezone.utc)
 
         # Fallback for sucursal and deposito if missing
-        try:
-            numeric_tenant = int(tenant_id)
-        except (ValueError, TypeError):
-            numeric_tenant = 1
-
-        id_sucursal = entry.id_sucursal if entry.id_sucursal is not None else numeric_tenant
-        id_deposito = entry.id_deposito if entry.id_deposito is not None else numeric_tenant
+        id_sucursal = entry.id_sucursal if entry.id_sucursal is not None else 1
+        id_deposito = entry.id_deposito if entry.id_deposito is not None else 1
 
         # 1. Retrieve stock position using lookup service
         stock_lookup = await self.stock_lookup_service.get_effective_stock(
-            tenant_id=tenant_id,
             id_sucursal=id_sucursal,
             id_deposito=id_deposito,
             id_articulo=entry.id_articulo,
@@ -131,9 +125,9 @@ class AuditService:
 
         # 2. Retrieve cost and VAT classification
         pcio_com_siva, des_familia = await self.stock_repository.get_article_cost_info(
-            tenant_id=tenant_id, id_articulo=entry.id_articulo
+            id_articulo=entry.id_articulo
         )
-
+ 
         # 3. Compute discrepancy, final audit_quantity, and action type
         if entry.stock_fisico_contado is not None:
             delta_stock, tipo_accion = self.compute_delta(
@@ -171,9 +165,14 @@ class AuditService:
             default_vat_rate=self.default_vat_rate,
         )
 
-        # 5. Persist audit record in db_analytics (db_articles remains untouched)
+        # 5. Retrieve active work session ID or default fallback
+        active_session_id = await self.audit_repository.get_active_session_id(id_sucursal)
+        session_id = active_session_id if active_session_id is not None else 1
+
+        # 6. Persist audit record in db_analytics (db_articles remains untouched)
         record_to_create = AuditRecordCreate(
-            tenant_id=numeric_tenant,
+            session_id=session_id,
+            tenant_id=tenant_id,
             branch_id=id_sucursal,
             warehouse_id=id_deposito,
             article_code=entry.id_articulo,
@@ -188,6 +187,7 @@ class AuditService:
             client_uuid=client_uuid,
             observation=entry.observation,
         )
+
 
         saved_record = await self.audit_repository.create_audit_record(record_to_create)
 

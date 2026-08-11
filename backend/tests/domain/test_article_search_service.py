@@ -44,7 +44,7 @@ async def test_search_articles_success(mock_article_repo, sample_article):
     assert len(results) == 1
     assert results[0].id_articulo == "1042"
     assert results[0].des_articulo == "Ibuprofeno 400mg"
-    mock_article_repo.search.assert_called_once_with("Ibuprofeno")
+    mock_article_repo.search.assert_called_once_with("Ibuprofeno", active_session_id=None)
 
 @pytest.mark.asyncio
 async def test_get_article_by_id_success(mock_article_repo, sample_article):
@@ -54,7 +54,7 @@ async def test_get_article_by_id_success(mock_article_repo, sample_article):
     result = await service.get_article_by_id("1042")
 
     assert result.id_articulo == "1042"
-    mock_article_repo.get_by_id.assert_called_once_with("1042")
+    mock_article_repo.get_by_id.assert_called_once_with("1042", active_session_id=None)
 
 @pytest.mark.asyncio
 async def test_get_article_by_id_not_found(mock_article_repo):

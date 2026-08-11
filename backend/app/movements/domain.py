@@ -47,7 +47,8 @@ class LotePorDeposito(LotePorDepositoBase):
 
 
 class AuditRecordBase(BaseModel):
-    tenant_id: int
+    session_id: int 
+    tenant_id: str
     branch_id: int
     warehouse_id: int
     article_code: str
