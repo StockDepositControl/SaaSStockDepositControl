@@ -10,7 +10,7 @@ class StockRepositoryPort(ABC):
     """
     @abstractmethod
     async def get_stock_position(
-        self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str, id_empresa: Optional[int] = None
+        self, id_sucursal: int, id_deposito: int, id_articulo: str, id_empresa: Optional[int] = None
     ) -> Optional[StockPorDeposito]:
         """
         Retrieves current stock position (stock_real) for a specific deposit and article.
@@ -20,7 +20,7 @@ class StockRepositoryPort(ABC):
 
     @abstractmethod
     async def get_article_cost_info(
-        self, tenant_id: str, id_articulo: str
+        self, id_articulo: str
     ) -> Tuple[Decimal, str]:
         """
         Retrieves article purchase cost (pcio_com_siva) and family description (des_familia).
@@ -45,7 +45,7 @@ class AuditRepositoryPort(ABC):
 
     @abstractmethod
     async def exists_by_client_uuid(
-        self, tenant_id: str, client_uuid: str
+        self, client_uuid: str
     ) -> bool:
         """
         Checks whether an audit record with the given client_uuid already exists for idempotency.
@@ -54,9 +54,20 @@ class AuditRepositoryPort(ABC):
 
     @abstractmethod
     async def get_latest_audit_record(
-        self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str
+        self, id_sucursal: int, id_deposito: int, id_articulo: str
     ) -> Optional[AuditRecord]:
         """
         Retrieves the most recent audit record for an article in a specific deposit.
         """
         pass
+
+    @abstractmethod
+    async def get_active_session_id(
+        self, branch_id: int
+    ) -> Optional[int]:
+        """
+        Retrieves the ID of the currently active WorkSession for a given branch.
+        """
+        pass
+
+

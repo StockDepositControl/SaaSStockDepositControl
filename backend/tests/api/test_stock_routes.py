@@ -130,3 +130,39 @@ def test_get_stock_position_not_found(mock_search_service, mock_audit_service):
     assert response.status_code == 404
     app.dependency_overrides.clear()
 
+
+def test_get_stock_position_alphanumeric_tenant(mock_search_service, mock_audit_service):
+    from backend.api.v1.stock import require_audit_roles
+
+    app.dependency_overrides[require_audit_roles] = lambda: {
+        "sub": "admin@example.com",
+        "role": "administrador",
+        "tenant_id": "tenant-uuid-xyz-123",
+        "id_usuario": 1
+    }
+
+    mock_article = Articulo(
+        id_articulo="1042",
+        des_articulo="Ibuprofeno 400mg",
+        pcio_com_siva=Decimal("150.00")
+    )
+    mock_search_service.get_article_by_id.return_value = mock_article
+    mock_audit_service.stock_lookup_service.get_effective_stock.return_value = StockLookupResult(
+        id_articulo="1042", stock_real=95, source="db_articles"
+    )
+
+    app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
+    app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
+
+    client = TestClient(app)
+    # Query without branch/deposito parameters, testing that string tenant_id does not throw ValueError
+    response = client.get("/api/v1/stock/position?id_articulo=1042")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id_sucursal"] == 1
+    assert data["id_deposito"] == 1
+
+    app.dependency_overrides.clear()
+
+

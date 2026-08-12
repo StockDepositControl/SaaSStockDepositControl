@@ -37,17 +37,12 @@ async def register_single_audit(
     branch_id = claims.get("branch_id")
     id_usuario = int(claims.get("user_id") or claims.get("id_usuario", 1))
 
-    try:
-        tenant_int = int(tenant_id)
-    except (ValueError, TypeError):
-        tenant_int = 1
-
-    resolved_branch = branch_id if branch_id is not None else tenant_int
+    resolved_branch = branch_id if branch_id is not None else 1
 
     if entry.id_sucursal is None:
         entry.id_sucursal = resolved_branch
     if entry.id_deposito is None:
-        entry.id_deposito = tenant_int
+        entry.id_deposito = 1
 
     result = await audit_service.register_single_audit(
         tenant_id=tenant_id,
@@ -76,20 +71,14 @@ async def get_article_stock_position(
     user_role = claims.get("role", "").lower()
     is_admin = (user_role == "administrador")
 
-    try:
-        tenant_int = int(tenant_id)
-    except (ValueError, TypeError):
-        tenant_int = 1
-
-    resolved_sucursal = id_sucursal if id_sucursal is not None else (branch_id if branch_id is not None else tenant_int)
-    resolved_deposito = id_deposito if id_deposito is not None else tenant_int
+    resolved_sucursal = id_sucursal if id_sucursal is not None else (branch_id if branch_id is not None else 1)
+    resolved_deposito = id_deposito if id_deposito is not None else 1
 
     # 1. Fetch Article Metadata
     article = await search_service.get_article_by_id(id_articulo)
 
     # 2. Fetch Stock Position using fallback logic
     stock_pos = await audit_service.stock_lookup_service.get_effective_stock(
-        tenant_id=tenant_id,
         id_sucursal=resolved_sucursal,
         id_deposito=resolved_deposito,
         id_articulo=id_articulo,

@@ -219,13 +219,22 @@ def test_user_no_id_sucursal_and_tenant_id_type(inspector):
     assert 'branch_id' in col_names, "Table 'users' should contain 'branch_id'."
     tenant_col = next((c for c in columns if c['name'] == 'tenant_id'), None)
     assert tenant_col is not None
-    assert 'INT' in str(tenant_col['type']).upper(), f"Expected INTEGER for tenant_id, got {tenant_col['type']}"
+    col_type = str(tenant_col['type']).upper()
+    assert 'INT' in col_type, f"Expected INTEGER for tenant_id in 'users', got {tenant_col['type']}"
 
 def test_stock_por_deposito_stock_real_int(inspector):
     columns = inspector.get_columns('stock_por_deposito')
     stock_real_col = next((c for c in columns if c['name'] == 'stock_real'), None)
     assert stock_real_col is not None
     assert 'INT' in str(stock_real_col['type']).upper(), f"Expected INTEGER for stock_real, got {stock_real_col['type']}"
+
+
+
+
+
+
+
+
 
 
 
