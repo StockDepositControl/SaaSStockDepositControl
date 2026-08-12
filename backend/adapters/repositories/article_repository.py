@@ -34,7 +34,6 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
         cost_decimal = Decimal(str(art_orm.pcio_com_siva)) if art_orm.pcio_com_siva is not None else Decimal("0.00")
 
         return Articulo(
-            id_articulo=str(art_orm.id_articulo).strip(),
             presentacion=art_orm.presentacion.strip() if art_orm.presentacion else None,
             des_articulo=art_orm.des_articulo.strip() if art_orm.des_articulo else "",
             id_marca=art_orm.id_marca,

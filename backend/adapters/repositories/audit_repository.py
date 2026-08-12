@@ -2,7 +2,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from backend.app.movements.models import AuditRecordCreate, AuditRecord, TipoAccion
+from backend.app.movements.domain import AuditRecordCreate, AuditRecord, TipoAccion
 from backend.app.movements.ports import AuditRepositoryPort
 from backend.adapters.repositories.models.analytics import AuditRecord as AuditRecordORM, ActionType as ActionTypeORM
 from backend.adapters.database.connection import get_analytics_session_factory

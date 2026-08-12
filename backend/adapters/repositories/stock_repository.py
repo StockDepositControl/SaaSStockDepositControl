@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from backend.app.movements.models import StockPorDeposito
+from backend.app.movements.domain import StockPorDeposito
 from backend.app.movements.ports import StockRepositoryPort
 from backend.adapters.repositories.models.articles import (
     StockPorDeposito as StockPorDepositoORM,

@@ -2,14 +2,16 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Tuple, List, Optional
-from backend.app.movements.models import (
+from backend.app.movements.domain import (
     TipoAccion,
+    AuditRecordCreate,
+    StockLookupResult,
+)
+from backend.app.movements.schemas import (
     AuditEntryRequest,
     AuditEntryResult,
     AuditBatchInput,
     AuditBatchResult,
-    AuditRecordCreate,
-    StockLookupResult,
 )
 from backend.app.movements.ports import StockRepositoryPort, AuditRepositoryPort
 from backend.app.exceptions import EntityNotFoundException, BusinessRuleViolationException

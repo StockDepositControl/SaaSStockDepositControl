@@ -21,10 +21,12 @@ from backend.adapters.repositories.models.analytics import (
     BaseAnalytics,
     ActionType,
     RiskLevel,
+    SessionStatus,
     RecordTenant,
     AuditRecord,
     DailyReport,
     CriticalShrinkageAlert,
+    WorkSession,
 )
 
 __all__ = [
@@ -46,8 +48,10 @@ __all__ = [
     "BaseAnalytics",
     "ActionType",
     "RiskLevel",
+    "SessionStatus",
     "RecordTenant",
     "AuditRecord",
     "DailyReport",
     "CriticalShrinkageAlert",
+    "WorkSession",
 ]

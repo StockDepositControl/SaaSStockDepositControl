@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from backend.adapters.repositories.models import (
     Familia, Grupo, Marca, Articulo, StockPorDeposito, LotePorDeposito, CodigoBarraArticulo,
     Empresa, Sucursal, Deposito,
-    Role, User, UserRoleAssociation, RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert, ActionType, RiskLevel
+    Role, User, UserRoleAssociation, RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert, WorkSession, ActionType, RiskLevel, SessionStatus
 )
 from backend.adapters.database.connection import SQLAlchemyConnectionProvider
 from backend.adapters.security.password_hasher import BcryptPasswordHasher
@@ -91,6 +91,7 @@ async def run_seed(
             await s_analytics.raw_session.execute(delete(CriticalShrinkageAlert))
             await s_analytics.raw_session.execute(delete(DailyReport))
             await s_analytics.raw_session.execute(delete(AuditRecord))
+            await s_analytics.raw_session.execute(delete(WorkSession))
             await s_analytics.raw_session.execute(delete(RecordTenant))
             await s_users.raw_session.execute(delete(UserRoleAssociation))
             await s_users.raw_session.execute(delete(User))
@@ -282,6 +283,21 @@ async def run_seed(
                 RecordTenant(tenant_name="Farmanor Branch 2", pharmacy_code="FARMA-002")
             ]
             s_analytics.raw_session.add_all(rec_tenants)
+            await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
+
+            # 9.5. Seed WorkSessions (db_analytics)
+            work_sessions = []
+            today_start = datetime.combine(date.today(), datetime.min.time())
+            today_end = datetime.combine(date.today(), datetime.max.time())
+            for t_obj in rec_tenants:
+                work_sessions.append(WorkSession(
+                    tenant_id=t_obj.tenant_id,
+                    branch_id=1,
+                    opened_at=today_start,
+                    closed_at=today_end,
+                    status=SessionStatus.OPEN.value
+                ))
+            s_analytics.raw_session.add_all(work_sessions)
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
 
             # 10. Seed AuditRecords (db_analytics)

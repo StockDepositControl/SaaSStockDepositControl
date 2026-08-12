@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, Query, status
 from typing import Union, Optional
-from backend.app.movements.models import (
+from backend.app.movements.schemas import (
     AuditEntryRequest,
     AuditEntryResult,
     AuditBatchInput,
     AuditBatchResult,
+)
+from backend.api.v1.schemas.stock import (
     ArticleStockPositionPublicOut,
     ArticleStockPositionAdminOut,
 )

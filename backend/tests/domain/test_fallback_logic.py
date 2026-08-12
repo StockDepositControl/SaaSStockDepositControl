@@ -2,7 +2,8 @@ import pytest
 import uuid
 from decimal import Decimal
 from datetime import datetime
-from backend.app.movements.models import StockPorDeposito, AuditRecord, TipoAccion, StockLookupResult, AuditRecordCreate, AuditEntryRequest
+from backend.app.movements.domain import StockPorDeposito, AuditRecord, TipoAccion, StockLookupResult, AuditRecordCreate
+from backend.app.movements.schemas import AuditEntryRequest
 from backend.app.movements.services import StockLookupService, AuditService
 from backend.app.exceptions import EntityNotFoundException
 
