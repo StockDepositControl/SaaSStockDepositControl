@@ -25,12 +25,12 @@ export function DemoShell({ children }: DemoShellProps) {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#0B0F19] text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
       {/* Collapsible Left Navigation Sidebar */}
       <Sidebar />
 
       {/* Main Column */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-slate-50">
         {/* Top Header */}
         <TopBar />
 

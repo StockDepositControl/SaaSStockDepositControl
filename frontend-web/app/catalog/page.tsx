@@ -2,39 +2,49 @@
 
 import React from "react";
 import { useDataClient } from "@/lib/hooks/useDataClient";
+import { UserRole } from "@/lib/types/domain";
 import { DemoShell } from "@/components/layout/DemoShell";
 import { DataTable } from "@/components/ui/DataTable";
-import { PackageSearch, Calendar } from "lucide-react";
+import { Lock } from "lucide-react";
 
 export default function CatalogPage() {
   const { articles, currentRole } = useDataClient();
+  const isAdmin = currentRole === UserRole.ADMINISTRADOR;
+  const isSupervisor = currentRole === UserRole.SUPERVISOR;
+
+  const subtitle = isAdmin
+    ? `${articles.length} artículos · Precios visibles (Vista de administrador)`
+    : isSupervisor
+    ? `${articles.length} artículos · Stock, estado de auditoría y trazabilidad del auditor`
+    : `${articles.length} artículos · Stock y estado de auditoría`;
 
   return (
     <DemoShell>
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight flex items-center gap-3">
-              <PackageSearch className="w-8 h-8 text-indigo-400" />
-              <span>Catálogo de Artículos</span>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+              Catálogo de Artículos
             </h1>
-            <p className="text-sm text-slate-400 mt-1">
-              Consulta el maestro de artículos, stock teórico y matrices de vencimiento FEFO.
+            <p className="text-sm text-slate-500 mt-1">
+              {subtitle}
             </p>
           </div>
-          <div className="px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs text-slate-400 flex items-center gap-2 shadow-inner">
-            <Calendar className="w-3.5 h-3.5" />
-            <span>Actualizado en tiempo real</span>
-          </div>
+          
+          {isAdmin && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#eff6ff] border border-[#dbeafe] text-[#1e429f] text-sm font-medium">
+              <Lock className="w-4 h-4" />
+              <span>Columna de costo — restringido</span>
+            </div>
+          )}
         </div>
 
         {/* Main Data Table */}
-        <div className="bg-slate-900/40 rounded-2xl p-1 border border-slate-800 shadow-2xl">
+        <div className="w-full">
           <DataTable
             articles={articles}
             currentRole={currentRole!}
-            title="Maestro de Artículos (Depósito 01)"
           />
         </div>
       </div>
