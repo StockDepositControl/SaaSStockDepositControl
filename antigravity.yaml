@@ -10,6 +10,11 @@ mcpServers:
     args: ["-y", "@modelcontextprotocol/server-memory"]
     env:
       REPOSITORY_PATH: "./backend"
+  Figma:
+    command: "npx"
+    args: ["-y", "figma-developer-mcp", "--stdio"]
+    env:
+      FIGMA_API_KEY: "${FIGMA_API_KEY}"
 
 # Declaración y registro de agentes del ecosistema
 agents:
@@ -128,10 +133,40 @@ agents:
 #    config_file: ".agents/agents/mobile_dev/AGENTS.md"
 #    target_dir: "frontend-mobile/"
 
-#  - id: "web-analytics-agent"
-#    name: "Web Analytics Dashboard Specialist"
-#    config_file: ".agents/agents/web_analytics/AGENTS.md"
-#    target_dir: "frontend-web/"
+  - id: "web-development-agent"
+    name: "Web Development Specialist"
+    config_file: ".agents/agents/web_development/agent.md"
+    target_dir: "frontend-web/"
+    tools:
+      - "view_file"
+      - "grep_search"
+      - "write_to_file"
+      - "replace_file_content"
+      - "multi_replace_file_content"
+      - "run_command"
+      - "ask_question"
+      - "index_repository"
+      - "search_graph"
+      - "query_graph"
+      - "trace_path"
+      - "get_code_snippet"
+      - "get_architecture"
+      - "search_code"
+      - "index_status"
+      - "detect_changes"
+    skills:
+      - id: "codebase-memory"
+        path: "//.agents/skills/codebase-memory"
+      - id: "nextjs-app-router-patterns"
+        path: "//.agents/skills/nextjs-app-router-patterns"
+      - id: "prompt-engineering"
+        path: "//.agents/skills/prompt-engineering"
+      - id: "llm-prompt-optimizer"
+        path: "//.agents/skills/llm-prompt-optimizer"
+      - id: "auth-implementation-patterns"
+        path: "//.agents/skills/auth-implementation-patterns"
+      - id: "systematic-debugging"
+        path: "//.agents/skills/systematic-debugging"
 
 # Reglas globales de sincronización y dependencias entre capas
 orchestration:
