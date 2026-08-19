@@ -4,9 +4,13 @@ import React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useDataClient } from "@/lib/hooks/useDataClient";
 import { UserRole } from "@/lib/types/domain";
-import { LogOut } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 
-export function TopBar() {
+export interface TopBarProps {
+  onMenuToggle?: () => void;
+}
+
+export function TopBar({ onMenuToggle }: TopBarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { currentUser, currentRole, logout } = useDataClient();
@@ -26,9 +30,19 @@ export function TopBar() {
   };
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between gap-4 z-20 shrink-0">
-      {/* Left side: Page Title */}
-      <div className="flex items-center">
+    <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between gap-4 z-20 shrink-0">
+      {/* Left side: Mobile Menu Button & Page Title */}
+      <div className="flex items-center gap-3">
+        {onMenuToggle && (
+          <button
+            onClick={onMenuToggle}
+            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition md:hidden"
+            title="Abrir Menú"
+            aria-label="Abrir Menú"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
         <span className="text-slate-500 font-medium text-lg">
           {getPageTitle()}
         </span>

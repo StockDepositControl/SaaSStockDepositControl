@@ -192,6 +192,37 @@ export function MockDataProvider({
     [articles, currentRole]
   );
 
+  const searchArticulos = useCallback(
+    async (
+      query: string,
+      role?: UserRole
+    ): Promise<(ArticuloPublicView | ArticuloAdminView)[]> => {
+      const activeRole = role ?? currentRole ?? UserRole.AUDITOR;
+      const cleanTerm = query.trim().toLowerCase();
+      if (!cleanTerm) return [];
+
+      const matches = articles
+        .filter((a) => {
+          const matchName = a.des_articulo.toLowerCase().includes(cleanTerm);
+          const matchId = a.id_articulo.toLowerCase().includes(cleanTerm);
+          const matchBarcode = a.cod_barras.some((cb) =>
+            cb.toLowerCase().includes(cleanTerm)
+          );
+          const matchBrand = (a.des_marca || "").toLowerCase().includes(cleanTerm);
+          return matchName || matchId || matchBarcode || matchBrand;
+        })
+        .sort((a, b) => {
+          // Surface pending articles first for faster audit workflow
+          if (a.fue_auditado === b.fue_auditado) return 0;
+          return a.fue_auditado ? 1 : -1;
+        })
+        .slice(0, 8);
+
+      return matches.map((art) => projectArticleForRole(art, activeRole));
+    },
+    [articles, currentRole]
+  );
+
   const registerAudit = useCallback(
     async (entry: AuditEntry): Promise<AuditResult> => {
       const target = articles.find(
@@ -245,6 +276,7 @@ export function MockDataProvider({
               ...art,
               fue_auditado: true,
               ultimo_conteo_fisico: entry.stock_fisico_contado,
+              stock_real: entry.stock_fisico_contado,
             };
           }
           return art;
@@ -292,6 +324,7 @@ export function MockDataProvider({
     () => ({
       getArticulos,
       getArticuloByBarcode,
+      searchArticulos,
       registerAudit,
       getKPIs,
       getAuditLog,
@@ -307,6 +340,7 @@ export function MockDataProvider({
     [
       getArticulos,
       getArticuloByBarcode,
+      searchArticulos,
       registerAudit,
       getKPIs,
       getAuditLog,

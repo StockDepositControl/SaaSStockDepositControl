@@ -13,6 +13,7 @@ export interface DemoShellProps {
 export function DemoShell({ children }: DemoShellProps) {
   const { currentUser } = useDataClient();
   const router = useRouter();
+  const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
 
   useEffect(() => {
     if (!currentUser) {
@@ -27,12 +28,15 @@ export function DemoShell({ children }: DemoShellProps) {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
       {/* Collapsible Left Navigation Sidebar */}
-      <Sidebar />
+      <Sidebar
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
+      />
 
       {/* Main Column */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-slate-50">
         {/* Top Header */}
-        <TopBar />
+        <TopBar onMenuToggle={() => setMobileSidebarOpen((prev) => !prev)} />
 
         {/* Scrollable Viewport */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-8">

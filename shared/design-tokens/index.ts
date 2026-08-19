@@ -4,6 +4,10 @@
  * Extracted from Figma Design File 4CYjLgmWy7JyhRGrAtpEjH
  */
 
+export * from "./primitives";
+export * from "./semantic/sidebar";
+
+
 export const colors = {
   // Base Surface / Backgrounds
   background: {

@@ -13,10 +13,13 @@ import {
   Users2,
   ChevronLeft,
   ChevronRight,
-  Boxes,
-  ShieldAlert,
-  TestTube,
+  X,
 } from "lucide-react";
+
+export interface SidebarProps {
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+}
 
 interface NavItem {
   label: string;
@@ -47,6 +50,7 @@ const navItems: NavItem[] = [
     label: "Reportes y FEFO",
     href: "/reports",
     icon: BarChart3,
+    adminOnly: true,
   },
   {
     label: "Gestión Usuarios",
@@ -56,116 +60,187 @@ const navItems: NavItem[] = [
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
-  const { currentRole } = useDataClient();
+  const { currentUser, currentRole } = useDataClient();
 
   const isAdmin = currentRole === UserRole.ADMINISTRADOR;
 
+  // Extract initials for the user card avatar
+  const userInitials =
+    currentUser?.name
+      ?.split(" ")
+      .map((part) => part[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase() || "U";
+
+  const roleLabel =
+    currentRole === UserRole.ADMINISTRADOR
+      ? "Administrador"
+      : currentRole === UserRole.SUPERVISOR
+      ? "Supervisor"
+      : "Auditor";
+
   return (
-    <aside
-      className={`glass-panel border-r border-slate-800/80 transition-all duration-300 flex flex-col justify-between z-30 shrink-0 ${
-        collapsed ? "w-20" : "w-64"
-      }`}
-    >
-      {/* Brand Header */}
-      <div>
-        <div className="h-16 px-4 border-b border-slate-800/80 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden">
-            <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 shrink-0">
-              <Boxes className="w-5 h-5" />
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {mobileOpen && (
+        <div
+          onClick={onMobileClose}
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden transition-opacity"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Main Sidebar Aside */}
+      <aside
+        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col justify-between border-r transition-all duration-300 shrink-0 bg-[var(--sidebar-background)] border-[var(--sidebar-divider)] relative ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        } ${collapsed ? "md:w-20" : "md:w-64"} w-64 h-full`}
+      >
+        {/* Brand Header */}
+        <div
+          className={`h-16 border-b border-[var(--sidebar-divider)] flex items-center shrink-0 relative ${
+            collapsed ? "justify-center px-2" : "justify-between px-4"
+          }`}
+        >
+          <Link
+            href="/dashboard"
+            onClick={onMobileClose}
+            className={`flex items-center gap-3 transition-opacity hover:opacity-90 ${
+              collapsed ? "justify-center shrink-0" : "min-w-0"
+            }`}
+            title="Audit Global"
+          >
+            {/* Logo Icon Ring */}
+            <div className="w-10 h-10 rounded-xl border border-[var(--sidebar-item-active-bg)] bg-[var(--sidebar-surface-elevated)] flex items-center justify-center shrink-0 text-[var(--sidebar-item-active-bg)] shadow-sm">
+              <ClipboardCheck className="w-5 h-5 shrink-0" strokeWidth={2.2} />
             </div>
+
+            {/* Logo Text Hierarchy */}
             {!collapsed && (
-              <div className="flex flex-col">
-                <span className="font-extrabold text-sm text-white tracking-tight">
+              <div className="flex flex-col min-w-0">
+                <span className="font-extrabold text-sm text-[var(--sidebar-item-active-fg)] tracking-tight truncate">
                   AUDIT GLOBAL
                 </span>
-                <span className="text-[10px] text-indigo-400 font-mono tracking-wider font-semibold">
-                  DEPOSIT CONTROL
+                <span className="text-[10px] text-[var(--sidebar-text-secondary)] font-mono tracking-wider font-semibold truncate">
+                  Control de Stock
                 </span>
               </div>
             )}
           </Link>
 
+          {/* Desktop Collapse / Expand Button */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/60 transition hidden md:block"
+            className={`transition hidden md:flex items-center justify-center shrink-0 ${
+              collapsed
+                ? "absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[var(--sidebar-surface-elevated)] border border-[var(--sidebar-divider)] text-[var(--sidebar-item-inactive-fg)] hover:text-[var(--sidebar-item-active-fg)] hover:bg-[var(--sidebar-item-active-bg)] hover:border-transparent shadow-md z-20 cursor-pointer"
+                : "p-1.5 rounded-lg text-[var(--sidebar-item-inactive-fg)] hover:text-[var(--sidebar-item-active-fg)] hover:bg-[var(--sidebar-surface-elevated)]"
+            }`}
             title={collapsed ? "Expandir Menú" : "Contraer Menú"}
+            aria-label={collapsed ? "Expandir Menú" : "Contraer Menú"}
           >
-            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {collapsed ? (
+              <ChevronRight className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronLeft className="w-4 h-4" />
+            )}
+          </button>
+
+          {/* Mobile Close Button */}
+          <button
+            onClick={onMobileClose}
+            className="p-1.5 rounded-lg text-[var(--sidebar-item-inactive-fg)] hover:text-[var(--sidebar-item-active-fg)] hover:bg-[var(--sidebar-surface-elevated)] transition md:hidden"
+            aria-label="Cerrar Menú"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Navigation List */}
-        <nav className="p-3 space-y-1.5">
-          {navItems.map((item) => {
-            if (item.adminOnly && !isAdmin) {
-              return null; // Structurally omit admin-only navigation links
-            }
+        {/* Middle Scrollable Section: Navigation */}
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-1.5">
+          <nav aria-label="Navegación Principal" className="space-y-1.5">
+            {navItems.map((item) => {
+              if (item.adminOnly && !isAdmin) {
+                return null; // Structurally omit admin-only links
+              }
 
-            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-            const Icon = item.icon;
+              const isActive =
+                pathname === item.href ||
+                (item.href !== "/dashboard" && pathname.startsWith(item.href));
+              const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 relative group ${
-                  isActive
-                    ? "bg-indigo-600/20 text-white border border-indigo-500/40 shadow-sm"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800/50"
-                }`}
-                title={collapsed ? item.label : undefined}
-              >
-                <Icon
-                  className={`w-4 h-4 shrink-0 transition-colors ${
-                    isActive ? "text-indigo-400" : "text-slate-400 group-hover:text-indigo-300"
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={onMobileClose}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 relative group ${
+                    collapsed ? "justify-center px-2" : ""
+                  } ${
+                    isActive
+                      ? "bg-[var(--sidebar-item-active-bg)] text-[var(--sidebar-item-active-fg)] shadow-sm"
+                      : "text-[var(--sidebar-item-inactive-fg)] hover:text-[var(--sidebar-item-active-fg)] hover:bg-[var(--sidebar-surface-elevated)]"
                   }`}
-                />
+                  title={collapsed ? item.label : undefined}
+                >
+                  <Icon
+                    className={`w-4 h-4 shrink-0 transition-colors ${
+                      isActive
+                        ? "text-[var(--sidebar-item-active-fg)]"
+                        : "text-[var(--sidebar-item-inactive-fg)] group-hover:text-[var(--sidebar-item-active-fg)]"
+                    }`}
+                  />
 
-                {!collapsed && (
-                  <span className="truncate flex-1">{item.label}</span>
-                )}
+                  {!collapsed && (
+                    <span className="truncate flex-1">{item.label}</span>
+                  )}
 
-                {!collapsed && item.badge && (
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    {item.badge}
-                  </span>
-                )}
+                  {!collapsed && item.badge && (
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-[var(--sidebar-surface-elevated)] text-[var(--sidebar-item-active-fg)] border border-[var(--sidebar-divider)]">
+                      {item.badge}
+                    </span>
+                  )}
 
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-indigo-500" />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
+                  {isActive && !collapsed && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full bg-[var(--sidebar-item-active-fg)]" />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
 
-      {/* Footer Info / Sandbox Gateway */}
-      <div className="p-3 border-t border-slate-800/80 space-y-2">
-        <Link
-          href="/debug"
-          className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent hover:border-slate-800 transition"
-          title="Sandbox Técnico / RBAC"
-        >
-          <TestTube className="w-4 h-4 text-amber-400 shrink-0" />
-          {!collapsed && <span>Portal de Pruebas / RBAC</span>}
-        </Link>
-
-        {!collapsed && (
-          <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 text-[10px] text-slate-500">
-            <div className="flex items-center gap-1.5 text-slate-400 font-semibold">
-              <ShieldAlert className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Multi-Tenant SSoT</span>
+        {/* Lower Section: Bottom User Card */}
+        <div className="p-3 border-t border-[var(--sidebar-divider)] shrink-0">
+          <div
+            className={`bg-[var(--sidebar-surface-elevated)] rounded-xl transition-all duration-200 flex items-center gap-3 ${
+              collapsed ? "p-1.5 justify-center" : "p-2.5"
+            }`}
+            title={collapsed ? `${currentUser?.name || "Usuario"} (${roleLabel})` : undefined}
+          >
+            {/* User Avatar Circle */}
+            <div className="w-8 h-8 rounded-full bg-[var(--sidebar-item-active-bg)] text-[var(--sidebar-item-active-fg)] flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+              {userInitials}
             </div>
-            <p className="mt-1 leading-tight text-slate-500">
-              Sucursal Central #01 · Farmanor Network
-            </p>
+
+            {/* User Identity Details */}
+            {!collapsed && (
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-xs font-semibold text-[var(--sidebar-item-active-fg)] truncate">
+                  {currentUser?.name || "Usuario"}
+                </span>
+                <span className="text-[10px] text-[var(--sidebar-text-secondary)] font-medium truncate uppercase tracking-wider">
+                  {roleLabel}
+                </span>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </aside>
+        </div>
+      </aside>
+    </>
   );
 }

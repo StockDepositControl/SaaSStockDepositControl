@@ -7,6 +7,15 @@
   --surface-elevated: #1E293B;
   --surface-border: rgba(255, 255, 255, 0.08);
   --primary-accent: #6366F1;
+
+  /* Sidebar Semantic Tokens */
+  --sidebar-background: #1A1D2E;
+  --sidebar-surface-elevated: #2C3252;
+  --sidebar-item-active-bg: #1565C0;
+  --sidebar-item-active-fg: #FFFFFF;
+  --sidebar-item-inactive-fg: rgba(255, 255, 255, 0.55);
+  --sidebar-divider: rgba(255, 255, 255, 0.07);
+  --sidebar-text-secondary: rgba(255, 255, 255, 0.45);
 }
 
 @theme inline {
@@ -14,6 +23,14 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-sidebar-bg: var(--sidebar-background);
+  --color-sidebar-surface-elevated: var(--sidebar-surface-elevated);
+  --color-sidebar-active-bg: var(--sidebar-item-active-bg);
+  --color-sidebar-active-fg: var(--sidebar-item-active-fg);
+  --color-sidebar-inactive-fg: var(--sidebar-item-inactive-fg);
+  --color-sidebar-divider: var(--sidebar-divider);
+  --color-sidebar-text-secondary: var(--sidebar-text-secondary);
 }
 
 body {

@@ -26,6 +26,14 @@ export interface DataClientPort {
   ): Promise<ArticuloPublicView | ArticuloAdminView | null>;
 
   /**
+   * Search articles by matching text (name, barcode, or id).
+   */
+  searchArticulos(
+    query: string,
+    role?: UserRole
+  ): Promise<(ArticuloPublicView | ArticuloAdminView)[]>;
+
+  /**
    * Registers a physical audit record for an article, updating stock and audit status.
    */
   registerAudit(entry: AuditEntry): Promise<AuditResult>;
