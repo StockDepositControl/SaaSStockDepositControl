@@ -77,8 +77,14 @@ async def get_article_stock_position(
     # 1. Fetch Article Metadata
     article = await search_service.get_article_by_id(id_articulo)
 
+    try:
+        tenant_id_int = int(claims.get("tenant_id", 1))
+    except (ValueError, TypeError):
+        tenant_id_int = 1
+
     # 2. Fetch Stock Position using fallback logic
     stock_pos = await audit_service.stock_lookup_service.get_effective_stock(
+        tenant_id=tenant_id_int,
         id_sucursal=resolved_sucursal,
         id_deposito=resolved_deposito,
         id_articulo=id_articulo,

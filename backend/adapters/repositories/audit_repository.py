@@ -78,7 +78,7 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
             )
 
     async def exists_by_client_uuid(
-        self, tenant_id: str, client_uuid: str
+        self, client_uuid: str
     ) -> bool:
         if not client_uuid:
             return False
@@ -89,13 +89,10 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
             return result.scalar_one_or_none() is not None
 
     async def get_latest_audit_record(
-        self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str
+        self, tenant_id: int, id_sucursal: int, id_deposito: int, id_articulo: str
     ) -> Optional[AuditRecord]:
         async with self.session_factory() as session:
-            try:
-                numeric_tenant_id = int(tenant_id)
-            except (ValueError, TypeError):
-                numeric_tenant_id = 1
+            numeric_tenant_id = tenant_id
 
             stmt = (
                 select(AuditRecordORM)

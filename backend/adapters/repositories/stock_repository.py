@@ -23,12 +23,9 @@ class SQLAlchemyStockRepository(StockRepositoryPort):
         self.session_factory = session_factory or get_articles_session_factory()
 
     async def get_stock_position(
-        self, tenant_id: str, id_sucursal: int, id_deposito: int, id_articulo: str, id_empresa: Optional[int] = None
+        self, tenant_id: int, id_sucursal: int, id_deposito: int, id_articulo: str
     ) -> Optional[StockPorDeposito]:
-        try:
-            resolved_empresa = id_empresa if id_empresa is not None else int(tenant_id)
-        except (ValueError, TypeError):
-            resolved_empresa = 1
+        resolved_empresa = tenant_id
 
         async with self.session_factory() as session:
             stmt = (
@@ -57,7 +54,7 @@ class SQLAlchemyStockRepository(StockRepositoryPort):
 
 
     async def get_article_cost_info(
-        self, tenant_id: str, id_articulo: str
+        self, id_articulo: str
     ) -> Tuple[Decimal, str]:
         async with self.session_factory() as session:
             stmt = (

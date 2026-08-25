@@ -65,3 +65,19 @@ async def test_get_article_by_id_not_found(mock_article_repo):
         await service.get_article_by_id("NONEXISTENT")
 
     assert "NONEXISTENT" in str(exc_info.value)
+
+@pytest.mark.asyncio
+async def test_list_all_articles_success(mock_article_repo, sample_article):
+    mock_article_repo.list_articles.return_value = ([sample_article], 1)
+    service = ArticleSearchService(article_repository=mock_article_repo)
+
+    results = await service.list_all_articles()
+
+    assert len(results) == 1
+    assert results[0].id_articulo == "1042"
+    mock_article_repo.list_articles.assert_called_once_with(
+        page=1,
+        limit=10000,
+        active_session_id=None
+    )
+

@@ -17,7 +17,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from backend.adapters.repositories.models import (
     Familia, Grupo, Marca, Articulo, StockPorDeposito, LotePorDeposito, CodigoBarraArticulo,
     Empresa, Sucursal, Deposito,
-    Role, User, UserRoleAssociation, RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert, WorkSession, ActionType, RiskLevel, SessionStatus
+    Enterprise, Branch, Role, User, UserRoleAssociation,
+    RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert, WorkSession, ActionType, RiskLevel, SessionStatus
 )
 from backend.adapters.database.connection import SQLAlchemyConnectionProvider
 from backend.adapters.security.password_hasher import BcryptPasswordHasher
@@ -96,6 +97,8 @@ async def run_seed(
             await s_users.raw_session.execute(delete(UserRoleAssociation))
             await s_users.raw_session.execute(delete(User))
             await s_users.raw_session.execute(delete(Role))
+            await s_users.raw_session.execute(delete(Branch))
+            await s_users.raw_session.execute(delete(Enterprise))
             await s_articles.raw_session.execute(delete(CodigoBarraArticulo))
             await s_articles.raw_session.execute(delete(LotePorDeposito))
             await s_articles.raw_session.execute(delete(StockPorDeposito))
@@ -108,7 +111,7 @@ async def run_seed(
             await s_articles.raw_session.execute(delete(Empresa))
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
 
-            # 1.5. Seed Empresa, Sucursales, and Depositos
+            # 1.5. Seed Empresa, Sucursales, and Depositos (db_articles)
             empresa_obj = Empresa(id_empresa=1, des_empresa="Empresa Principal")
             s_articles.raw_session.add(empresa_obj)
 
@@ -130,6 +133,14 @@ async def run_seed(
                 ))
                 valid_deposito_pairs.append((s_id, d_id))
             s_articles.raw_session.add_all(depositos_objs)
+
+            # 1.6. Seed Enterprise and Branch (db_users)
+            enterprise_user = Enterprise(tenant_id=1, description="Empresa Principal")
+            s_users.raw_session.add(enterprise_user)
+            await s_users.raw_session.flush()
+
+            branch_user = Branch(id_branch=1, tenant_id=1, description="Sucursal Central")
+            s_users.raw_session.add(branch_user)
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
 
             # 2. Seed Families (State C Fiscal Mix requirement: Medicamentos 0% VAT, others taxable)
@@ -253,17 +264,15 @@ async def run_seed(
             # 8. Seed Users & UserRoles (db_users)
             new_users = []
             for idx in range(12):
-                sucursal = sucursales_ids[idx % len(sucursales_ids)]
                 first, *last = fake.name().split()
                 last_name = " ".join(last) if last else "Doe"
-                tenant_id = 1 if idx < 6 else 2
                 new_u = User(
-                    tenant_id=tenant_id,
+                    tenant_id=1,
                     first_name=first,
                     last_name=last_name,
                     email=f"user_{idx}@example.com",
                     password_hash=password_hash,
-                    branch_id=sucursal,
+                    branch_id=1,
                     is_active=True
                 )
                 new_users.append(new_u)
@@ -279,8 +288,7 @@ async def run_seed(
 
             # 9. Seed RecordTenants (db_analytics)
             rec_tenants = [
-                RecordTenant(tenant_name="GlobalMedica Inc.", pharmacy_code="FARMA-001"),
-                RecordTenant(tenant_name="Farmanor Branch 2", pharmacy_code="FARMA-002")
+                RecordTenant(tenant_id=1, tenant_name="GlobalMedica Inc.", pharmacy_code="FARMA-001")
             ]
             s_analytics.raw_session.add_all(rec_tenants)
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
@@ -323,14 +331,13 @@ async def run_seed(
             for lot in lotes:
                 lot_venc_date = datetime.strptime(lot.vencimiento, "%Y-%m-%d").date()
                 if lot_venc_date < date.today() + timedelta(days=30):
-                    t_obj = random.choice(rec_tenants)
                     days_to_exp = (lot_venc_date - date.today()).days
                     risk = RiskLevel.RED if days_to_exp <= 0 else (RiskLevel.YELLOW if days_to_exp <= 30 else RiskLevel.GREEN)
                     art_ref = next((a for a in articulos if a.id_articulo == lot.id_articulo), articulos[0])
                     amt_at_risk = Decimal(str(lot.stock_real)) * Decimal(str(art_ref.pcio_com_siva))
 
                     critical_alerts.append(CriticalShrinkageAlert(
-                        tenant_id=t_obj.tenant_id,
+                        tenant_id=1,
                         warehouse_id=lot.id_deposito,
                         article_code=lot.id_articulo.strip(),
                         batch_number=lot.lote,

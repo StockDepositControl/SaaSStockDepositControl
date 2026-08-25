@@ -10,7 +10,7 @@ class StockRepositoryPort(ABC):
     """
     @abstractmethod
     async def get_stock_position(
-        self, id_sucursal: int, id_deposito: int, id_articulo: str, id_empresa: Optional[int] = None
+        self, tenant_id: int, id_sucursal: int, id_deposito: int, id_articulo: str
     ) -> Optional[StockPorDeposito]:
         """
         Retrieves current stock position (stock_real) for a specific deposit and article.
@@ -54,7 +54,7 @@ class AuditRepositoryPort(ABC):
 
     @abstractmethod
     async def get_latest_audit_record(
-        self, id_sucursal: int, id_deposito: int, id_articulo: str
+        self, tenant_id: int, id_sucursal: int, id_deposito: int, id_articulo: str
     ) -> Optional[AuditRecord]:
         """
         Retrieves the most recent audit record for an article in a specific deposit.

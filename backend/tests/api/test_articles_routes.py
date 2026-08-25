@@ -4,16 +4,32 @@ from decimal import Decimal
 from fastapi.testclient import TestClient
 
 from backend.api.main import app
-from backend.api.dependencies.services import get_article_search_service
+from backend.api.dependencies.services import get_article_search_service, get_work_session_service
 from backend.app.articles.models import Articulo
 from backend.app.articles.services import ArticleSearchService
+from backend.app.work_sessions.services import WorkSessionService
+from backend.app.work_sessions.models import WorkSession
+from datetime import datetime, timezone
 
 @pytest.fixture
 def mock_search_service():
     service = AsyncMock(spec=ArticleSearchService)
     return service
 
-def test_search_articles_endpoint_as_admin(mock_search_service, monkeypatch):
+@pytest.fixture
+def mock_work_session_service():
+    service = AsyncMock(spec=WorkSessionService)
+    service.get_or_create_active_session.return_value = WorkSession(
+        session_id=1,
+        tenant_id="tenant-01",
+        branch_id=1,
+        opened_at=datetime.now(timezone.utc),
+        created_at=datetime.now(timezone.utc),
+        status="OPEN"
+    )
+    return service
+
+def test_search_articles_endpoint_as_admin(mock_search_service, mock_work_session_service, monkeypatch):
     from backend.api.dependencies.auth import get_current_user_claims
 
     # Mock user claims for Administrator role
@@ -37,6 +53,7 @@ def test_search_articles_endpoint_as_admin(mock_search_service, monkeypatch):
     )
     mock_search_service.search_articles.return_value = [mock_article]
     app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
+    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
 
     client = TestClient(app)
     response = client.get("/api/v1/articles/search?query=Ibuprofeno")
@@ -53,7 +70,7 @@ def test_search_articles_endpoint_as_admin(mock_search_service, monkeypatch):
     app.dependency_overrides.clear()
 
 
-def test_search_articles_endpoint_as_auditor(mock_search_service):
+def test_search_articles_endpoint_as_auditor(mock_search_service, mock_work_session_service):
     from backend.api.dependencies.auth import get_current_user_claims
 
     # Mock user claims for Auditor role
@@ -77,6 +94,7 @@ def test_search_articles_endpoint_as_auditor(mock_search_service):
     )
     mock_search_service.search_articles.return_value = [mock_article]
     app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
+    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
 
     client = TestClient(app)
     response = client.get("/api/v1/articles/search?query=Ibuprofeno")
@@ -89,3 +107,79 @@ def test_search_articles_endpoint_as_auditor(mock_search_service):
     assert "pcio_com_siva" not in data[0]
 
     app.dependency_overrides.clear()
+
+
+def test_get_all_articles_as_admin(mock_search_service):
+    from backend.api.dependencies.auth import get_current_user_claims
+
+    app.dependency_overrides[get_current_user_claims] = lambda: {
+        "sub": "admin@example.com",
+        "role": "administrador",
+        "tenant_id": "tenant-01"
+    }
+
+    mock_articles = [
+        Articulo(
+            id_articulo="1001",
+            des_articulo="Aspirina 500mg",
+            pcio_com_siva=Decimal("100.00")
+        ),
+        Articulo(
+            id_articulo="1002",
+            des_articulo="Paracetamol 500mg",
+            pcio_com_siva=Decimal("120.00")
+        ),
+    ]
+    mock_search_service.list_all_articles.return_value = mock_articles
+    app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
+
+    client = TestClient(app)
+    response = client.get("/api/v1/articles/all")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 2
+    assert data[0]["id_articulo"] == "1001"
+    assert "pcio_com_siva" in data[0]
+    assert Decimal(str(data[0]["pcio_com_siva"])) == Decimal("100.00")
+
+    app.dependency_overrides.clear()
+
+
+def test_get_all_articles_as_auditor(mock_search_service):
+    from backend.api.dependencies.auth import get_current_user_claims
+
+    app.dependency_overrides[get_current_user_claims] = lambda: {
+        "sub": "auditor@example.com",
+        "role": "auditor",
+        "tenant_id": "tenant-01"
+    }
+
+    mock_articles = [
+        Articulo(
+            id_articulo="1001",
+            des_articulo="Aspirina 500mg",
+            pcio_com_siva=Decimal("100.00")
+        ),
+    ]
+    mock_search_service.list_all_articles.return_value = mock_articles
+    app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
+
+    client = TestClient(app)
+    response = client.get("/api/v1/articles/all")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["id_articulo"] == "1001"
+    assert "pcio_com_siva" not in data[0]
+
+    app.dependency_overrides.clear()
+
+
+def test_instantiate_sqlalchemy_article_repository():
+    from backend.adapters.repositories.article_repository import SQLAlchemyArticleRepository
+    # Verify that the repository class is concrete and can be instantiated without TypeError
+    repo = SQLAlchemyArticleRepository(session_factory=AsyncMock(), analytics_session_factory=AsyncMock())
+    assert repo is not None
+

@@ -13,7 +13,7 @@ class MockStockRepo:
         self.cost_info = cost_info
         self.update_called = False
 
-    async def get_stock_position(self, id_sucursal, id_deposito, id_articulo):
+    async def get_stock_position(self, tenant_id, id_sucursal, id_deposito, id_articulo):
         return self.position
 
     async def get_article_cost_info(self, id_articulo):
@@ -28,7 +28,7 @@ class MockAuditRepo:
         self.latest_record = latest_record
         self.created_records = []
 
-    async def get_latest_audit_record(self, id_sucursal, id_deposito, id_articulo):
+    async def get_latest_audit_record(self, tenant_id, id_sucursal, id_deposito, id_articulo):
         return self.latest_record
 
     async def get_active_session_id(self, branch_id):
@@ -64,7 +64,7 @@ async def test_stock_lookup_fallback_to_articles():
     audit_repo = MockAuditRepo(latest_record=None)
     
     svc = StockLookupService(stock_repo, audit_repo)
-    result = await svc.get_effective_stock(1, 1, "ART1")
+    result = await svc.get_effective_stock(1, 1, 1, "ART1")
     
     assert result.stock_real == 100
     assert result.source == "db_articles"
@@ -85,7 +85,7 @@ async def test_stock_lookup_uses_audit():
     ))
     
     svc = StockLookupService(stock_repo, audit_repo)
-    result = await svc.get_effective_stock(1, 1, "ART1")
+    result = await svc.get_effective_stock(1, 1, 1, "ART1")
     
     assert result.stock_real == 95
     assert result.source == "db_analytics"

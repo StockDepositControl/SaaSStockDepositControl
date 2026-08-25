@@ -154,7 +154,7 @@ async def test_seed_db_users_and_db_analytics(async_sessions, db_engines):
 
     # Record tenants check
     res_tenants = await s_analytics.execute(select(func.count(RecordTenant.tenant_id)))
-    assert res_tenants.scalar() == 2
+    assert res_tenants.scalar() == 1
 
     # Audit records check (Clean state constraint per Observation 7: NO simulated audit records)
     res_analytics_audits = await s_analytics.execute(select(func.count(AuditRecord.audit_id)))
@@ -162,7 +162,7 @@ async def test_seed_db_users_and_db_analytics(async_sessions, db_engines):
 
     # Daily reports check
     res_reports = await s_analytics.execute(select(func.count(DailyReport.daily_report_id)))
-    assert res_reports.scalar() == 2
+    assert res_reports.scalar() == 1
 
     # Critical alerts check
     res_alerts = await s_analytics.execute(select(func.count(CriticalShrinkageAlert.alert_id)))

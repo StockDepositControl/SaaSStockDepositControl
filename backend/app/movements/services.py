@@ -22,10 +22,10 @@ class StockLookupService:
         self.audit_repository = audit_repository
 
     async def get_effective_stock(
-        self, id_sucursal: int, id_deposito: int, id_articulo: str
+        self, tenant_id: int, id_sucursal: int, id_deposito: int, id_articulo: str
     ) -> StockLookupResult:
         latest_audit = await self.audit_repository.get_latest_audit_record(
-            id_sucursal, id_deposito, id_articulo
+            tenant_id, id_sucursal, id_deposito, id_articulo
         )
         if latest_audit:
             return StockLookupResult(
@@ -35,7 +35,7 @@ class StockLookupService:
             )
 
         stock_pos = await self.stock_repository.get_stock_position(
-            id_sucursal, id_deposito, id_articulo
+            tenant_id, id_sucursal, id_deposito, id_articulo
         )
         if not stock_pos:
             raise EntityNotFoundException(
@@ -116,8 +116,14 @@ class AuditService:
         id_sucursal = entry.id_sucursal if entry.id_sucursal is not None else 1
         id_deposito = entry.id_deposito if entry.id_deposito is not None else 1
 
+        try:
+            tenant_id_int = int(tenant_id)
+        except (ValueError, TypeError):
+            tenant_id_int = 1
+
         # 1. Retrieve stock position using lookup service
         stock_lookup = await self.stock_lookup_service.get_effective_stock(
+            tenant_id=tenant_id_int,
             id_sucursal=id_sucursal,
             id_deposito=id_deposito,
             id_articulo=entry.id_articulo,

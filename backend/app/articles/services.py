@@ -61,3 +61,14 @@ class ArticleSearchService:
             fue_auditado=fue_auditado,
             active_session_id=active_session_id
         )
+
+    async def list_all_articles(self) -> List[Articulo]:
+        """
+        Retrieves the full catalog of articles without pagination.
+        """
+        items, _ = await self.article_repository.list_articles(
+            page=1,
+            limit=10000,
+            active_session_id=None
+        )
+        return items
