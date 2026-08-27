@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict
 
 class WorkSessionBase(BaseModel):
-    tenant_id: str
+    tenant_id: int
     branch_id: int
     opened_at: datetime
     closed_at: Optional[datetime] = None

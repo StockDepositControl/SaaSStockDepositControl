@@ -47,14 +47,23 @@ def get_audit_service() -> "AuditService":
     from backend.app.movements.services import AuditService, StockLookupService
     from backend.adapters.repositories.stock_repository import SQLAlchemyStockRepository
     from backend.adapters.repositories.audit_repository import SQLAlchemyAuditRepository
+    from backend.adapters.repositories.work_session_repository import SQLAlchemyWorkSessionRepository
+    from backend.app.work_sessions.services import WorkSessionService
+    from backend.adapters.database.connection import get_analytics_session_factory
 
     stock_repo = SQLAlchemyStockRepository()
     audit_repo = SQLAlchemyAuditRepository()
+    
+    ws_session_factory = get_analytics_session_factory()
+    ws_repo = SQLAlchemyWorkSessionRepository(ws_session_factory)
+    ws_service = WorkSessionService(repository=ws_repo)
+
     stock_lookup_svc = StockLookupService(stock_repository=stock_repo, audit_repository=audit_repo)
     return AuditService(
         stock_repository=stock_repo,
         audit_repository=audit_repo,
-        stock_lookup_service=stock_lookup_svc
+        stock_lookup_service=stock_lookup_svc,
+        work_session_service=ws_service
     )
 
 

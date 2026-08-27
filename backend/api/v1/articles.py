@@ -38,31 +38,7 @@ async def search_articles(
         return [ArticuloAdminOut.model_validate(art) for art in results]
     else:
         return [ArticuloPublicOut.model_validate(art) for art in results]
-
-
-@router.get(
-    "/all",
-    response_model=List[Union[ArticuloAdminOut, ArticuloPublicOut]],
-    summary="Get all articles without pagination",
-    description="Retrieves the entire catalog of articles. Dynamically masks financial data based on user role."
-)
-async def get_all_articles(
-    claims: dict = Depends(get_current_user_claims),
-    search_service: ArticleSearchService = Depends(get_article_search_service),
-) -> List[Any]:
-    """
-    Retrieve all articles in the catalog without pagination.
-    """
-    articles = await search_service.list_all_articles()
-
-    user_role = claims.get("role", "").lower()
-    is_admin = (user_role == "administrador")
-
-    if is_admin:
-        return [ArticuloAdminOut.model_validate(art) for art in articles]
-    else:
-        return [ArticuloPublicOut.model_validate(art) for art in articles]
-
+    
 
 @router.get(
     "",

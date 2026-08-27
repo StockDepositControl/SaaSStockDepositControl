@@ -22,19 +22,25 @@ def mock_stock_repo():
 @pytest.fixture
 def mock_audit_repo():
     repo = AsyncMock()
-    repo.get_active_session_id.return_value = 1
     return repo
+
+@pytest.fixture
+def mock_work_session_service():
+    svc = AsyncMock()
+    svc.get_active_session_id.return_value = 1
+    return svc
 
 @pytest.fixture
 def mock_lookup_service(mock_stock_repo, mock_audit_repo):
     return StockLookupService(stock_repository=mock_stock_repo, audit_repository=mock_audit_repo)
 
 @pytest.fixture
-def audit_service(mock_stock_repo, mock_audit_repo, mock_lookup_service):
+def audit_service(mock_stock_repo, mock_audit_repo, mock_lookup_service, mock_work_session_service):
     return AuditService(
         stock_repository=mock_stock_repo,
         audit_repository=mock_audit_repo,
         stock_lookup_service=mock_lookup_service,
+        work_session_service=mock_work_session_service,
         default_vat_rate=Decimal("0.21"),
     )
 

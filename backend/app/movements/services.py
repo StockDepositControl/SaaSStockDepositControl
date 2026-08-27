@@ -15,6 +15,7 @@ from backend.app.movements.schemas import (
 )
 from backend.app.movements.ports import StockRepositoryPort, AuditRepositoryPort
 from backend.app.exceptions import EntityNotFoundException, BusinessRuleViolationException
+from backend.app.work_sessions.services import WorkSessionService
 
 class StockLookupService:
     def __init__(self, stock_repository: StockRepositoryPort, audit_repository: AuditRepositoryPort):
@@ -59,11 +60,13 @@ class AuditService:
         stock_repository: StockRepositoryPort,
         audit_repository: AuditRepositoryPort,
         stock_lookup_service: StockLookupService,
+        work_session_service: WorkSessionService,
         default_vat_rate: Decimal = Decimal("0.21"),
     ):
         self.stock_repository = stock_repository
         self.audit_repository = audit_repository
         self.stock_lookup_service = stock_lookup_service
+        self.work_session_service = work_session_service
         self.default_vat_rate = default_vat_rate
 
     @staticmethod
@@ -172,7 +175,7 @@ class AuditService:
         )
 
         # 5. Retrieve active work session ID or default fallback
-        active_session_id = await self.audit_repository.get_active_session_id(id_sucursal)
+        active_session_id = await self.work_session_service.get_active_session_id(id_sucursal)
         session_id = active_session_id if active_session_id is not None else 1
 
         # 6. Persist audit record in db_analytics (db_articles remains untouched)

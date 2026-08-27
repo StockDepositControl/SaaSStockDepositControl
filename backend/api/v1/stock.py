@@ -66,7 +66,7 @@ async def get_article_stock_position(
     search_service: ArticleSearchService = Depends(get_article_search_service),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Union[ArticleStockPositionAdminOut, ArticleStockPositionPublicOut]:
-    tenant_id = str(claims.get("tenant_id", "1"))
+    tenant_id = claims.get("tenant_id", "1")
     branch_id = claims.get("branch_id")
     user_role = claims.get("role", "").lower()
     is_admin = (user_role == "administrador")

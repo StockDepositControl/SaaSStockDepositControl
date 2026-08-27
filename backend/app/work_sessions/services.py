@@ -7,6 +7,12 @@ class WorkSessionService:
     def __init__(self, repository: WorkSessionRepositoryPort):
         self.repository = repository
 
+    async def get_active_session_id(self, branch_id: int) -> Optional[int]:
+        """
+        Retrieves the ID of the currently active WorkSession for a given branch.
+        """
+        return await self.repository.get_active_session_id(branch_id=branch_id)
+
     async def get_or_create_active_session(
         self, tenant_id: str, branch_id: int, current_dt: Optional[datetime] = None
     ) -> WorkSession:

@@ -42,6 +42,20 @@ class SQLAlchemyWorkSessionRepository(WorkSessionRepositoryPort):
                 return None
             return self._to_domain(orm_model)
 
+    async def get_active_session_id(self, branch_id: int) -> Optional[int]:
+        async with self.session_factory() as session:
+            stmt = (
+                select(WorkSessionORM.session_id)
+                .where(
+                    WorkSessionORM.branch_id == branch_id,
+                    WorkSessionORM.status == "OPEN"
+                )
+                .order_by(WorkSessionORM.opened_at.desc())
+                .limit(1)
+            )
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
+
     async def create_session(self, session: WorkSessionCreate) -> WorkSession:
         async with self.session_factory() as db_session:
             new_orm = WorkSessionORM(

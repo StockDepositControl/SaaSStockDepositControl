@@ -30,9 +30,6 @@ class MockAuditRepo:
 
     async def get_latest_audit_record(self, tenant_id, id_sucursal, id_deposito, id_articulo):
         return self.latest_record
-
-    async def get_active_session_id(self, branch_id):
-        return 1
         
     async def create_audit_record(self, record: AuditRecordCreate):
         self.created_records.append(record)
@@ -91,6 +88,10 @@ async def test_stock_lookup_uses_audit():
     assert result.source == "db_analytics"
 
 
+class MockWorkSessionService:
+    async def get_active_session_id(self, branch_id):
+        return 1
+
 @pytest.mark.asyncio
 async def test_register_audit_preserves_db_articles():
     stock_repo = MockStockRepo(
@@ -99,7 +100,8 @@ async def test_register_audit_preserves_db_articles():
     )
     audit_repo = MockAuditRepo(latest_record=None)
     lookup_svc = StockLookupService(stock_repo, audit_repo)
-    audit_svc = AuditService(stock_repo, audit_repo, lookup_svc)
+    ws_svc = MockWorkSessionService()
+    audit_svc = AuditService(stock_repo, audit_repo, lookup_svc, ws_svc)
     
     entry = AuditEntryRequest(
         id_sucursal=1,

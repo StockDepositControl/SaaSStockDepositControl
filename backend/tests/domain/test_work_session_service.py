@@ -14,6 +14,12 @@ class MockWorkSessionRepository(WorkSessionRepositoryPort):
                 return s
         return None
 
+    async def get_active_session_id(self, branch_id: int):
+        for s in reversed(self.sessions):
+            if s.branch_id == branch_id and s.status == "OPEN":
+                return s.session_id
+        return None
+
     async def create_session(self, session: WorkSessionCreate):
         new_session = WorkSession(
             session_id=len(self.sessions) + 1,
@@ -33,7 +39,7 @@ async def test_get_or_create_active_session_creates_new():
     service = WorkSessionService(repository=repo)
     
     current_dt = datetime(2023, 10, 10, 14, 30)
-    session = await service.get_or_create_active_session(tenant_id="TENANT1", branch_id=1, current_dt=current_dt)
+    session = await service.get_or_create_active_session(tenant_id=1, branch_id=1, current_dt=current_dt)
     
     assert session is not None
     assert session.session_id == 1
@@ -49,10 +55,10 @@ async def test_get_or_create_active_session_returns_existing():
     service = WorkSessionService(repository=repo)
     
     current_dt = datetime(2023, 10, 10, 14, 30)
-    session1 = await service.get_or_create_active_session(tenant_id="TENANT1", branch_id=1, current_dt=current_dt)
+    session1 = await service.get_or_create_active_session(tenant_id=1, branch_id=1, current_dt=current_dt)
     
     current_dt2 = datetime(2023, 10, 10, 18, 45)
-    session2 = await service.get_or_create_active_session(tenant_id="TENANT1", branch_id=1, current_dt=current_dt2)
+    session2 = await service.get_or_create_active_session(tenant_id=1, branch_id=1, current_dt=current_dt2)
     
     assert session1.session_id == session2.session_id
     assert len(repo.sessions) == 1

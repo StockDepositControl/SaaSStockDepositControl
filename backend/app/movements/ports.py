@@ -61,13 +61,3 @@ class AuditRepositoryPort(ABC):
         """
         pass
 
-    @abstractmethod
-    async def get_active_session_id(
-        self, branch_id: int
-    ) -> Optional[int]:
-        """
-        Retrieves the ID of the currently active WorkSession for a given branch.
-        """
-        pass
-
-
