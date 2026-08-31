@@ -166,3 +166,140 @@ def test_get_stock_position_alphanumeric_tenant(mock_search_service, mock_audit_
     app.dependency_overrides.clear()
 
 
+def test_post_single_audit_endpoint(mock_audit_service):
+    from backend.api.v1.stock import require_audit_roles
+    from backend.app.movements.schemas import AuditEntryResult
+    from backend.app.movements.domain import TipoAccion
+
+    app.dependency_overrides[require_audit_roles] = lambda: {
+        "sub": "auditor@example.com",
+        "role": "auditor",
+        "tenant_id": "1",
+        "branch_id": 1,
+        "id_usuario": 5,
+    }
+
+    mock_audit_service.register_single_audit.return_value = AuditEntryResult(
+        client_uuid="uuid-123",
+        id_articulo="1042",
+        stock_real=100,
+        stock_fisico_contado=90,
+        delta_stock=-10,
+        tipo_accion=TipoAccion.BAJA,
+        cantidad_afectada=10,
+        audit_quantity=90,
+        monto_valorizado=Decimal("1500.0000"),
+        audit_id=42,
+    )
+    app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/stock/audit",
+        json={
+            "id_deposito": 1,
+            "id_articulo": "1042",
+            "stock_fisico_contado": 90,
+            "observation": "Daily audit",
+        },
+    )
+
+    assert response.status_code == 201
+    data = response.json()
+    assert data["client_uuid"] == "uuid-123"
+    assert data["audit_id"] == 42
+    assert data["delta_stock"] == -10
+
+    app.dependency_overrides.clear()
+
+
+def test_post_single_audit_no_active_session_409(mock_audit_service):
+    from backend.api.v1.stock import require_audit_roles
+    from backend.app.exceptions import NoActiveWorkSessionError
+
+    app.dependency_overrides[require_audit_roles] = lambda: {
+        "sub": "auditor@example.com",
+        "role": "auditor",
+        "tenant_id": "1",
+        "branch_id": 1,
+        "id_usuario": 5,
+    }
+
+    mock_audit_service.register_single_audit.side_effect = NoActiveWorkSessionError("No active work session found for branch '1'.")
+    app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/stock/audit",
+        json={
+            "id_sucursal": 1,
+            "id_deposito": 1,
+            "id_articulo": "1042",
+            "stock_fisico_contado": 90,
+        },
+    )
+
+    assert response.status_code == 409
+    data = response.json()
+    assert data["error_type"] == "NoActiveWorkSession"
+    assert "No active work session" in data["detail"]
+
+    app.dependency_overrides.clear()
+
+
+def test_post_batch_audit_endpoint(mock_audit_service):
+    from backend.api.v1.stock import require_audit_roles
+    from backend.app.movements.schemas import AuditBatchResult, AuditEntryResult
+    from backend.app.movements.domain import TipoAccion
+
+    app.dependency_overrides[require_audit_roles] = lambda: {
+        "sub": "auditor@example.com",
+        "role": "auditor",
+        "tenant_id": "1",
+        "user_id": 5,
+    }
+
+    mock_audit_service.register_batch_audit.return_value = AuditBatchResult(
+        results=[
+            AuditEntryResult(
+                client_uuid="uuid-456",
+                id_articulo="1042",
+                stock_real=100,
+                stock_fisico_contado=95,
+                delta_stock=-5,
+                tipo_accion=TipoAccion.BAJA,
+                cantidad_afectada=5,
+                audit_quantity=95,
+                monto_valorizado=Decimal("750.0000"),
+                audit_id=43,
+            )
+        ],
+        total_processed=1,
+        duplicates_skipped=0,
+    )
+    app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/stock/audit/batch",
+        json={
+            "items": [
+                {
+                    "id_sucursal": 1,
+                    "id_deposito": 1,
+                    "id_articulo": "1042",
+                    "stock_fisico_contado": 95,
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_processed"] == 1
+    assert len(data["results"]) == 1
+
+    app.dependency_overrides.clear()
+
+
+

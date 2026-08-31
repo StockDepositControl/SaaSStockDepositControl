@@ -1,18 +1,13 @@
-from decimal import Decimal
-from typing import Optional, Tuple
+from typing import Optional
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.app.movements.domain import StockPorDeposito
 from backend.app.movements.ports import StockRepositoryPort
 from backend.adapters.repositories.models.articles import (
     StockPorDeposito as StockPorDepositoORM,
-    Articulo as ArticuloORM,
-    Grupo as GrupoORM,
 )
 from backend.adapters.database.connection import get_articles_session_factory
-from backend.app.exceptions import EntityNotFoundException
 
 class SQLAlchemyStockRepository(StockRepositoryPort):
     """
@@ -51,33 +46,3 @@ class SQLAlchemyStockRepository(StockRepositoryPort):
                 id_articulo=str(stock_orm.id_articulo).strip(),
                 stock_real=stock_real_int,
             )
-
-
-    async def get_article_cost_info(
-        self, id_articulo: str
-    ) -> Tuple[Decimal, str]:
-        async with self.session_factory() as session:
-            stmt = (
-                select(ArticuloORM)
-                .options(
-                    joinedload(ArticuloORM.grupo).joinedload(GrupoORM.familia)
-                )
-                .where(ArticuloORM.id_articulo == id_articulo)
-            )
-            result = await session.execute(stmt)
-            art_orm = result.scalar_one_or_none()
-            if not art_orm:
-                raise EntityNotFoundException(f"Article '{id_articulo}' not found.")
-
-            des_familia = (
-                art_orm.grupo.familia.des_familia.strip()
-                if (art_orm.grupo and art_orm.grupo.familia and art_orm.grupo.familia.des_familia)
-                else ""
-            )
-            pcio_com_siva = (
-                Decimal(str(art_orm.pcio_com_siva))
-                if art_orm.pcio_com_siva is not None
-                else Decimal("0.0000")
-            )
-
-            return pcio_com_siva, des_familia

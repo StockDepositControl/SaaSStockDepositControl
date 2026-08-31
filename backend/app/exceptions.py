@@ -19,3 +19,14 @@ class BusinessRuleViolationException(DomainException):
     Exception thrown when a business rule constraint is violated.
     """
     pass
+
+
+class NoActiveWorkSessionError(BusinessRuleViolationException):
+    """
+    Exception thrown when an operation requires an active work session, but none exists.
+    """
+    pass
+
+
+NoActiveWorkSessionException = NoActiveWorkSessionError
+

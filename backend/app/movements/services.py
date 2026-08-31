@@ -6,6 +6,9 @@ from backend.app.movements.domain import (
     TipoAccion,
     AuditRecordCreate,
     StockLookupResult,
+    VatClassifier,
+    DeltaCalculator,
+    DeltaResult,
 )
 from backend.app.movements.schemas import (
     AuditEntryRequest,
@@ -14,7 +17,12 @@ from backend.app.movements.schemas import (
     AuditBatchResult,
 )
 from backend.app.movements.ports import StockRepositoryPort, AuditRepositoryPort
-from backend.app.exceptions import EntityNotFoundException, BusinessRuleViolationException
+from backend.app.articles.ports import ArticleRepositoryPort
+from backend.app.exceptions import (
+    EntityNotFoundException,
+    BusinessRuleViolationException,
+    NoActiveWorkSessionError,
+)
 from backend.app.work_sessions.services import WorkSessionService
 
 class StockLookupService:
@@ -57,13 +65,13 @@ class AuditService:
     """
     def __init__(
         self,
-        stock_repository: StockRepositoryPort,
+        article_repository: ArticleRepositoryPort,
         audit_repository: AuditRepositoryPort,
         stock_lookup_service: StockLookupService,
         work_session_service: WorkSessionService,
         default_vat_rate: Decimal = Decimal("0.21"),
     ):
-        self.stock_repository = stock_repository
+        self.article_repository = article_repository
         self.audit_repository = audit_repository
         self.stock_lookup_service = stock_lookup_service
         self.work_session_service = work_session_service
@@ -75,14 +83,13 @@ class AuditService:
         Computes stock discrepancy delta:
         delta = stock_fisico_contado - stock_real_previo
         Returns (delta, TipoAccion).
+        Delegates calculation to DeltaCalculator.
         """
-        delta = stock_fisico_contado - stock_real_previo
-        if delta > 0:
-            return delta, TipoAccion.ALTA
-        elif delta < 0:
-            return delta, TipoAccion.BAJA
-        else:
-            return 0, TipoAccion.SIN_ACCION
+        result = DeltaCalculator.from_physical_count(
+            stock_real_previo=stock_real_previo,
+            stock_fisico_contado=stock_fisico_contado,
+        )
+        return result.delta_stock, result.tipo_accion
 
     @staticmethod
     def compute_valorized_amount(
@@ -93,14 +100,9 @@ class AuditService:
     ) -> Decimal:
         """
         Calculates valorized amount based on purchase cost and family VAT classification.
-        'Medicamentos' family incurs 0% VAT. All other families incur default_vat_rate (e.g. 21%).
+        Delegates tax classification to VatClassifier.
         """
-        family_clean = (des_familia or "").strip().lower()
-        if family_clean == "medicamentos":
-            vat_rate = Decimal("0.00")
-        else:
-            vat_rate = default_vat_rate
-
+        vat_rate = VatClassifier.classify(des_familia, default_vat_rate)
         unit_cost_with_vat = pcio_com_siva * (Decimal("1.00") + vat_rate)
         return (unit_cost_with_vat * Decimal(abs(cantidad))).quantize(Decimal("0.0001"))
 
@@ -115,14 +117,18 @@ class AuditService:
         client_uuid = str(uuid.uuid4())
         scan_timestamp = datetime.now(timezone.utc)
 
-        # Fallback for sucursal and deposito if missing
-        id_sucursal = entry.id_sucursal if entry.id_sucursal is not None else 1
-        id_deposito = entry.id_deposito if entry.id_deposito is not None else 1
-
         try:
             tenant_id_int = int(tenant_id)
         except (ValueError, TypeError):
-            tenant_id_int = 1
+            raise BusinessRuleViolationException(f"Invalid tenant_id '{tenant_id}'.")
+
+        id_sucursal = entry.id_sucursal
+        id_deposito = entry.id_deposito
+
+        if id_sucursal is None or id_deposito is None:
+            raise BusinessRuleViolationException(
+                "Branch ID (id_sucursal) and Deposit ID (id_deposito) are required."
+            )
 
         # 1. Retrieve stock position using lookup service
         stock_lookup = await self.stock_lookup_service.get_effective_stock(
@@ -132,40 +138,39 @@ class AuditService:
             id_articulo=entry.id_articulo,
         )
 
-        # 2. Retrieve cost and VAT classification
-        pcio_com_siva, des_familia = await self.stock_repository.get_article_cost_info(
-            id_articulo=entry.id_articulo
-        )
+        # 2. Retrieve article catalog data (cost and family) via ArticleRepositoryPort
+        article = await self.article_repository.get_by_id(entry.id_articulo)
+        if article is None:
+            raise EntityNotFoundException(f"Article '{entry.id_articulo}' not found.")
+        pcio_com_siva = article.pcio_com_siva
+        des_familia = article.des_familia
  
-        # 3. Compute discrepancy, final audit_quantity, and action type
+        # 3. Compute discrepancy, final audit_quantity, and action type via DeltaCalculator
         if entry.stock_fisico_contado is not None:
-            delta_stock, tipo_accion = self.compute_delta(
+            delta_result = DeltaCalculator.from_physical_count(
                 stock_real_previo=stock_lookup.stock_real,
                 stock_fisico_contado=entry.stock_fisico_contado,
             )
-            cantidad_afectada = abs(delta_stock)
-            audit_quantity = entry.stock_fisico_contado
             stock_fisico_contado_val = entry.stock_fisico_contado
         elif entry.cantidad_afectada is not None and entry.tipo_accion is not None:
-            cantidad_afectada = abs(entry.cantidad_afectada)
-            tipo_accion = entry.tipo_accion
-            if tipo_accion == TipoAccion.BAJA:
-                delta_stock = -cantidad_afectada
-                audit_quantity = stock_lookup.stock_real - cantidad_afectada
-            elif tipo_accion == TipoAccion.ALTA:
-                delta_stock = cantidad_afectada
-                audit_quantity = stock_lookup.stock_real + cantidad_afectada
-            else:
-                delta_stock = 0
-                audit_quantity = stock_lookup.stock_real
-            stock_fisico_contado_val = audit_quantity
-        else: #This will be dead code after refactoring, but kept for backward compatibility
+            delta_result = DeltaCalculator.from_variance(
+                stock_real_previo=stock_lookup.stock_real,
+                cantidad_afectada=entry.cantidad_afectada,
+                tipo_accion=entry.tipo_accion,
+            )
+            stock_fisico_contado_val = delta_result.audit_quantity
+        else:
             raise BusinessRuleViolationException(
                 "Either stock_fisico_contado or (cantidad_afectada and tipo_accion) must be provided."
             )
 
-        family_clean = (des_familia or "").strip().lower()
-        applied_vat_rate = Decimal("0.00") if family_clean == "medicamentos" else self.default_vat_rate
+        delta_stock = delta_result.delta_stock
+        tipo_accion = delta_result.tipo_accion
+        cantidad_afectada = delta_result.cantidad_afectada
+        audit_quantity = delta_result.audit_quantity
+
+        # 4. Tax/VAT classification and valorization
+        applied_vat_rate = VatClassifier.classify(des_familia, self.default_vat_rate)
 
         monto_valorizado = self.compute_valorized_amount(
             pcio_com_siva=pcio_com_siva,
@@ -174,9 +179,13 @@ class AuditService:
             default_vat_rate=self.default_vat_rate,
         )
 
-        # 5. Retrieve active work session ID or default fallback
+        # 5. Retrieve active work session ID or raise domain exception
         active_session_id = await self.work_session_service.get_active_session_id(id_sucursal)
-        session_id = active_session_id if active_session_id is not None else 1
+        if active_session_id is None:
+            raise NoActiveWorkSessionError(
+                f"No active work session found for branch '{id_sucursal}'."
+            )
+        session_id = active_session_id
 
         # 6. Persist audit record in db_analytics (db_articles remains untouched)
         record_to_create = AuditRecordCreate(
@@ -196,7 +205,6 @@ class AuditService:
             client_uuid=client_uuid,
             observation=entry.observation,
         )
-
 
         saved_record = await self.audit_repository.create_audit_record(record_to_create)
 

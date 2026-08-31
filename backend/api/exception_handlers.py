@@ -1,12 +1,27 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from backend.app.exceptions import EntityNotFoundException, BusinessRuleViolationException, DomainException
+from backend.app.exceptions import (
+    EntityNotFoundException,
+    BusinessRuleViolationException,
+    NoActiveWorkSessionError,
+    DomainException,
+)
 
 def register_exception_handlers(app: FastAPI) -> None:
     """
     Registers centralized exception handlers to translate pure domain exceptions
     into standardized HTTP JSON responses.
     """
+    @app.exception_handler(NoActiveWorkSessionError)
+    async def no_active_work_session_handler(request: Request, exc: NoActiveWorkSessionError) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": exc.message,
+                "error_type": "NoActiveWorkSession"
+            }
+        )
+
     @app.exception_handler(EntityNotFoundException)
     async def entity_not_found_handler(request: Request, exc: EntityNotFoundException) -> JSONResponse:
         return JSONResponse(

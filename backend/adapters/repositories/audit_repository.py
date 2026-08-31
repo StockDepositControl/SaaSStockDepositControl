@@ -40,6 +40,7 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
                 numeric_tenant_id = 1
 
             orm_record = AuditRecordORM(
+                session_id=record.session_id,
                 tenant_id=numeric_tenant_id,
                 branch_id=record.branch_id,
                 warehouse_id=record.warehouse_id,
@@ -61,6 +62,7 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
 
             return AuditRecord(
                 audit_id=orm_record.audit_id,
+                session_id=orm_record.session_id,
                 tenant_id=orm_record.tenant_id,
                 branch_id=orm_record.branch_id,
                 warehouse_id=orm_record.warehouse_id or record.warehouse_id,
@@ -113,6 +115,7 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
 
             return AuditRecord(
                 audit_id=orm_record.audit_id,
+                session_id=orm_record.session_id,
                 tenant_id=orm_record.tenant_id,
                 branch_id=orm_record.branch_id,
                 warehouse_id=orm_record.warehouse_id or id_deposito,

@@ -71,10 +71,14 @@ SaaSStockDepositControl/
 ├── backend/                        # FastAPI core backend service
 │   ├── api/                        # Presentation Layer (FastAPI Routers, Middlewares, Deps)
 │   │   ├── middlewares/            # JWT Token validation and context tenant binding
-│   │   └── v1/                     # Versioned API routes (health, stock, articles)
+│   │   └── v1/                     # Versioned API routes (auth, health, articles, stock, branches, enterprises)
 │   ├── app/                        # Domain Core Layer (Business logic, ports, pure models)
 │   │   ├── articles/               # Article Pydantic schemas and metadata catalogs
+│   │   ├── branches/               # Branch/warehouse management schemas and operations
+│   │   ├── enterprises/            # Enterprise/tenant configuration schemas
 │   │   ├── movements/              # Inventory transaction ledger Pydantic models
+│   │   ├── users/                  # User authentication and profile schemas
+│   │   ├── work_sessions/          # Audit session tracking and lifecycle schemas
 │   │   └── ports/                  # Abstract port definitions (Database, clients)
 │   ├── adapters/                   # Infrastructure Adapters (SQLAlchemy repositories)
 │   │   └── database/               # Asynchronous connection pools and session states
@@ -187,7 +191,7 @@ To maintain clean, safe code across our multi-agent pipeline, all developers and
 
 1.  **The Domain is Pure:** Never import `fastapi`, `sqlalchemy`, `alembic`, or `requests` inside `backend/app/`. The domain core must remain 100% pure Python and Pydantic.
 2.  **Strict File Ownership boundaries:**
-    *   **Backend Core (Jules):** Owns `backend/app/`, `backend/api/`, and repositories (`backend/adapters/repositories/*_repository.py`).
+    *   **Backend Core (Jules):** Owns `backend/app/` (all modules: articles, branches, enterprises, movements, users, work_sessions), `backend/api/`, and repositories (`backend/adapters/repositories/*_repository.py`).
     *   **DBA Specialist:** Sole owner of `backend/adapters/repositories/models/`, `backend/migrations/`, and `backend/scripts/`. Core backend agents must NEVER edit models or create migrations directly.
 3.  **Decimal Precision:** All financial calculations, item costs (`pcio_com_siva`), and calculated balances must strictly use Python's `decimal.Decimal` library. Floating-point operations are banned for cost/margin valuations.
 4.  **No Raw SQL:** Writing raw SQL string queries inside services, API routers, or adapters is prohibited. Use SQLAlchemy async ORM models and mapping objects to maintain query isolation.

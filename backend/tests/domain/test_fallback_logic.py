@@ -3,24 +3,29 @@ import uuid
 from decimal import Decimal
 from datetime import datetime
 from backend.app.movements.domain import StockPorDeposito, AuditRecord, TipoAccion, StockLookupResult, AuditRecordCreate
+from backend.app.articles.models import Articulo
 from backend.app.movements.schemas import AuditEntryRequest
 from backend.app.movements.services import StockLookupService, AuditService
 from backend.app.exceptions import EntityNotFoundException
 
 class MockStockRepo:
-    def __init__(self, position=None, cost_info=None):
+    def __init__(self, position=None):
         self.position = position
-        self.cost_info = cost_info
         self.update_called = False
 
     async def get_stock_position(self, tenant_id, id_sucursal, id_deposito, id_articulo):
         return self.position
-
-    async def get_article_cost_info(self, id_articulo):
-        return self.cost_info
         
     async def update_stock_real(self, *args, **kwargs):
         self.update_called = True
+
+
+class MockArticleRepo:
+    def __init__(self, article=None):
+        self.article = article
+
+    async def get_by_id(self, id_articulo: str, active_session_id=None):
+        return self.article
 
 
 class MockAuditRepo:
@@ -96,12 +101,24 @@ class MockWorkSessionService:
 async def test_register_audit_preserves_db_articles():
     stock_repo = MockStockRepo(
         position=StockPorDeposito(id_empresa=1, id_sucursal=1, id_deposito=1, id_articulo="ART1", stock_real=100),
-        cost_info=(Decimal("10.0"), "Medicamentos")
+    )
+    article_repo = MockArticleRepo(
+        article=Articulo(
+            id_articulo="ART1",
+            des_articulo="Medicamento ART1",
+            des_familia="Medicamentos",
+            pcio_com_siva=Decimal("10.0"),
+        )
     )
     audit_repo = MockAuditRepo(latest_record=None)
     lookup_svc = StockLookupService(stock_repo, audit_repo)
     ws_svc = MockWorkSessionService()
-    audit_svc = AuditService(stock_repo, audit_repo, lookup_svc, ws_svc)
+    audit_svc = AuditService(
+        article_repository=article_repo,
+        audit_repository=audit_repo,
+        stock_lookup_service=lookup_svc,
+        work_session_service=ws_svc,
+    )
     
     entry = AuditEntryRequest(
         id_sucursal=1,

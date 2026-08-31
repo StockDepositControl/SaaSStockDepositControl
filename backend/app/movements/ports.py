@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
-from decimal import Decimal
-from typing import Optional, Tuple
+from typing import Optional
 from backend.app.movements.domain import StockPorDeposito, AuditRecordCreate, AuditRecord
 
 class StockRepositoryPort(ABC):
     """
-    Abstract port for reading stock position and article cost data.
+    Abstract port for reading stock position data.
     Decoupled from specific database implementations.
     """
     @abstractmethod
@@ -14,17 +13,6 @@ class StockRepositoryPort(ABC):
     ) -> Optional[StockPorDeposito]:
         """
         Retrieves current stock position (stock_real) for a specific deposit and article.
-        """
-        pass
-
-
-    @abstractmethod
-    async def get_article_cost_info(
-        self, id_articulo: str
-    ) -> Tuple[Decimal, str]:
-        """
-        Retrieves article purchase cost (pcio_com_siva) and family description (des_familia).
-        Returns tuple: (pcio_com_siva, des_familia).
         """
         pass
 

@@ -34,20 +34,16 @@ async def register_single_audit(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuditEntryResult:
     tenant_id = str(claims.get("tenant_id", "1"))
-    branch_id = claims.get("branch_id")
-    id_usuario = int(claims.get("user_id") or claims.get("id_usuario", 1))
+    id_usuario = int(claims.get("id_usuario") or claims.get("user_id", 1))
 
-    resolved_branch = branch_id if branch_id is not None else 1
-
-    if entry.id_sucursal is None:
-        entry.id_sucursal = resolved_branch
-    if entry.id_deposito is None:
-        entry.id_deposito = 1
+    effective_entry = entry
+    if effective_entry.id_sucursal is None and claims.get("branch_id") is not None:
+        effective_entry = entry.model_copy(update={"id_sucursal": claims.get("branch_id")})
 
     result = await audit_service.register_single_audit(
         tenant_id=tenant_id,
         id_usuario=id_usuario,
-        entry=entry,
+        entry=effective_entry,
     )
     return result
 
@@ -110,24 +106,25 @@ async def get_article_stock_position(
     else:
         return ArticleStockPositionPublicOut(**base_data)
 
-@router.post(
-    "/audit/batch",
-    response_model=AuditBatchResult,
-    status_code=status.HTTP_200_OK,
-    summary="Register batch stock audit entries (offline sync)",
-    description="Processes queued audit records transmitted during mobile offline reconnection worker flush.",
-)
-async def register_batch_audit(
-    batch: AuditBatchInput,
-    claims: dict = Depends(require_audit_roles),
-    audit_service: AuditService = Depends(get_audit_service),
-) -> AuditBatchResult:
-    tenant_id = str(claims.get("tenant_id", "1"))
-    id_usuario = int(claims.get("user_id") or claims.get("id_usuario", 1))
-
-    result = await audit_service.register_batch_audit(
-        tenant_id=tenant_id,
-        id_usuario=id_usuario,
-        batch=batch,
-    )
-    return result
+# To be a possible future feature.
+#@router.post(
+#    "/audit/batch",
+#    response_model=AuditBatchResult,
+#    status_code=status.HTTP_200_OK,
+#    summary="Register batch stock audit entries (offline sync)",
+#    description="Processes queued audit records transmitted during mobile offline reconnection worker flush.",
+#)
+#async def register_batch_audit(
+#    batch: AuditBatchInput,
+#    claims: dict = Depends(require_audit_roles),
+#    audit_service: AuditService = Depends(get_audit_service),
+#) -> AuditBatchResult:
+#    tenant_id = str(claims.get("tenant_id", "1"))
+#    id_usuario = int(claims.get("user_id") or claims.get("id_usuario", 1))
+#
+#    result = await audit_service.register_batch_audit(
+#        tenant_id=tenant_id,
+#        id_usuario=id_usuario,
+#        batch=batch,
+#    )
+#    return result

@@ -1,0 +1,75 @@
+sequenceDiagram
+    autonumber
+    actor Client as Client / Postman
+    participant API as API Layer (stock.py)
+    participant Service as AuditService (services.py)
+    participant Lookup as StockLookupService
+    participant ArticlePort as ArticleRepositoryPort (ABC)
+    participant StockPort as StockRepositoryPort (ABC)
+    participant AuditPort as AuditRepositoryPort (ABC)
+    participant SessionSvc as WorkSessionService
+    participant SessionPort as WorkSessionRepositoryPort (ABC)
+    participant DeltaCalc as DeltaCalculator
+    participant VatClass as VatClassifier
+    participant ArticlesDB as DB Articles (MySQL)
+    participant AnalyticsDB as DB Analytics (MySQL)
+
+    Client->>API: POST /api/v1/stock/audit
+    API->>API: Check RBAC Claims & Immutable DTO resolution
+    API->>Service: register_single_audit(tenant_id, user_id, entry)
+
+    Service->>Service: Validate Tenant ID & Branch/Deposit presence
+
+    %% 1. Baseline Stock Lookup vía Ports
+    Service->>Lookup: get_effective_stock(tenant_id, branch, deposit, article)
+    Lookup->>AuditPort: get_latest_audit_record(tenant_id, branch, deposit, article)
+    AuditPort->>AnalyticsDB: SELECT latest FROM audit_records
+    AnalyticsDB-->>AuditPort: Audit record / None
+    alt Previous audit record exists
+        AuditPort-->>Lookup: Return stock from last audit
+    else No audit history
+        Lookup->>StockPort: get_stock_position(tenant_id, branch, deposit, article)
+        StockPort->>ArticlesDB: SELECT stock_real FROM stock_por_deposito
+        ArticlesDB-->>StockPort: Catalog stock position
+        StockPort-->>Lookup: Return catalog stock position
+    end
+    Lookup-->>Service: Return StockLookupResult
+
+    %% 2. Article Catalog Lookup vía ArticleRepositoryPort (Segregación ISP)
+    Service->>ArticlePort: get_by_id(article_code)
+    ArticlePort->>ArticlesDB: SELECT pcio_com_siva, des_familia FROM articulos
+    ArticlesDB-->>ArticlePort: Article master record
+    ArticlePort-->>Service: Return Articulo (pcio_com_siva, des_familia)
+
+    %% 3. Discrepancy & Tax Calculation
+    alt Count-based input (stock_fisico_contado)
+        Service->>DeltaCalc: from_physical_count(previous_stock, counted_stock)
+    else Variance-based input (cantidad_afectada & tipo_accion)
+        Service->>DeltaCalc: from_variance(previous_stock, variance, action)
+    end
+    DeltaCalc-->>Service: Return DeltaCalculationResult
+
+    Service->>VatClass: classify(des_familia, default_vat_rate)
+    VatClass-->>Service: Return applied_vat_rate
+
+    %% 4. Active Session Lookup vía WorkSessionRepositoryPort
+    Service->>SessionSvc: get_active_session_id(branch_id)
+    SessionSvc->>SessionPort: get_active_session_id(branch_id)
+    SessionPort->>AnalyticsDB: SELECT session_id WHERE status='OPEN'
+    AnalyticsDB-->>SessionPort: active_session_id / None
+    SessionPort-->>SessionSvc: active_session_id / None
+
+    alt Active session exists
+        SessionSvc-->>Service: Return active_session_id
+    else No active session
+        Service-->>API: Raise NoActiveWorkSessionError (400 Bad Request)
+    end
+
+    %% 5. Audit Record Persistence vía AuditRepositoryPort
+    Service->>AuditPort: create_audit_record(AuditRecordCreate)
+    AuditPort->>AnalyticsDB: INSERT INTO audit_records (...) & COMMIT
+    AnalyticsDB-->>AuditPort: Record created
+    AuditPort-->>Service: Return saved AuditRecord
+
+    Service-->>API: Return AuditEntryResult DTO
+    API-->>Client: 201 Created Response

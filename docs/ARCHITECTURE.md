@@ -59,8 +59,8 @@ The system connects to **three separate and independent databases**. The domain 
 | Database | Database Name | Engine | Content (Entities / Tables) | Used By (Repositories) |
 |:---------|:--------------|:-------|:----------------------------|:-----------------------|
 | **Users & Authentication** | `db_users` | MariaDB / PostgreSQL | `user` (id_user, name, lastname, email, password_hash, id_tenant, is_active, created_at, updated_at), `role` (id_role, name, description), `user_role` (id_user, id_role) | `UserRepository` → implements `UserRepositoryPort` |
-| **Reports & Analytics** | `db_analytics` | MariaDB / PostgreSQL / ClickHouse | `record_tenants`, `record_audit` (auditorías físicas/valorizadas), `made_diary_reports` (reportes diarios de precios y mermas por sucursal), `critics_alerts_merms` (alertas críticas de stock/vencimiento) | `ReportRepository`, `AuditLedgerRepository` → implements `AuditLedgerRepositoryPort` |
-| **Operational (Articles & Stock)** | `db_articles` | MariaDB | `articulos`, `familias`, `grupos`, `marcas`, `stock_por_deposito`, `lotes_por_deposito`, `codigos_barra_articulo` | `ArticleRepository`, `StockRepository`, `MovementRepository` |
+| **Reports & Analytics** | `db_analytics` | MariaDB / PostgreSQL / ClickHouse | `record_tenants`, `record_audit` (auditorías físicas/valorizadas), `made_diary_reports` (reportes diarios de precios y mermas por sucursal), `critics_alerts_merms` (alertas críticas de stock/vencimiento), `work_sessions` (session_id, tenant_id, branch_id, opened_at, closed_at, status) | `AuditRepository` → implements `AuditLedgerRepositoryPort`, `WorkSessionRepository` → implements `WorkSessionRepositoryPort` |
+| **Operational (Catalog, Stock, Branches & Enterprises)** | `db_articles` | MariaDB | `articulos`, `familias`, `grupos`, `marcas`, `stock_por_deposito`, `lotes_por_deposito`, `codigos_barra_articulo`, `branches` (id_branch, description, tenant_id), `enterprises` (tenant_id, description) | `ArticleRepository`, `StockRepository`, `BranchRepository`, `EnterpriseRepository` |
 
 ### 2.2 Multi-DB Adapter Rule
 
@@ -109,6 +109,21 @@ backend/
 │   │   │                           #   AuthToken, LoginCredentials, UserRole enum
 │   │   ├── ports.py                # UserRepositoryPort (abc.ABC)
 │   │   └── services.py             # User lookup, token payload assembly, domain auth logic
+│   ├── branches/                   # Branches & Warehouses Module
+│   │   ├── __init__.py
+│   │   ├── models.py               # Pydantic V2 Schemas: Branch, BranchCreate, BranchUpdate
+│   │   ├── ports.py                # BranchRepositoryPort (abc.ABC)
+│   │   └── services.py             # Branch management and warehouse operations
+│   ├── enterprises/                # Enterprise & Tenant Configuration Module
+│   │   ├── __init__.py
+│   │   ├── models.py               # Pydantic V2 Schemas: Enterprise, EnterpriseCreate, EnterpriseUpdate
+│   │   ├── ports.py                # EnterpriseRepositoryPort (abc.ABC)
+│   │   └── services.py             # Enterprise lookup and tenant operations
+│   ├── work_sessions/              # Audit Session Tracking Module
+│   │   ├── __init__.py
+│   │   ├── models.py               # Pydantic V2 Schemas: WorkSession, WorkSessionCreate, WorkSessionUpdate
+│   │   ├── ports.py                # WorkSessionRepositoryPort (abc.ABC)
+│   │   └── services.py             # Audit session lifecycle and state management
 │   └── ports/                      # Shared infrastructure ports
 │       ├── database.py             # ConnectionProvider, DatabaseSession (abc.ABC)
 │       └── security.py             # TokenProvider, PasswordHasher (abc.ABC)
@@ -128,11 +143,14 @@ backend/
 │       │   ├── __init__.py         # Re-exports Base classes and all entity models for backwards compatibility
 │       │   ├── articles.py         # ORM Models: BaseArticles, Familia, Grupo, Marca, Articulo, StockPorDeposito, LotePorDeposito, CodigoBarraArticulo (→ db_articles)
 │       │   ├── users.py            # ORM Models: BaseUsers, User, Role, UserRoleAssociation (→ db_users)
-│       │   └── analytics.py        # ORM Models: BaseAnalytics, RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert (→ db_analytics)
+│       └── analytics.py        # ORM Models: BaseAnalytics, RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert, WorkSession (→ db_analytics)
 │       ├── article_repository.py   # Connects to articles_db → implements ArticleRepositoryPort
-│       ├── movement_repository.py  # Connects to articles_db → implements StockRepositoryPort
+│       ├── stock_repository.py     # Connects to articles_db → implements StockRepositoryPort
+│       ├── audit_repository.py     # Connects to analytics_db → implements AuditLedgerRepositoryPort
 │       ├── user_repository.py      # Connects to users_db → implements UserRepositoryPort
-│       └── report_repository.py    # Connects to analytics_db → implements AuditLedgerRepositoryPort
+│       ├── branch_repository.py    # Connects to articles_db → implements BranchRepositoryPort
+│       ├── enterprise_repository.py # Connects to articles_db → implements EnterpriseRepositoryPort
+│       └── work_session_repository.py # Connects to analytics_db → implements WorkSessionRepositoryPort
 │
 ├── api/                            # PRIMARY ADAPTERS (Driving Adapters — Presentation)
 │   ├── __init__.py
@@ -149,9 +167,11 @@ backend/
 │   └── v1/                         # Versioned REST routes (API v1)
 │       ├── auth.py                 # POST /login, POST /token/refresh (→ Users DB)
 │       ├── health.py               # GET /health — connectivity probe for all 3 databases
-│       ├── articles.py             # Catalog CRUD and queries (→ Main DB)
-│       ├── stock.py                # Count registration and stock movements (→ Main DB)
-│       └── reports.py              # Dashboard, FEFO alerts, loss metrics (→ Reports DB)
+│       ├── articles.py             # Catalog CRUD and queries (→ Articles DB)
+│       ├── stock.py                # Count registration and stock movements (→ Articles DB)
+│       ├── branches.py             # Branch/Warehouse CRUD operations (→ Articles DB)
+│       ├── enterprises.py          # Enterprise/Tenant CRUD operations (→ Articles DB)
+│       └── schemas/                # Versioned request/response schemas
 │
 ├── migrations/                     # Alembic migrations & config (alembic.ini, alembic_users.ini, alembic_analytics.ini, env.py) (OWNED BY DBA-AGENT)
 ├── scripts/                        # Seeding and maintenance scripts (OWNED BY DBA-AGENT)
@@ -226,9 +246,12 @@ This layer implements the domain's abstract Ports with concrete infrastructure t
 | File | Target DB | Implements Port |
 |:-----|:----------|:----------------|
 | `article_repository.py` | `articles_db` | `ArticleRepositoryPort` |
-| `movement_repository.py` | `articles_db` | `StockRepositoryPort` |
+| `stock_repository.py` | `articles_db` | `StockRepositoryPort` |
+| `audit_repository.py` | `analytics_db` | `AuditLedgerRepositoryPort` |
 | `user_repository.py` | `users_db` | `UserRepositoryPort` |
-| `report_repository.py` | `analytics_db` | `AuditLedgerRepositoryPort` |
+| `branch_repository.py` | `articles_db` | `BranchRepositoryPort` |
+| `enterprise_repository.py` | `articles_db` | `EnterpriseRepositoryPort` |
+| `work_session_repository.py` | `analytics_db` | `WorkSessionRepositoryPort` |
 
 #### ORM Model Package (`adapters/repositories/models/`)
 
@@ -236,7 +259,7 @@ This layer implements the domain's abstract Ports with concrete infrastructure t
 |:-----|:---------|:------------|
 | `models/articles.py` | Operational Catalog & Stock (`db_articles`) | `BaseArticles`, `Familia`, `Grupo`, `Marca`, `Articulo`, `StockPorDeposito`, `LotePorDeposito`, `CodigoBarraArticulo` |
 | `models/users.py` | Users & Auth (`db_users`) | `BaseUsers`, `User`, `Role`, `UserRoleAssociation` |
-| `models/analytics.py` | Reports & Analytics (`db_analytics`) | `BaseAnalytics`, `RecordTenant`, `AuditRecord`, `DailyReport`, `CriticalShrinkageAlert`, `ActionType`, `RiskLevel` |
+| `models/analytics.py` | Reports & Analytics (`db_analytics`) | `BaseAnalytics`, `RecordTenant`, `AuditRecord`, `DailyReport`, `CriticalShrinkageAlert`, `WorkSession`, `ActionType`, `RiskLevel` |
 | `models/__init__.py` | All Databases | Re-exports all declarative bases and entity models for package-level imports |
 
 > [!IMPORTANT]
@@ -288,9 +311,9 @@ To prevent multi-agent git conflicts and maintain clear accountability:
 
 | Agent Role | Owned Directories / Files | Ownership Policy |
 |:-----------|:--------------------------|:-----------------|
-| **Jules (Core Backend)** | `backend/app/**` | Full write access. Owns domain models, ports, services, and business logic. |
+| **Jules (Core Backend)** | `backend/app/**` | Full write access. Owns domain models, ports, services for all modules: articles, branches, enterprises, movements, users, work_sessions. |
 | | `backend/api/**` | Full write access. Owns routers, middlewares, dependencies, and exception handlers. |
-| | `backend/adapters/repositories/*_repository.py` | Full write access. Owns concrete repository implementations. |
+| | `backend/adapters/repositories/*_repository.py` | Full write access. Owns all concrete repository implementations (article, stock, audit, user, branch, enterprise, work_session). |
 | | `backend/adapters/database/connection.py` | Full write access. Owns Multi-DB session pool configuration. |
 | | `backend/adapters/database/multi_tenant.py` | Full write access. Owns tenant context binding. |
 | | `backend/adapters/security/**` | Full write access. Owns JWT and hashing adapters. |
