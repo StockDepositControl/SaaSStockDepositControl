@@ -73,13 +73,13 @@ def test_audit_records_session_id_fk(analytics_inspector):
 
 
 def test_audit_records_session_article_index(analytics_inspector):
-    """Asserts that index idx_audit_session_article exists for fast EXISTS subqueries."""
+    """Asserts that covering index idx_audit_session_article_ts exists for fast EXISTS subqueries and batch ordering."""
     indexes = analytics_inspector.get_indexes('audit_records')
     idx_names = [idx['name'] for idx in indexes]
-    assert 'idx_audit_session_article' in idx_names, "Missing index idx_audit_session_article on audit_records"
+    assert 'idx_audit_session_article_ts' in idx_names, "Missing index idx_audit_session_article_ts on audit_records"
 
-    session_art_idx = next(idx for idx in indexes if idx['name'] == 'idx_audit_session_article')
-    assert session_art_idx['column_names'] == ['session_id', 'article_code']
+    session_art_idx = next(idx for idx in indexes if idx['name'] == 'idx_audit_session_article_ts')
+    assert session_art_idx['column_names'] == ['session_id', 'article_code', 'scan_timestamp']
 
 
 def test_work_session_cascade_from_tenant():

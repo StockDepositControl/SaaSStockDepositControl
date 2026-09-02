@@ -1,5 +1,5 @@
-from typing import Optional
-from sqlalchemy import select
+from typing import Optional, List, Dict
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.app.movements.domain import AuditRecordCreate, AuditRecord, TipoAccion
@@ -131,4 +131,37 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
                 client_uuid=orm_record.client_uuid,
                 observation=orm_record.observation,
             )
+
+    async def get_latest_audits_for_articles(
+        self, session_id: int, article_ids: List[str]
+    ) -> Dict[str, int]:
+        if not article_ids:
+            return {}
+
+        async with self.session_factory() as session:
+            rn = func.row_number().over(
+                partition_by=AuditRecordORM.article_code,
+                order_by=AuditRecordORM.scan_timestamp.desc()
+            ).label("rn")
+
+            subq = (
+                select(
+                    AuditRecordORM.article_code,
+                    AuditRecordORM.audit_quantity,
+                    rn
+                )
+                .where(
+                    AuditRecordORM.session_id == session_id,
+                    AuditRecordORM.article_code.in_(article_ids)
+                )
+                .subquery()
+            )
+
+            stmt = select(subq.c.article_code, subq.c.audit_quantity).where(subq.c.rn == 1)
+            result = await session.execute(stmt)
+            rows = result.all()
+            return {
+                str(row[0]).strip(): (int(row[1]) if row[1] is not None else 0)
+                for row in rows
+            }
 

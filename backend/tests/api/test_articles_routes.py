@@ -185,3 +185,102 @@ def test_instantiate_sqlalchemy_article_repository():
     repo = SQLAlchemyArticleRepository(session_factory=AsyncMock(), analytics_session_factory=AsyncMock())
     assert repo is not None
 
+
+def test_list_articles_endpoint_as_admin_with_stock(mock_work_session_service):
+    from backend.api.dependencies.auth import get_current_user_claims
+    from backend.api.dependencies.services import get_article_catalog_orchestrator
+    from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
+
+    app.dependency_overrides[get_current_user_claims] = lambda: {
+        "sub": "admin@example.com",
+        "role": "administrador",
+        "tenant_id": "tenant-01",
+        "branch_id": 1,
+    }
+
+    mock_orchestrator = AsyncMock(spec=ArticleCatalogOrchestrator)
+    mock_article = Articulo(
+        id_articulo="1042",
+        presentacion="Caja x 20",
+        des_articulo="Ibuprofeno 400mg",
+        id_marca=1,
+        des_marca="Bayer",
+        id_familia="01",
+        des_familia="Medicamentos",
+        id_grupo="02",
+        des_grupo="Analgésicos",
+        pcio_com_siva=Decimal("150.00"),
+        fue_auditado=False,
+        stock_real=42,
+    )
+    mock_orchestrator.get_enriched_catalog.return_value = ([mock_article], 1)
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: mock_orchestrator
+    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
+
+    client = TestClient(app)
+    response = client.get("/api/v1/articles?page=1&limit=50&id_deposito=1")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["page"] == 1
+    assert data["limit"] == 50
+    assert len(data["items"]) == 1
+
+    item = data["items"][0]
+    assert item["id_articulo"] == "1042"
+    assert item["stock_real"] == 42
+    # Admin MUST have pcio_com_siva
+    assert "pcio_com_siva" in item
+    assert Decimal(str(item["pcio_com_siva"])) == Decimal("150.00")
+
+    app.dependency_overrides.clear()
+
+
+def test_list_articles_endpoint_as_auditor_with_stock_masked(mock_work_session_service):
+    from backend.api.dependencies.auth import get_current_user_claims
+    from backend.api.dependencies.services import get_article_catalog_orchestrator
+    from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
+
+    app.dependency_overrides[get_current_user_claims] = lambda: {
+        "sub": "auditor@example.com",
+        "role": "auditor",
+        "tenant_id": "tenant-01",
+        "branch_id": 1,
+    }
+
+    mock_orchestrator = AsyncMock(spec=ArticleCatalogOrchestrator)
+    mock_article = Articulo(
+        id_articulo="1042",
+        presentacion="Caja x 20",
+        des_articulo="Ibuprofeno 400mg",
+        id_marca=1,
+        des_marca="Bayer",
+        id_familia="01",
+        des_familia="Medicamentos",
+        id_grupo="02",
+        des_grupo="Analgésicos",
+        pcio_com_siva=Decimal("150.00"),
+        fue_auditado=False,
+        stock_real=42,
+    )
+    mock_orchestrator.get_enriched_catalog.return_value = ([mock_article], 1)
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: mock_orchestrator
+    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
+
+    client = TestClient(app)
+    response = client.get("/api/v1/articles?page=1&limit=50&id_deposito=1")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+
+    item = data["items"][0]
+    assert item["id_articulo"] == "1042"
+    assert item["stock_real"] == 42
+    # Auditor must NOT have pcio_com_siva (structurally masked)
+    assert "pcio_com_siva" not in item
+
+    app.dependency_overrides.clear()
+

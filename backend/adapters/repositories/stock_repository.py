@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List, Dict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
@@ -8,6 +8,7 @@ from backend.adapters.repositories.models.articles import (
     StockPorDeposito as StockPorDepositoORM,
 )
 from backend.adapters.database.connection import get_articles_session_factory
+from backend.adapters.database.multi_tenant import get_tenant_id, get_sucursal_id
 
 class SQLAlchemyStockRepository(StockRepositoryPort):
     """
@@ -46,3 +47,30 @@ class SQLAlchemyStockRepository(StockRepositoryPort):
                 id_articulo=str(stock_orm.id_articulo).strip(),
                 stock_real=stock_real_int,
             )
+
+    async def get_stock_positions_batch(
+        self, deposit_id: int, article_ids: List[str]
+    ) -> Dict[str, int]:
+        if not article_ids:
+            return {}
+
+        tenant_id = get_tenant_id() or 1
+        sucursal_id = get_sucursal_id() or 1
+
+        async with self.session_factory() as session:
+            stmt = (
+                select(StockPorDepositoORM.id_articulo, StockPorDepositoORM.stock_real)
+                .where(
+                    StockPorDepositoORM.id_empresa == tenant_id,
+                    StockPorDepositoORM.id_sucursal == sucursal_id,
+                    StockPorDepositoORM.id_deposito == deposit_id,
+                    StockPorDepositoORM.id_articulo.in_(article_ids),
+                )
+            )
+            result = await session.execute(stmt)
+            rows = result.all()
+            return {
+                str(row[0]).strip(): (int(row[1]) if row[1] is not None else 0)
+                for row in rows
+            }
+

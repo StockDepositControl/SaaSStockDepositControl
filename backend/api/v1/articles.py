@@ -4,9 +4,14 @@ from fastapi import APIRouter, Depends, Query, Path
 
 from backend.app.articles.models import ArticuloPublicOut, ArticuloAdminOut
 from backend.app.articles.services import ArticleSearchService
+from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
 from backend.app.work_sessions.services import WorkSessionService
 from backend.api.dependencies.auth import get_current_user_claims
-from backend.api.dependencies.services import get_article_search_service, get_work_session_service
+from backend.api.dependencies.services import (
+    get_article_search_service,
+    get_work_session_service,
+    get_article_catalog_orchestrator,
+)
 
 router = APIRouter()
 
@@ -42,31 +47,33 @@ async def search_articles(
 
 @router.get(
     "",
-    summary="List and filter articles with pagination",
-    description="Retrieves a paginated list of articles, optionally filtered by family, group, or search term."
+    summary="List and filter articles with pagination and stock enrichment",
+    description="Retrieves a paginated list of articles enriched with effective stock levels, optionally filtered by family, group, or search term."
 )
 async def list_articles(
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     limit: int = Query(50, ge=1, le=200, description="Items per page"),
+    id_deposito: int = Query(1, ge=1, description="Deposit/Warehouse ID for stock resolution"),
     search: Optional[str] = Query(None, description="Search term filter"),
     id_familia: Optional[str] = Query(None, description="Family ID filter"),
     id_grupo: Optional[str] = Query(None, description="Group ID filter"),
     fue_auditado: Optional[bool] = Query(None, description="Filter by audited status"),
     claims: dict = Depends(get_current_user_claims),
-    search_service: ArticleSearchService = Depends(get_article_search_service),
+    orchestrator: ArticleCatalogOrchestrator = Depends(get_article_catalog_orchestrator),
     work_session_service: WorkSessionService = Depends(get_work_session_service),
 ) -> dict:
     tenant_id = claims.get("tenant_id")
     branch_id = claims.get("branch_id", 1)
 
     session = await work_session_service.get_or_create_active_session(tenant_id=tenant_id, branch_id=branch_id)
-    items, total = await search_service.list_articles(
+    items, total = await orchestrator.get_enriched_catalog(
         page=page,
         limit=limit,
         search=search,
         id_familia=id_familia,
         id_grupo=id_grupo,
         fue_auditado=fue_auditado,
+        deposit_id=id_deposito,
         active_session_id=session.session_id,
     )
 

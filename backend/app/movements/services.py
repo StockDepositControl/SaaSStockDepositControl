@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Optional, Dict
 from backend.app.movements.domain import (
     TipoAccion,
     AuditRecordCreate,
@@ -56,6 +56,36 @@ class StockLookupService:
             stock_real=stock_pos.stock_real,
             source="db_articles"
         )
+
+    async def get_effective_stocks_batch(
+        self, article_ids: List[str], deposit_id: int, active_session_id: Optional[int] = None
+    ) -> Dict[str, int]:
+        """
+        Resolves effective stock positions in batch for a list of articles in a deposit.
+        1. Checks for latest active audit records in db_analytics.
+        2. Queries stock positions in db_articles for remaining articles.
+        3. Returns combined mapping {id_articulo: stock_real}.
+        """
+        if not article_ids:
+            return {}
+
+        audit_map: Dict[str, int] = {}
+        if active_session_id:
+            audit_map = await self.audit_repository.get_latest_audits_for_articles(
+                session_id=active_session_id,
+                article_ids=article_ids
+            )
+
+        remaining_ids = [aid for aid in article_ids if aid not in audit_map]
+
+        stock_map: Dict[str, int] = {}
+        if remaining_ids:
+            stock_map = await self.stock_repository.get_stock_positions_batch(
+                deposit_id=deposit_id,
+                article_ids=remaining_ids
+            )
+
+        return {**stock_map, **audit_map}
 
 
 class AuditService:

@@ -99,7 +99,7 @@ class AuditRecord(BaseAnalytics):
         Index("idx_audit_article", "article_code"),
         Index("idx_audit_tenant_client_uuid", "tenant_id", "client_uuid"),
         Index("idx_audit_fallback", "tenant_id", "branch_id", "warehouse_id", "article_code", "scan_timestamp"),
-        Index("idx_audit_session_article", "session_id", "article_code"),
+        Index("idx_audit_session_article_ts", "session_id", "article_code", "scan_timestamp"),
     )
 
 

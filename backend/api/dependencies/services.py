@@ -40,6 +40,34 @@ def get_article_search_service() -> "ArticleSearchService":
     return ArticleSearchService(article_repository=repo)
 
 
+def get_stock_lookup_service() -> "StockLookupService":
+    """
+    FastAPI dependency that instantiates and returns StockLookupService.
+    """
+    from backend.app.movements.services import StockLookupService
+    from backend.adapters.repositories.stock_repository import SQLAlchemyStockRepository
+    from backend.adapters.repositories.audit_repository import SQLAlchemyAuditRepository
+
+    stock_repo = SQLAlchemyStockRepository()
+    audit_repo = SQLAlchemyAuditRepository()
+    return StockLookupService(stock_repository=stock_repo, audit_repository=audit_repo)
+
+
+def get_article_catalog_orchestrator(
+    search_service: "ArticleSearchService" = Depends(get_article_search_service),
+    stock_lookup_service: "StockLookupService" = Depends(get_stock_lookup_service),
+) -> "ArticleCatalogOrchestrator":
+    """
+    FastAPI dependency that instantiates and returns the ArticleCatalogOrchestrator.
+    """
+    from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
+
+    return ArticleCatalogOrchestrator(
+        article_search_service=search_service,
+        stock_lookup_service=stock_lookup_service,
+    )
+
+
 def get_audit_service() -> "AuditService":
     """
     FastAPI dependency that instantiates article, stock, and audit repositories and returns AuditService.

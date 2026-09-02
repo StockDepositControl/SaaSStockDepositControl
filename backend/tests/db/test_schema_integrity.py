@@ -229,6 +229,26 @@ def test_stock_por_deposito_stock_real_int(inspector):
     assert 'INT' in str(stock_real_col['type']).upper(), f"Expected INTEGER for stock_real, got {stock_real_col['type']}"
 
 
+def test_audit_records_covering_index_session_article_ts(inspector):
+    indexes = inspector.get_indexes('audit_records')
+    idx_names = [idx['name'] for idx in indexes]
+    assert 'idx_audit_session_article_ts' in idx_names, \
+        "Missing covering index 'idx_audit_session_article_ts' on audit_records."
+    ts_idx = next(idx for idx in indexes if idx['name'] == 'idx_audit_session_article_ts')
+    assert ts_idx['column_names'] == ['session_id', 'article_code', 'scan_timestamp'], \
+        f"Expected columns (session_id, article_code, scan_timestamp), got {ts_idx['column_names']}"
+    assert 'idx_audit_session_article' not in idx_names, \
+        "Redundant index 'idx_audit_session_article' should have been replaced."
+
+
+def test_stock_por_deposito_clustered_pk_covering(inspector):
+    pk_constraint = inspector.get_pk_constraint('stock_por_deposito')
+    pk_cols = pk_constraint['constrained_columns']
+    assert pk_cols == ['id_empresa', 'id_sucursal', 'id_deposito', 'id_articulo'], \
+        f"Expected composite primary key (id_empresa, id_sucursal, id_deposito, id_articulo), got {pk_cols}"
+
+
+
 
 
 
