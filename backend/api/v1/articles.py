@@ -99,19 +99,25 @@ async def list_articles(
 @router.get(
     "/{id_articulo}",
     response_model=Union[ArticuloAdminOut, ArticuloPublicOut],
-    summary="Get a single article by ID"
+    summary="Get a single article by ID with effective stock",
+    description="Retrieves a single article enriched with effective stock for the specified warehouse/deposit."
 )
 async def get_article(
     id_articulo: str = Path(..., description="Article code"),
+    id_deposito: int = Query(1, ge=1, description="Deposit/Warehouse ID for stock resolution"),
     claims: dict = Depends(get_current_user_claims),
-    search_service: ArticleSearchService = Depends(get_article_search_service),
-    work_session_service: WorkSessionService = Depends(get_work_session_service)
+    orchestrator: ArticleCatalogOrchestrator = Depends(get_article_catalog_orchestrator),
+    work_session_service: WorkSessionService = Depends(get_work_session_service),
 ) -> Any:
     tenant_id = claims.get("tenant_id")
     branch_id = claims.get("branch_id", 1)
     
     session = await work_session_service.get_or_create_active_session(tenant_id=tenant_id, branch_id=branch_id)
-    article = await search_service.get_article_by_id(id_articulo, active_session_id=session.session_id)
+    article = await orchestrator.get_enriched_article(
+        id_articulo=id_articulo,
+        deposit_id=id_deposito,
+        active_session_id=session.session_id,
+    )
 
     user_role = claims.get("role", "").lower()
     is_admin = (user_role == "administrador")
@@ -120,3 +126,4 @@ async def get_article(
         return ArticuloAdminOut.model_validate(article)
     else:
         return ArticuloPublicOut.model_validate(article)
+

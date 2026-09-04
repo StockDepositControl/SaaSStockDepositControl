@@ -61,3 +61,32 @@ class ArticleCatalogOrchestrator:
         ]
 
         return enriched_articles, total
+
+    async def get_enriched_article(
+        self,
+        id_articulo: str,
+        deposit_id: int = 1,
+        active_session_id: Optional[int] = None,
+    ) -> Articulo:
+        """
+        Orchestrates:
+        1. Retrieval of single article entity via ArticleSearchService (raises EntityNotFoundException if not found).
+        2. Lookup of effective stock level via StockLookupService.get_effective_stocks_batch.
+        3. Enrichment of article entity with resolved stock_real without mutating original instance.
+        Returns the enriched Articulo domain entity.
+        """
+        article = await self.article_search_service.get_article_by_id(
+            id_articulo=id_articulo,
+            active_session_id=active_session_id,
+        )
+
+        stock_map = await self.stock_lookup_service.get_effective_stocks_batch(
+            article_ids=[id_articulo],
+            deposit_id=deposit_id,
+            active_session_id=active_session_id,
+        )
+
+        return article.model_copy(
+            update={"stock_real": stock_map.get(id_articulo, 0)}
+        )
+

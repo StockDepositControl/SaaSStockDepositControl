@@ -6,11 +6,13 @@ from backend.app.articles.models import Articulo
 from backend.app.articles.services import ArticleSearchService
 from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
 from backend.app.movements.services import StockLookupService
+from backend.app.exceptions import EntityNotFoundException
 
 
 @pytest.fixture
 def mock_search_service():
     return AsyncMock(spec=ArticleSearchService)
+
 
 
 @pytest.fixture
@@ -124,3 +126,70 @@ async def test_orchestrator_missing_stock_defaults_to_zero(
 
     assert articles[0].stock_real == 15
     assert articles[1].stock_real == 0
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_get_enriched_article_success(
+    orchestrator, mock_search_service, mock_stock_lookup_service, sample_articles
+):
+    single_article = sample_articles[0]
+    mock_search_service.get_article_by_id.return_value = single_article
+    mock_stock_lookup_service.get_effective_stocks_batch.return_value = {"1042": 25}
+
+    result = await orchestrator.get_enriched_article(
+        id_articulo="1042",
+        deposit_id=2,
+        active_session_id=10,
+    )
+
+    assert result.id_articulo == "1042"
+    assert result.stock_real == 25
+    assert result.des_articulo == "Ibuprofeno 400mg"
+
+    mock_search_service.get_article_by_id.assert_called_once_with(
+        id_articulo="1042",
+        active_session_id=10,
+    )
+    mock_stock_lookup_service.get_effective_stocks_batch.assert_called_once_with(
+        article_ids=["1042"],
+        deposit_id=2,
+        active_session_id=10,
+    )
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_get_enriched_article_not_found(
+    orchestrator, mock_search_service, mock_stock_lookup_service
+):
+    mock_search_service.get_article_by_id.side_effect = EntityNotFoundException("Article '9999' not found.")
+
+    with pytest.raises(EntityNotFoundException, match="Article '9999' not found."):
+        await orchestrator.get_enriched_article(
+            id_articulo="9999",
+            deposit_id=1,
+            active_session_id=5,
+        )
+
+    mock_search_service.get_article_by_id.assert_called_once_with(
+        id_articulo="9999",
+        active_session_id=5,
+    )
+    mock_stock_lookup_service.get_effective_stocks_batch.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_get_enriched_article_missing_stock_defaults_to_zero(
+    orchestrator, mock_search_service, mock_stock_lookup_service, sample_articles
+):
+    single_article = sample_articles[0]
+    mock_search_service.get_article_by_id.return_value = single_article
+    mock_stock_lookup_service.get_effective_stocks_batch.return_value = {}
+
+    result = await orchestrator.get_enriched_article(
+        id_articulo="1042",
+        deposit_id=1,
+    )
+
+    assert result.id_articulo == "1042"
+    assert result.stock_real == 0
+

@@ -106,25 +106,24 @@ async def get_article_stock_position(
     else:
         return ArticleStockPositionPublicOut(**base_data)
 
-# To be a possible future feature.
-#@router.post(
-#    "/audit/batch",
-#    response_model=AuditBatchResult,
-#    status_code=status.HTTP_200_OK,
-#    summary="Register batch stock audit entries (offline sync)",
-#    description="Processes queued audit records transmitted during mobile offline reconnection worker flush.",
-#)
-#async def register_batch_audit(
-#    batch: AuditBatchInput,
-#    claims: dict = Depends(require_audit_roles),
-#    audit_service: AuditService = Depends(get_audit_service),
-#) -> AuditBatchResult:
-#    tenant_id = str(claims.get("tenant_id", "1"))
-#    id_usuario = int(claims.get("user_id") or claims.get("id_usuario", 1))
-#
-#    result = await audit_service.register_batch_audit(
-#        tenant_id=tenant_id,
-#        id_usuario=id_usuario,
-#        batch=batch,
-#    )
-#    return result
+@router.post(
+    "/audit/batch",
+    response_model=AuditBatchResult,
+    status_code=status.HTTP_200_OK,
+    summary="Register batch stock audit entries (offline sync)",
+    description="Processes queued audit records transmitted during mobile offline reconnection worker flush.",
+)
+async def register_batch_audit(
+    batch: AuditBatchInput,
+    claims: dict = Depends(require_audit_roles),
+    audit_service: AuditService = Depends(get_audit_service),
+) -> AuditBatchResult:
+    tenant_id = str(claims.get("tenant_id", "1"))
+    id_usuario = int(claims.get("user_id") or claims.get("id_usuario", 1))
+
+    result = await audit_service.register_batch_audit(
+        tenant_id=tenant_id,
+        id_usuario=id_usuario,
+        batch=batch,
+    )
+    return result

@@ -1,0 +1,51 @@
+sequenceDiagram
+    participant Client
+    participant Router as API Router<br>(articles.py)
+    participant WorkSession as WorkSessionService
+    participant Orchestrator as ArticleCatalogOrchestrator
+    participant SearchSvc as ArticleSearchService
+    participant RepoArticle as ArticleRepository
+    participant StockSvc as StockLookupService
+    participant AuditRepo as AuditRepository
+    participant StockRepo as StockRepository
+    participant DB as Database<br>(db_articles & db_analytics)
+
+    Client->>Router: GET /api/v1/articles/{id_articulo}?id_deposito=1
+    
+    Router->>WorkSession: get_or_create_active_session(tenant_id, branch_id)
+    WorkSession-->>Router: session (Session object)
+    
+    Router->>Orchestrator: get_enriched_article(id_articulo, id_deposito, session.session_id)
+    
+    %% --- 1. Retrieval of the Article Entity ---
+    Orchestrator->>SearchSvc: get_article_by_id(id_articulo, session.session_id)
+    SearchSvc->>RepoArticle: get_by_id(id_articulo, session.session_id)
+    RepoArticle->>DB: SELECT from db_articles (articulos, marcas, grupos)
+    DB-->>RepoArticle: result (ArticuloORM)
+    RepoArticle->>RepoArticle: _to_domain(ArticuloORM) -> Articulo
+    RepoArticle-->>SearchSvc: Articulo (Domain Model, stock_real=None)
+    SearchSvc-->>Orchestrator: Articulo
+    
+    %% --- 2. Resolution of Effective Stock ---
+    Orchestrator->>StockSvc: get_effective_stocks_batch([id_articulo], id_deposito, session.session_id)
+    
+    StockSvc->>AuditRepo: get_latest_audits_for_articles(session_id, [id_articulo])
+    AuditRepo->>DB: SELECT from db_analytics (AuditRecordORM)
+    DB-->>AuditRepo: record (if article was audited)
+    AuditRepo-->>StockSvc: audit_map {id_articulo: stock_auditado}
+    
+    alt id_articulo is NOT in audit_map
+        StockSvc->>StockRepo: get_stock_positions_batch(id_deposito, [id_articulo])
+        StockRepo->>DB: SELECT from db_articles (stock positions)
+        DB-->>StockRepo: stock position data
+        StockRepo-->>StockSvc: stock_map {id_articulo: stock_original}
+    end
+    
+    StockSvc-->>Orchestrator: combined_map {id_articulo: stock_final}
+    
+    %% --- 3. Enrichment and Response ---
+    Orchestrator->>Orchestrator: article.model_copy(update={"stock_real": stock_final})
+    Orchestrator-->>Router: Articulo (Enriched with stock_real)
+    
+    Router->>Router: ArticuloAdminOut.model_validate(article)
+    Router-->>Client: JSON Response (with stock_real)

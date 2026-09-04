@@ -110,73 +110,140 @@ def test_search_articles_endpoint_as_auditor(mock_search_service, mock_work_sess
     app.dependency_overrides.clear()
 
 
-def test_get_all_articles_as_admin(mock_search_service, mock_work_session_service):
+def test_get_article_by_id_endpoint_as_admin_with_stock(mock_work_session_service):
     from backend.api.dependencies.auth import get_current_user_claims
+    from backend.api.dependencies.services import get_article_catalog_orchestrator
+    from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
 
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "admin@example.com",
         "role": "administrador",
-        "tenant_id": "tenant-01"
+        "tenant_id": "tenant-01",
+        "branch_id": 1,
     }
 
-    mock_articles = [
-        Articulo(
-            id_articulo="1001",
-            des_articulo="Aspirina 500mg",
-            pcio_com_siva=Decimal("100.00")
-        ),
-        Articulo(
-            id_articulo="1002",
-            des_articulo="Paracetamol 500mg",
-            pcio_com_siva=Decimal("120.00")
-        ),
-    ]
-    # Use the appropriate method on the mock
-    mock_search_service.get_article_by_id.return_value = mock_articles[0]
-    app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
+    mock_orchestrator = AsyncMock(spec=ArticleCatalogOrchestrator)
+    mock_article = Articulo(
+        id_articulo="1042",
+        presentacion="Caja x 20",
+        des_articulo="Ibuprofeno 400mg",
+        id_marca=1,
+        des_marca="Bayer",
+        id_familia="01",
+        des_familia="Medicamentos",
+        id_grupo="02",
+        des_grupo="Analgésicos",
+        pcio_com_siva=Decimal("150.00"),
+        fue_auditado=False,
+        stock_real=25,
+    )
+    mock_orchestrator.get_enriched_article.return_value = mock_article
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: mock_orchestrator
     app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
 
     client = TestClient(app)
-    response = client.get("/api/v1/articles/all")
+    response = client.get("/api/v1/articles/1042?id_deposito=2")
 
     assert response.status_code == 200
     data = response.json()
-    assert data["id_articulo"] == "1001"
+    assert data["id_articulo"] == "1042"
+    assert data["stock_real"] == 25
     assert "pcio_com_siva" in data
-    assert Decimal(str(data["pcio_com_siva"])) == Decimal("100.00")
+    assert Decimal(str(data["pcio_com_siva"])) == Decimal("150.00")
+
+    mock_orchestrator.get_enriched_article.assert_called_once_with(
+        id_articulo="1042",
+        deposit_id=2,
+        active_session_id=1,
+    )
 
     app.dependency_overrides.clear()
 
 
-def test_get_all_articles_as_auditor(mock_search_service, mock_work_session_service):
+def test_get_article_by_id_endpoint_as_auditor_with_stock_masked(mock_work_session_service):
     from backend.api.dependencies.auth import get_current_user_claims
+    from backend.api.dependencies.services import get_article_catalog_orchestrator
+    from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
 
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
-        "tenant_id": "tenant-01"
+        "tenant_id": "tenant-01",
+        "branch_id": 1,
     }
 
-    mock_articles = [
-        Articulo(
-            id_articulo="1001",
-            des_articulo="Aspirina 500mg",
-            pcio_com_siva=Decimal("100.00")
-        ),
-    ]
-    mock_search_service.get_article_by_id.return_value = mock_articles[0]
-    app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
+    mock_orchestrator = AsyncMock(spec=ArticleCatalogOrchestrator)
+    mock_article = Articulo(
+        id_articulo="1042",
+        presentacion="Caja x 20",
+        des_articulo="Ibuprofeno 400mg",
+        id_marca=1,
+        des_marca="Bayer",
+        id_familia="01",
+        des_familia="Medicamentos",
+        id_grupo="02",
+        des_grupo="Analgésicos",
+        pcio_com_siva=Decimal("150.00"),
+        fue_auditado=False,
+        stock_real=25,
+    )
+    mock_orchestrator.get_enriched_article.return_value = mock_article
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: mock_orchestrator
     app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
 
     client = TestClient(app)
-    response = client.get("/api/v1/articles/all")
+    response = client.get("/api/v1/articles/1042?id_deposito=3")
 
     assert response.status_code == 200
     data = response.json()
-    assert data["id_articulo"] == "1001"
+    assert data["id_articulo"] == "1042"
+    assert data["stock_real"] == 25
     assert "pcio_com_siva" not in data
 
+    mock_orchestrator.get_enriched_article.assert_called_once_with(
+        id_articulo="1042",
+        deposit_id=3,
+        active_session_id=1,
+    )
+
     app.dependency_overrides.clear()
+
+
+def test_get_article_by_id_default_deposit(mock_work_session_service):
+    from backend.api.dependencies.auth import get_current_user_claims
+    from backend.api.dependencies.services import get_article_catalog_orchestrator
+    from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
+
+    app.dependency_overrides[get_current_user_claims] = lambda: {
+        "sub": "auditor@example.com",
+        "role": "auditor",
+        "tenant_id": "tenant-01",
+        "branch_id": 1,
+    }
+
+    mock_orchestrator = AsyncMock(spec=ArticleCatalogOrchestrator)
+    mock_article = Articulo(
+        id_articulo="1042",
+        des_articulo="Ibuprofeno 400mg",
+        pcio_com_siva=Decimal("150.00"),
+        stock_real=10,
+    )
+    mock_orchestrator.get_enriched_article.return_value = mock_article
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: mock_orchestrator
+    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
+
+    client = TestClient(app)
+    response = client.get("/api/v1/articles/1042")
+
+    assert response.status_code == 200
+    mock_orchestrator.get_enriched_article.assert_called_once_with(
+        id_articulo="1042",
+        deposit_id=1,
+        active_session_id=1,
+    )
+
+    app.dependency_overrides.clear()
+
 
 
 def test_instantiate_sqlalchemy_article_repository():
