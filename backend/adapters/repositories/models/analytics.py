@@ -96,6 +96,8 @@ class AuditRecord(BaseAnalytics):
 
     __table_args__ = (
         Index("idx_audit_tenant_scan", "tenant_id", "scan_timestamp"),
+        Index("idx_audit_shrinkage", "tenant_id", "action_type", "scan_timestamp"),
+        Index("idx_audit_goods_received", "tenant_id", "action_type", "scan_timestamp"),
         Index("idx_audit_article", "article_code"),
         Index("idx_audit_tenant_client_uuid", "tenant_id", "client_uuid"),
         Index("idx_audit_fallback", "tenant_id", "branch_id", "warehouse_id", "article_code", "scan_timestamp"),

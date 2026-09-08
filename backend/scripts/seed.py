@@ -30,6 +30,8 @@ async def run_seed(
     ghost_rate: float = 0.10,
     expired_rate: float = 0.25,
     vat_rate: float = 0.21,
+    shrinkage_rate: float = 0.0,
+    goods_received_rate: float = 0.0,
     database_url: str = None,
     url_articles: str = None,
     url_users: str = None,
@@ -309,8 +311,101 @@ async def run_seed(
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
 
             # 10. Seed AuditRecords (db_analytics)
-            # Enforce Clean Analytics State Constraint: NO AuditRecords generated.
             analytics_audits = []
+            if shrinkage_rate > 0 and len(work_sessions) > 0:
+                ws_id = work_sessions[0].session_id
+                shrink_count = math.ceil(count * shrinkage_rate)
+                shrink_articles = random.sample(articulos, min(shrink_count, len(articulos)))
+                shrinkage_reasons = [
+                    "Rotura de envase",
+                    "Producto vencido",
+                    "Deterioro por humedad",
+                    "Diferencia de inventario / Merma",
+                    "Robo / Hurto identificado",
+                    "Devolución a proveedor por falla"
+                ]
+                for art in shrink_articles:
+                    affected = random.randint(1, 5)
+                    unit_cost = art.pcio_com_siva or Decimal("100.00")
+                    is_med = (art.id_familia == med_fam_id)
+                    item_vat = Decimal("0.0000") if is_med else Decimal(str(vat_rate)).quantize(Decimal("0.0001"))
+                    val_amount = (Decimal(str(affected)) * unit_cost).quantize(Decimal("0.0001"))
+                    days_ago = random.randint(0, 30)
+                    scan_ts = datetime.utcnow() - timedelta(days=days_ago, minutes=random.randint(1, 720))
+                    obs = random.choice(shrinkage_reasons)
+
+                    matching_stock = next((st for st in stocks if st.id_articulo == art.id_articulo), None)
+                    wh_id = matching_stock.id_deposito if matching_stock else 1
+                    br_id = matching_stock.id_sucursal if matching_stock else 1
+
+                    audit_rec = AuditRecord(
+                        tenant_id=1,
+                        session_id=ws_id,
+                        branch_id=br_id,
+                        warehouse_id=wh_id,
+                        article_code=art.id_articulo.strip(),
+                        user_id=new_users[0].user_id if new_users else 1,
+                        action_type="REMOVAL",
+                        affected_amount=affected,
+                        audit_quantity=max(0, (matching_stock.stock_real if matching_stock else 10) - affected),
+                        applied_unit_cost=unit_cost,
+                        applied_vat_rate=item_vat,
+                        valorized_amount=val_amount,
+                        scan_timestamp=scan_ts,
+                        client_uuid=str(uuid.uuid4()),
+                        observation=obs
+                    )
+                    analytics_audits.append(audit_rec)
+
+            if goods_received_rate > 0 and len(work_sessions) > 0:
+                ws_id = work_sessions[0].session_id
+                gr_count = math.ceil(count * goods_received_rate)
+                gr_articles = random.sample(articulos, min(gr_count, len(articulos)))
+                goods_received_reasons = [
+                    "Ingreso mercadería",
+                    "Alta por remito",
+                    "Recepción proveedor",
+                    "Ajuste por sobrante",
+                    "Ingreso por compra"
+                ]
+                goods_action_types = ["ADDITION", "Alta", "Ingreso"]
+                for art in gr_articles:
+                    affected = random.randint(5, 50)
+                    unit_cost = art.pcio_com_siva or Decimal("100.00")
+                    is_med = (art.id_familia == med_fam_id)
+                    item_vat = Decimal("0.0000") if is_med else Decimal(str(vat_rate)).quantize(Decimal("0.0001"))
+                    val_amount = (Decimal(str(affected)) * unit_cost).quantize(Decimal("0.0001"))
+                    days_ago = random.randint(0, 30)
+                    scan_ts = datetime.utcnow() - timedelta(days=days_ago, minutes=random.randint(1, 720))
+                    obs = random.choice(goods_received_reasons)
+                    act_type = random.choice(goods_action_types)
+
+                    matching_stock = next((st for st in stocks if st.id_articulo == art.id_articulo), None)
+                    wh_id = matching_stock.id_deposito if matching_stock else 1
+                    br_id = matching_stock.id_sucursal if matching_stock else 1
+
+                    audit_rec = AuditRecord(
+                        tenant_id=1,
+                        session_id=ws_id,
+                        branch_id=br_id,
+                        warehouse_id=wh_id,
+                        article_code=art.id_articulo.strip(),
+                        user_id=new_users[0].user_id if new_users else 1,
+                        action_type=act_type,
+                        affected_amount=affected,
+                        audit_quantity=(matching_stock.stock_real if matching_stock else 10) + affected,
+                        applied_unit_cost=unit_cost,
+                        applied_vat_rate=item_vat,
+                        valorized_amount=val_amount,
+                        scan_timestamp=scan_ts,
+                        client_uuid=str(uuid.uuid4()),
+                        observation=obs
+                    )
+                    analytics_audits.append(audit_rec)
+
+            if analytics_audits:
+                s_analytics.raw_session.add_all(analytics_audits)
+                await s_analytics.raw_session.flush()
 
             # 11. Seed DailyReports (db_analytics)
             daily_reports = []
@@ -375,6 +470,8 @@ if __name__ == "__main__":
     parser.add_argument("--ghost-rate", type=float, default=0.10, help="Fraction of Ghost items.")
     parser.add_argument("--expired-rate", type=float, default=0.25, help="Fraction of expired lots.")
     parser.add_argument("--vat-rate", type=float, default=0.21, help="Default VAT rate for taxable items.")
+    parser.add_argument("--shrinkage-rate", type=float, default=0.30, help="Fraction of articles with shrinkage audit records.")
+    parser.add_argument("--goods-received-rate", type=float, default=0.15, help="Fraction of articles with goods received audit records.")
     parser.add_argument("--db-url", type=str, default=None, help="Database connection URL override.")
     args = parser.parse_args()
 
@@ -385,5 +482,7 @@ if __name__ == "__main__":
         ghost_rate=args.ghost_rate,
         expired_rate=args.expired_rate,
         vat_rate=args.vat_rate,
+        shrinkage_rate=args.shrinkage_rate,
+        goods_received_rate=args.goods_received_rate,
         database_url=args.db_url
     ))

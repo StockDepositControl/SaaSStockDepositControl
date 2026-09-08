@@ -187,3 +187,56 @@ async def test_seed_role_names_are_spanish(async_sessions, db_engines):
         f"Seeded roles must use Spanish enum values. Found: {role_names}"
     )
 
+
+@pytest.mark.asyncio
+async def test_seed_creates_shrinkage_audit_records(async_sessions, db_engines):
+    """Verify that when shrinkage_rate > 0, AuditRecords with action_type='REMOVAL' and shrinkage observations are seeded."""
+    await run_seed(
+        count=50,
+        seed_val=123,
+        shrinkage_rate=0.30,
+        url_articles=db_engines["url_articles"],
+        url_users=db_engines["url_users"],
+        url_analytics=db_engines["url_analytics"]
+    )
+
+    s_analytics = async_sessions["analytics"]
+    res_audits = await s_analytics.execute(select(AuditRecord))
+    audits = res_audits.scalars().all()
+
+    assert len(audits) > 0, "Expected shrinkage AuditRecords to be created when shrinkage_rate > 0"
+    for audit in audits:
+        assert audit.action_type == "REMOVAL", f"Expected action_type REMOVAL, got {audit.action_type}"
+        assert audit.observation is not None and len(audit.observation) > 0, "Expected non-empty shrinkage reason in observation"
+        assert audit.tenant_id == 1
+
+
+@pytest.mark.asyncio
+async def test_seed_creates_goods_received_audit_records(async_sessions, db_engines):
+    """Verify that when goods_received_rate > 0, AuditRecords with action_type in ('ADDITION', 'Alta', 'Ingreso') are seeded."""
+    await run_seed(
+        count=50,
+        seed_val=123,
+        goods_received_rate=0.30,
+        url_articles=db_engines["url_articles"],
+        url_users=db_engines["url_users"],
+        url_analytics=db_engines["url_analytics"]
+    )
+
+    s_analytics = async_sessions["analytics"]
+    res_audits = await s_analytics.execute(select(AuditRecord))
+    audits = res_audits.scalars().all()
+
+    assert len(audits) > 0, "Expected Goods Received AuditRecords to be created when goods_received_rate > 0"
+    for audit in audits:
+        assert audit.action_type in ("ADDITION", "Alta", "Ingreso"), (
+            f"Expected action_type in ('ADDITION', 'Alta', 'Ingreso'), got {audit.action_type}"
+        )
+        assert audit.affected_amount > 0, f"Expected affected_amount > 0, got {audit.affected_amount}"
+        assert audit.applied_unit_cost > 0, f"Expected applied_unit_cost > 0, got {audit.applied_unit_cost}"
+        assert audit.valorized_amount > 0, f"Expected valorized_amount > 0, got {audit.valorized_amount}"
+        assert audit.observation is not None and len(audit.observation) > 0, "Expected non-empty observation"
+        assert audit.tenant_id == 1
+
+
+

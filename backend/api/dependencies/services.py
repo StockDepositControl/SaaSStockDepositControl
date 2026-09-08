@@ -133,3 +133,34 @@ def get_branch_service() -> "BranchService":
     branch_repo = SQLAlchemyBranchRepository()
     return BranchService(branch_repository=branch_repo, enterprise_repository=enterprise_repo)
 
+
+def get_shrinkage_report_service() -> "ShrinkageReportService":
+    """
+    FastAPI dependency for ShrinkageReportService.
+    Wires SQLAlchemyShrinkageReportRepository (db_analytics) and
+    SQLAlchemyArticleRepository (db_articles).
+    """
+    from backend.app.reports.services import ShrinkageReportService
+    from backend.adapters.repositories.report_repository import SQLAlchemyShrinkageReportRepository
+    from backend.adapters.repositories.article_repository import SQLAlchemyArticleRepository
+
+    report_repo = SQLAlchemyShrinkageReportRepository()
+    article_repo = SQLAlchemyArticleRepository()
+    return ShrinkageReportService(report_repository=report_repo, article_repository=article_repo)
+
+
+def get_goods_received_report_service() -> "GoodsReceivedReportService":
+    """
+    FastAPI dependency for GoodsReceivedReportService.
+    Wires SQLAlchemyGoodsReceivedReportRepository (db_analytics) and
+    SQLAlchemyArticleRepository (db_articles).
+    """
+    from backend.app.reports.services import GoodsReceivedReportService
+    from backend.adapters.repositories.report_repository import SQLAlchemyGoodsReceivedReportRepository
+    from backend.adapters.repositories.article_repository import SQLAlchemyArticleRepository
+
+    report_repo = SQLAlchemyGoodsReceivedReportRepository()
+    article_repo = SQLAlchemyArticleRepository()
+    return GoodsReceivedReportService(report_repository=report_repo, article_repository=article_repo)
+
+

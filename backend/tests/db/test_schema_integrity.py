@@ -248,6 +248,18 @@ def test_stock_por_deposito_clustered_pk_covering(inspector):
         f"Expected composite primary key (id_empresa, id_sucursal, id_deposito, id_articulo), got {pk_cols}"
 
 
+def test_audit_records_shrinkage_composite_index(inspector):
+    """Asserts that idx_audit_shrinkage exists on audit_records with tenant_id leading for multi-tenant isolation."""
+    indexes = inspector.get_indexes('audit_records')
+    idx_names = [idx['name'] for idx in indexes]
+    assert 'idx_audit_shrinkage' in idx_names, \
+        "Missing composite index 'idx_audit_shrinkage' on audit_records."
+    shrinkage_idx = next(idx for idx in indexes if idx['name'] == 'idx_audit_shrinkage')
+    assert shrinkage_idx['column_names'] == ['tenant_id', 'action_type', 'scan_timestamp'], \
+        f"Expected columns (tenant_id, action_type, scan_timestamp), got {shrinkage_idx['column_names']}"
+
+
+
 
 
 

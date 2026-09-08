@@ -1,0 +1,51 @@
+sequenceDiagram
+    autonumber
+    actor Admin as Admin User
+    participant Router as FastAPI Router<br/>(api/v1/reports.py)
+    participant Auth as RoleChecker<br/>(api/dependencies/auth.py)
+    participant Service as GoodsReceivedReportService<br/>(app/reports/services.py)
+    participant RepRepo as GoodsReceivedReportRepositoryPort<br/>(adapters/repositories/report_repository.py)
+    participant ArtRepo as ArticleRepositoryPort<br/>(adapters/repositories/article_repository.py)
+    participant VatClass as VatClassifier<br/>(app/movements/domain.py)
+    participant VatCalc as VatCalculator<br/>(app/reports/domain.py)
+    participant Response as GoodsReceivedReportResponse<br/>(app/reports/schemas.py)
+
+    Admin->>Router: GET /api/v1/reports/goods-received?<br/>start_date=2026-09-01&end_date=2026-09-30&branch_id=1
+    Note over Router: Primary Adapter (HTTP Endpoint)
+
+    Router->>Auth: Validate JWT & Role ('administrador')
+    alt User is NOT Administrator
+        Auth-->>Admin: HTTP 403 Forbidden ("Insufficient permissions")
+    end
+    Auth-->>Router: Authorized (claims: tenant_id, role)
+
+    Router->>Service: get_goods_received_report(tenant_id, filters)
+    Note over Service: GRASP Controller / SRP Use Case Orchestration
+
+    Service->>RepRepo: fetch_goods_received_records(tenant_id, start_date, end_date, branch_id)
+    Note over RepRepo: Secondary Adapter (DIP / LSP)
+    RepRepo-->>Service: List[GoodsReceivedRawRecord]
+
+    loop For each aggregated article movement
+        Service->>ArtRepo: get_by_id(article_code)
+        ArtRepo-->>Service: Articulo (des_articulo, des_familia, pcio_com_siva)
+
+        Service->>VatClass: classify(des_familia, default_vat_rate)
+        Note over VatClass: GRASP Information Expert
+        VatClass-->>Service: vat_rate (Decimal)
+
+        Service->>VatCalc: calculate_total_unit_cost(pcio_com_siva, vat_rate)
+        Note over VatCalc: GRASP Pure Fabrication
+        VatCalc-->>Service: total_unit_cost (Decimal)
+
+        Service->>VatCalc: calculate_financial_loss(quantity, total_unit_cost)
+        VatCalc-->>Service: line_capital_injected (Decimal)
+
+        Note over Service: Assemble GoodsReceivedLineItem DTO
+    end
+
+    Note over Service: Aggregate Total Injected Capital & Units
+    Service->>Response: GoodsReceivedReportResponse(...)
+    Response-->>Service: Pydantic DTO instance
+    Service-->>Router: GoodsReceivedReportResponse DTO
+    Router-->>Admin: HTTP 200 OK (JSON Payload)

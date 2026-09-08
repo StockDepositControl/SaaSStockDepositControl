@@ -207,3 +207,15 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
                 for art in art_orms
             ]
             return items, total
+
+    async def get_barcode_by_article_id(self, id_articulo: str) -> Optional[str]:
+        async with self.session_factory() as session:
+            stmt = (
+                select(CodigoBarraArticuloORM.cod_barra)
+                .where(CodigoBarraArticuloORM.id_articulo == id_articulo)
+                .limit(1)
+            )
+            result = await session.execute(stmt)
+            cod_barra = result.scalars().first()
+            return str(cod_barra).strip() if cod_barra else None
+

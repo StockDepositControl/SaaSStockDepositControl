@@ -46,3 +46,11 @@ class ArticleRepositoryPort(ABC):
         Returns a tuple of (items, total_count).
         """
         pass
+
+    @abstractmethod
+    async def get_barcode_by_article_id(self, id_articulo: str) -> Optional[str]:
+        """
+        Retrieve primary or first associated barcode string for a given article ID.
+        """
+        pass
+

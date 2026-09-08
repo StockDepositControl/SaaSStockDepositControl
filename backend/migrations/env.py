@@ -29,7 +29,14 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Determine the target database to migrate
-db_target = os.getenv("DB_TARGET", "articles")
+db_target = os.getenv("DB_TARGET")
+if not db_target:
+    if config.config_file_name and "analytics" in config.config_file_name:
+        db_target = "analytics"
+    elif config.config_file_name and "users" in config.config_file_name:
+        db_target = "users"
+    else:
+        db_target = "articles"
 
 if db_target == "users":
     target_metadata = BaseUsers.metadata
