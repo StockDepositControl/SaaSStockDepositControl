@@ -1,0 +1,57 @@
+sequenceDiagram
+    autonumber
+
+    actor Client as Client (HTTP / Admin UI)
+    participant Router as FastAPI Router (api/v1/reports)
+    participant Auth as RoleChecker (RBAC: administrador)
+    participant Service as GoodsReceivedReportService
+    participant ReportPort as GoodsReceivedReportRepositoryPort (ABC)
+    participant ReportRepo as SQLAlchemyGoodsReceivedReportRepository
+    participant ArticlePort as ArticleRepositoryPort (ABC)
+    participant DB_Analytics as db_analytics (MariaDB)
+    participant DB_Articles as db_articles (MariaDB)
+    participant VatClassifier as VatClassifier (Domain)
+    participant VatCalculator as VatCalculator (Domain)
+
+    Client->>Router: GET /api/v1/reports/goods-received?start_date=2026-09-01&end_date=2026-09-10&default_vat_rate=0.21&branch_id=1
+    Router->>Auth: Depends(require_admin) - Validate JWT token & role
+    Auth-->>Router: Authorized claims (tenant_id="1", role="administrador")
+
+    Router->>Router: Validate start_date <= end_date & build GoodsReceivedReportFilters(...)
+
+    Router->>Service: get_goods_received_report(tenant_id="1", filters)
+
+    Service->>ReportPort: fetch_goods_received_records(tenant_id=1, start_date, end_date, branch_id=1)
+    ReportPort->>ReportRepo: Delegate fetch_goods_received_records(...)
+
+    ReportRepo->>DB_Analytics: SELECT * FROM audit_records WHERE tenant_id = :tenant_id AND action_type IN ('ADDITION', 'ALTA', 'Alta') AND scan_timestamp BETWEEN :start_dt AND :end_dt AND branch_id = :branch_id ORDER BY scan_timestamp ASC
+    DB_Analytics-->>ReportRepo: List of AuditRecord ORM rows (with observation reason)
+    ReportRepo-->>Service: List[GoodsReceivedRawRecord]
+
+    Service->>Service: Aggregate addition quantities by key (article_code, reason): Dict[Tuple[str, str], int]
+
+    loop For each unique (article_code, reason)
+        Service->>ArticlePort: get_by_id(article_code)
+        ArticlePort->>DB_Articles: SELECT a.*, f.des_familia FROM articulos a JOIN familia f WHERE a.id_articulo = :article_code
+        DB_Articles-->>ArticlePort: Article ORM Entity
+        ArticlePort-->>Service: Article domain object (des_articulo, des_familia, pcio_com_siva)
+
+        Service->>ArticlePort: get_barcode_by_article_id(article_code)
+        ArticlePort->>DB_Articles: SELECT cod_barra FROM codigo_barra WHERE id_articulo = :article_code LIMIT 1
+        DB_Articles-->>ArticlePort: Barcode string
+        ArticlePort-->>Service: barcode string
+
+        Service->>VatClassifier: classify(des_familia, default_vat_rate=0.21)
+        VatClassifier-->>Service: vat_rate (0.00 for medication, 0.21 default)
+
+        Service->>VatCalculator: calculate_total_unit_cost(pcio_com_siva, vat_rate)
+        VatCalculator-->>Service: total_unit_cost = pcio_com_siva * (1 + vat_rate)
+
+        Service->>VatCalculator: calculate_financial_loss(quantity, total_unit_cost)
+        VatCalculator-->>Service: capital_inyectado = quantity * total_unit_cost
+
+        Service->>Service: Append GoodsReceivedLineItem (with barcode & reason) to response list & accumulate totals
+    end
+
+    Service-->>Router: GoodsReceivedReportResponse (total_items, total_added_units, total_capital_inyectado, line_items)
+    Router-->>Client: HTTP 200 OK (JSON Goods Received Report)

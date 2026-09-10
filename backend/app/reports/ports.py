@@ -2,7 +2,11 @@ from abc import ABC, abstractmethod
 from datetime import date
 from typing import List, Optional
 
-from backend.app.reports.domain import GoodsReceivedRawRecord, ShrinkageRawRecord
+from backend.app.reports.domain import (
+    DailyInventoryBalanceRecord,
+    GoodsReceivedRawRecord,
+    ShrinkageRawRecord,
+)
 
 
 class ShrinkageReportRepositoryPort(ABC):
@@ -41,6 +45,26 @@ class GoodsReceivedReportRepositoryPort(ABC):
     ) -> List[GoodsReceivedRawRecord]:
         """
         Retrieves all ADDITION audit records within the given date range for a tenant and optional branch.
+        """
+        pass
+
+
+class DailyInventoryBalanceReportRepositoryPort(ABC):
+    """
+    Abstract port for retrieving consolidated daily inventory balance records.
+    Decoupled from specific database implementations.
+    """
+
+    @abstractmethod
+    async def fetch_daily_balance_records(
+        self,
+        tenant_id: int,
+        start_date: date,
+        end_date: date,
+        branch_id: Optional[int] = None,
+    ) -> List[DailyInventoryBalanceRecord]:
+        """
+        Retrieves consolidated daily inventory balance records filtered by tenant, date range, and branch.
         """
         pass
 

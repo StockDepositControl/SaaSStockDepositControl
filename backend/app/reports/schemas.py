@@ -109,3 +109,50 @@ class GoodsReceivedReportResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
+class DailyInventoryBalanceFilters(BaseModel):
+    """
+    Filter parameters for daily inventory balance report generation.
+    """
+    start_date: date = Field(..., description="Start date (inclusive)")
+    end_date: date = Field(..., description="End date (inclusive)")
+    branch_id: Optional[int] = Field(
+        default=None,
+        description="Optional branch ID filter",
+        ge=1,
+    )
+
+
+class DailyInventoryBalanceSummary(BaseModel):
+    """
+    Summary metrics per day for inventory balance.
+    """
+    report_date: date
+    total_audit_articles: int
+    total_processed_units: int
+    total_addition_units: int
+    total_shrinkage_units: int
+    total_addition_value: Decimal
+    total_shrinkage_value: Decimal
+    net_patrimonial_variation: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DailyInventoryBalanceResponse(BaseModel):
+    """
+    Consolidated daily inventory balance report response.
+    Exclusively returned to authorized administrative roles.
+    """
+    tenant_id: str
+    branch_id: Optional[int] = None
+    start_date: date
+    end_date: date
+    total_days: int
+    total_addition_value: Decimal
+    total_shrinkage_value: Decimal
+    net_patrimonial_variation: Decimal
+    daily_summaries: List[DailyInventoryBalanceSummary]
+
+    model_config = ConfigDict(from_attributes=True)
+

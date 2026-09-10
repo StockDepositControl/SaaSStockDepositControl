@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 from pydantic import BaseModel, ConfigDict
@@ -57,6 +57,24 @@ class GoodsReceivedRawRecord(BaseModel):
     scan_timestamp: datetime
     branch_id: int
     observation: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DailyInventoryBalanceRecord(BaseModel):
+    """
+    Pure domain representation of daily consolidated inventory balance data per branch.
+    """
+    tenant_id: int
+    branch_id: int
+    report_date: date
+    total_audit_articles: int
+    total_processed_units: int
+    total_addition_amount: int
+    total_shrinkage_amount: int
+    total_addition_value: Decimal
+    total_shrinkage_value: Decimal
+    net_patrimonial_variation: Decimal
 
     model_config = ConfigDict(from_attributes=True)
 

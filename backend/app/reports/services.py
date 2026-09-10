@@ -6,10 +6,14 @@ from backend.app.articles.ports import ArticleRepositoryPort
 from backend.app.movements.domain import VatClassifier
 from backend.app.reports.domain import VatCalculator
 from backend.app.reports.ports import (
+    DailyInventoryBalanceReportRepositoryPort,
     GoodsReceivedReportRepositoryPort,
     ShrinkageReportRepositoryPort,
 )
 from backend.app.reports.schemas import (
+    DailyInventoryBalanceFilters,
+    DailyInventoryBalanceResponse,
+    DailyInventoryBalanceSummary,
     GoodsReceivedLineItem,
     GoodsReceivedReportFilters,
     GoodsReceivedReportResponse,
@@ -209,5 +213,71 @@ class GoodsReceivedReportService:
             total_added_units=total_added_units,
             total_capital_inyectado=total_capital_inyectado,
             line_items=line_items,
+        )
+
+
+class DailyInventoryBalanceReportService:
+    """
+    Controller service orchestrating daily inventory balance reporting.
+    Calculates consolidated daily balance (Goods Received vs Shrinkage) and net patrimonial variation.
+    """
+
+    def __init__(
+        self,
+        report_repository: DailyInventoryBalanceReportRepositoryPort,
+    ):
+        self.report_repository = report_repository
+
+    async def get_daily_inventory_balance_report(
+        self, tenant_id: str, filters: DailyInventoryBalanceFilters
+    ) -> DailyInventoryBalanceResponse:
+        """
+        Generates consolidated daily inventory balance report for tenant, date range, and optional branch.
+        """
+        try:
+            numeric_tenant_id = int(tenant_id)
+        except (ValueError, TypeError):
+            numeric_tenant_id = 1
+
+        records = await self.report_repository.fetch_daily_balance_records(
+            tenant_id=numeric_tenant_id,
+            start_date=filters.start_date,
+            end_date=filters.end_date,
+            branch_id=filters.branch_id,
+        )
+
+        daily_summaries: List[DailyInventoryBalanceSummary] = []
+        total_addition_value = Decimal("0.00")
+        total_shrinkage_value = Decimal("0.00")
+        net_patrimonial_variation = Decimal("0.00")
+
+        for record in records:
+            net_variation = record.total_addition_value - record.total_shrinkage_value
+            summary = DailyInventoryBalanceSummary(
+                report_date=record.report_date,
+                total_audit_articles=record.total_audit_articles,
+                total_processed_units=record.total_processed_units,
+                total_addition_units=record.total_addition_amount,
+                total_shrinkage_units=record.total_shrinkage_amount,
+                total_addition_value=record.total_addition_value,
+                total_shrinkage_value=record.total_shrinkage_value,
+                net_patrimonial_variation=net_variation,
+            )
+            daily_summaries.append(summary)
+
+            total_addition_value += record.total_addition_value
+            total_shrinkage_value += record.total_shrinkage_value
+            net_patrimonial_variation += net_variation
+
+        return DailyInventoryBalanceResponse(
+            tenant_id=tenant_id,
+            branch_id=filters.branch_id,
+            start_date=filters.start_date,
+            end_date=filters.end_date,
+            total_days=len(daily_summaries),
+            total_addition_value=total_addition_value,
+            total_shrinkage_value=total_shrinkage_value,
+            net_patrimonial_variation=net_patrimonial_variation,
+            daily_summaries=daily_summaries,
         )
 

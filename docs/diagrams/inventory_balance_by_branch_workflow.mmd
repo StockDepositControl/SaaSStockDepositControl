@@ -1,0 +1,40 @@
+sequenceDiagram
+    autonumber
+
+    actor Client as Client (HTTP / Admin UI)
+    participant Router as FastAPI Router (api/v1/reports)
+    participant Auth as RoleChecker (RBAC: administrador)
+    participant Service as DailyInventoryBalanceReportService
+    participant Port as DailyInventoryBalanceReportRepositoryPort (ABC)
+    participant Repo as SQLAlchemyDailyInventoryBalanceReportRepository
+    participant DB_Analytics as db_analytics (MariaDB)
+    participant Domain as Domain (DailyInventoryBalanceRecord / Summary)
+
+    Client->>Router: GET /api/v1/reports/inventory-balance?start_date=2026-09-01&end_date=2026-09-10&branch_id=1
+    Router->>Auth: Depends(require_admin) - Validate JWT token & role
+    Auth-->>Router: Authorized claims (tenant_id="1", role="administrador")
+
+    Router->>Router: Validate start_date <= end_date & build DailyInventoryBalanceFilters(start_date, end_date, branch_id=1)
+
+    Router->>Service: get_daily_inventory_balance_report(tenant_id="1", filters)
+    Service->>Port: fetch_daily_balance_records(tenant_id=1, start_date, end_date, branch_id=1)
+    Port->>Repo: Delegate fetch_daily_balance_records(...)
+
+    Repo->>DB_Analytics: SELECT * FROM daily_reports WHERE tenant_id = :tenant_id AND report_date >= :start_date AND report_date <= :end_date AND branch_id = :branch_id ORDER BY report_date ASC, branch_id ASC
+
+    alt Pre-aggregated DailyReport ORM records exist for branch
+        DB_Analytics-->>Repo: List of DailyReport ORM instances for branch_id=1
+        Repo-->>Service: List[DailyInventoryBalanceRecord]
+    else Fallback dynamic aggregation from AuditRecord ORM for branch
+        DB_Analytics-->>Repo: Empty result set
+        Repo->>DB_Analytics: SELECT * FROM audit_records WHERE tenant_id = :tenant_id AND scan_timestamp >= :start_dt AND scan_timestamp <= :end_dt AND branch_id = :branch_id ORDER BY scan_timestamp ASC
+        DB_Analytics-->>Repo: List of AuditRecord ORM instances for branch_id=1
+        Repo->>Repo: Filter & group by (rec_date, branch_id=1), calculate additions, shrinkage & net_variation
+        Repo-->>Service: List[DailyInventoryBalanceRecord]
+    end
+
+    Service->>Domain: Aggregate branch-scoped totals (total_addition_value, total_shrinkage_value, net_patrimonial_variation)
+    Domain-->>Service: List[DailyInventoryBalanceSummary] for branch_id=1
+
+    Service-->>Router: DailyInventoryBalanceResponse DTO (branch_id=1)
+    Router-->>Client: HTTP 200 OK (JSON Response filtered by branch_id=1)

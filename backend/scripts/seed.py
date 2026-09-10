@@ -410,15 +410,30 @@ async def run_seed(
             # 11. Seed DailyReports (db_analytics)
             daily_reports = []
             for t_obj in rec_tenants:
-                daily_reports.append(DailyReport(
-                    tenant_id=t_obj.tenant_id,
-                    report_date=date.today() - timedelta(days=1),
-                    total_audit_articles=len(articulos) // 2,
-                    total_addition_amount=150,
-                    total_shrinkage_amount=30,
-                    total_addition_value=Decimal('25000.5000'),
-                    total_shrinkage_value=Decimal('4200.0000')
-                ))
+                for b_id in [1, 2]:
+                    for days_ago in [1, 2, 3]:
+                        rep_date = date.today() - timedelta(days=days_ago)
+                        audited_skus = random.randint(max(10, len(articulos) // 4), max(11, len(articulos) // 2))
+                        add_amt = random.randint(30, 200)
+                        shrink_amt = random.randint(5, 40)
+                        proc_units = add_amt + shrink_amt
+
+                        add_val = (Decimal(str(random.randint(15000, 50000))) + Decimal(str(round(random.random(), 4)))).quantize(Decimal('0.0001'))
+                        shrink_val = (Decimal(str(random.randint(1000, 8000))) + Decimal(str(round(random.random(), 4)))).quantize(Decimal('0.0001'))
+                        net_variation = (add_val - shrink_val).quantize(Decimal('0.0001'))
+
+                        daily_reports.append(DailyReport(
+                            tenant_id=t_obj.tenant_id,
+                            branch_id=b_id,
+                            report_date=rep_date,
+                            total_audit_articles=audited_skus,
+                            total_processed_units=proc_units,
+                            total_addition_amount=add_amt,
+                            total_shrinkage_amount=shrink_amt,
+                            total_addition_value=add_val,
+                            total_shrinkage_value=shrink_val,
+                            net_patrimonial_variation=net_variation
+                        ))
             s_analytics.raw_session.add_all(daily_reports)
 
             # 12. Seed CriticalShrinkageAlerts (db_analytics)

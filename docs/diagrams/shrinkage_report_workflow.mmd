@@ -1,0 +1,52 @@
+sequenceDiagram
+    autonumber
+
+    actor Client as Client (HTTP / Admin UI)
+    participant Router as FastAPI Router (api/v1/reports)
+    participant Auth as RoleChecker (RBAC: administrador)
+    participant Service as ShrinkageReportService
+    participant ReportPort as ShrinkageReportRepositoryPort (ABC)
+    participant ReportRepo as SQLAlchemyShrinkageReportRepository
+    participant ArticlePort as ArticleRepositoryPort (ABC)
+    participant DB_Analytics as db_analytics (MariaDB)
+    participant DB_Articles as db_articles (MariaDB)
+    participant VatClassifier as VatClassifier (Domain)
+    participant VatCalculator as VatCalculator (Domain)
+
+    Client->>Router: GET /api/v1/reports/shrinkage?start_date=2026-09-01&end_date=2026-09-10&default_vat_rate=0.21&branch_id=1
+    Router->>Auth: Depends(require_admin) - Validate JWT token & role
+    Auth-->>Router: Authorized claims (tenant_id="1", role="administrador")
+
+    Router->>Router: Validate start_date <= end_date & build ShrinkageReportFilters(...)
+
+    Router->>Service: get_shrinkage_report(tenant_id="1", filters)
+
+    Service->>ReportPort: fetch_shrinkage_records(tenant_id=1, start_date, end_date, branch_id=1)
+    ReportPort->>ReportRepo: Delegate fetch_shrinkage_records(...)
+
+    ReportRepo->>DB_Analytics: SELECT * FROM audit_records WHERE tenant_id = :tenant_id AND action_type IN ('REMOVAL', 'BAJA', 'Baja') AND scan_timestamp BETWEEN :start_dt AND :end_dt AND branch_id = :branch_id ORDER BY scan_timestamp ASC
+    DB_Analytics-->>ReportRepo: List of AuditRecord ORM rows
+    ReportRepo-->>Service: List[ShrinkageRawRecord]
+
+    Service->>Service: Aggregate shrinkage quantities by article_code: Dict[str, int]
+
+    loop For each unique article_code
+        Service->>ArticlePort: get_by_id(article_code)
+        ArticlePort->>DB_Articles: SELECT a.*, f.des_familia FROM articulos a JOIN familia f WHERE a.id_articulo = :article_code
+        DB_Articles-->>ArticlePort: Article ORM Entity
+        ArticlePort-->>Service: Article domain object (des_articulo, des_familia, pcio_com_siva)
+
+        Service->>VatClassifier: classify(des_familia, default_vat_rate=0.21)
+        VatClassifier-->>Service: vat_rate (e.g. 0.00 for Medication family, 0.21 for general)
+
+        Service->>VatCalculator: calculate_total_unit_cost(pcio_com_siva, vat_rate)
+        VatCalculator-->>Service: total_unit_cost = pcio_com_siva * (1 + vat_rate)
+
+        Service->>VatCalculator: calculate_financial_loss(quantity, total_unit_cost)
+        VatCalculator-->>Service: total_financial_loss = quantity * total_unit_cost
+
+        Service->>Service: Append ShrinkageLineItem to response list & accumulate totals
+    end
+
+    Service-->>Router: ShrinkageReportResponse (total_items, total_shrinkage_units, total_financial_erosion, line_items)
+    Router-->>Client: HTTP 200 OK (JSON Shrinkage Report)

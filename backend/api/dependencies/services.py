@@ -164,3 +164,22 @@ def get_goods_received_report_service() -> "GoodsReceivedReportService":
     return GoodsReceivedReportService(report_repository=report_repo, article_repository=article_repo)
 
 
+def get_daily_inventory_balance_repository() -> "DailyInventoryBalanceReportRepositoryPort":
+    """
+    FastAPI dependency for DailyInventoryBalanceReportRepositoryPort.
+    """
+    from backend.adapters.repositories.report_repository import SQLAlchemyDailyInventoryBalanceReportRepository
+    return SQLAlchemyDailyInventoryBalanceReportRepository()
+
+
+def get_daily_inventory_balance_report_service(
+    repo=Depends(get_daily_inventory_balance_repository),
+) -> "DailyInventoryBalanceReportService":
+    """
+    FastAPI dependency for DailyInventoryBalanceReportService.
+    Wires DailyInventoryBalanceReportRepositoryPort (db_analytics).
+    """
+    from backend.app.reports.services import DailyInventoryBalanceReportService
+    return DailyInventoryBalanceReportService(report_repository=repo)
+
+

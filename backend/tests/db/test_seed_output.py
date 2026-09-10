@@ -162,7 +162,7 @@ async def test_seed_db_users_and_db_analytics(async_sessions, db_engines):
 
     # Daily reports check
     res_reports = await s_analytics.execute(select(func.count(DailyReport.daily_report_id)))
-    assert res_reports.scalar() == 1
+    assert res_reports.scalar() >= 1
 
     # Critical alerts check
     res_alerts = await s_analytics.execute(select(func.count(CriticalShrinkageAlert.alert_id)))

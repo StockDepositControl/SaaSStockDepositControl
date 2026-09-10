@@ -112,19 +112,22 @@ class DailyReport(BaseAnalytics):
 
     daily_report_id: Mapped[int] = mapped_column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     tenant_id: Mapped[int] = mapped_column(ForeignKey("record_tenants.tenant_id", ondelete="RESTRICT", onupdate="CASCADE"), nullable=False)
+    branch_id: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     report_date: Mapped[date] = mapped_column(Date, nullable=False)
     total_audit_articles: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_processed_units: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     total_addition_amount: Mapped[int] = mapped_column(Integer, nullable=False)
     total_shrinkage_amount: Mapped[int] = mapped_column(Integer, nullable=False)
     total_addition_value: Mapped[Decimal] = mapped_column(SQLDecimal(15, 4), nullable=False)
     total_shrinkage_value: Mapped[Decimal] = mapped_column(SQLDecimal(15, 4), nullable=False)
+    net_patrimonial_variation: Mapped[Decimal] = mapped_column(SQLDecimal(15, 4), nullable=False, default=Decimal("0.0000"), server_default="0.0000")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     tenant: Mapped["RecordTenant"] = relationship(back_populates="daily_reports")
 
     __table_args__ = (
-        Index("idx_daily_reports_tenant_date", "tenant_id", "report_date", unique=True),
+        Index("idx_daily_reports_tenant_branch_date", "tenant_id", "branch_id", "report_date", unique=True),
     )
 
 

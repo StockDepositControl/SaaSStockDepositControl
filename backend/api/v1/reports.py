@@ -5,16 +5,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from backend.api.dependencies.auth import RoleChecker
 from backend.api.dependencies.services import (
+    get_daily_inventory_balance_report_service,
     get_goods_received_report_service,
     get_shrinkage_report_service,
 )
 from backend.app.reports.schemas import (
+    DailyInventoryBalanceFilters,
+    DailyInventoryBalanceResponse,
     GoodsReceivedReportFilters,
     GoodsReceivedReportResponse,
     ShrinkageReportFilters,
     ShrinkageReportResponse,
 )
 from backend.app.reports.services import (
+    DailyInventoryBalanceReportService,
     GoodsReceivedReportService,
     ShrinkageReportService,
 )
@@ -110,4 +114,35 @@ async def get_goods_received_report(
     )
 
     return await service.get_goods_received_report(tenant_id=tenant_id, filters=filters)
+
+
+@router.get(
+    "/inventory-balance",
+    response_model=DailyInventoryBalanceResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Generate Daily Inventory Cost Ledger Report",
+    description="Retrieves consolidated daily inventory balance (Goods Received vs Shrinkage), "
+    "calculates net patrimonial variation (Delta = Altas - Mermas). Exclusive to administrator role.",
+)
+async def get_daily_inventory_balance_report(
+    start_date: date = Query(..., description="Start date for audit records (inclusive)"),
+    end_date: date = Query(..., description="End date for audit records (inclusive)"),
+    branch_id: Optional[int] = Query(default=None, description="Optional branch ID filter", ge=1),
+    claims: dict = Depends(require_admin),
+    service: DailyInventoryBalanceReportService = Depends(get_daily_inventory_balance_report_service),
+) -> DailyInventoryBalanceResponse:
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start_date cannot be after end_date",
+        )
+
+    tenant_id = str(claims.get("tenant_id", "1"))
+    filters = DailyInventoryBalanceFilters(
+        start_date=start_date,
+        end_date=end_date,
+        branch_id=branch_id,
+    )
+
+    return await service.get_daily_inventory_balance_report(tenant_id=tenant_id, filters=filters)
 
