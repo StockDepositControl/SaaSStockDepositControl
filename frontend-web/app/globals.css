@@ -19,6 +19,7 @@
 }
 
 @theme inline {
+  --color-brand-primary: #0F2C59;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -31,6 +32,19 @@
   --color-sidebar-inactive-fg: var(--sidebar-item-inactive-fg);
   --color-sidebar-divider: var(--sidebar-divider);
   --color-sidebar-text-secondary: var(--sidebar-text-secondary);
+
+  --color-warning-50: var(--color-amber-50);
+  --color-warning-100: var(--color-amber-100);
+  --color-warning-200: var(--color-amber-200);
+  --color-warning-300: var(--color-amber-300);
+  --color-warning-400: var(--color-amber-400);
+  --color-warning-500: #F59E0B;
+  --color-warning-600: var(--color-amber-600);
+  --color-warning-700: var(--color-amber-700);
+  --color-warning-800: var(--color-amber-800);
+  --color-warning-900: var(--color-amber-900);
+  --color-warning-950: var(--color-amber-950);
+  --color-warning: #F59E0B;
 }
 
 body {

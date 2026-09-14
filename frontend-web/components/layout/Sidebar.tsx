@@ -47,7 +47,7 @@ const navItems: NavItem[] = [
     icon: PackageSearch,
   },
   {
-    label: "Reportes y FEFO",
+    label: "Reportes",
     href: "/reports",
     icon: BarChart3,
     adminOnly: true,
@@ -170,7 +170,8 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
               const isActive =
                 pathname === item.href ||
-                (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                (item.href !== "/dashboard" && pathname.startsWith(item.href)) ||
+                (item.href === "/reports" && pathname.startsWith("/reportes"));
               const Icon = item.icon;
 
               return (

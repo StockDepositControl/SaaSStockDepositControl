@@ -1,66 +1,85 @@
-# 🌌 Capa de Dominio y Aplicación (`backend/app/`)
+# 🌌 Domain and Application Layer (`backend/app/`)
 
-Este directorio contiene el núcleo del negocio (Core Domain) y la lógica de aplicación del sistema. Está diseñado siguiendo los principios de la **Arquitectura Hexagonal (Ports & Adapters)**.
+This folder contains the core business logic and application layer for the platform. It follows the Hexagonal Architecture pattern and keeps the domain isolated from HTTP and SQL infrastructure concerns.
 
-## 🛑 Regla de Oro: Aislamiento Puro del Dominio
+## Golden rule: pure domain isolation
 
-**Está estrictamente prohibido importar frameworks, ORMs o herramientas de infraestructura** dentro de esta carpeta. 
+The domain layer must avoid importing infrastructure libraries such as:
 
-Esto incluye, pero no se limita a:
-- **FastAPI / Starlette / HTTP Utilities**: La lógica de negocio no debe saber cómo se expone (HTTP, gRPC, CLI, etc.).
-- **SQLAlchemy / Alembic / Drivers de Base de Datos**: El dominio maneja datos en memoria y abstracciones, no persistencia física ni transacciones de base de datos.
-- **Bibliotecas de Terceros de Infraestructura**: Todo lo relacionado con el mundo exterior debe interactuar a través de interfaces (**Ports**).
+- FastAPI / Starlette
+- SQLAlchemy / Alembic
+- database drivers
+- external HTTP clients
 
-El dominio debe depender únicamente de la biblioteca estándar de Python y de **Pydantic V2** para la definición y validación de tipos de datos puros.
+The domain should depend only on the Python standard library and Pydantic V2 models.
 
 ---
 
-## 📁 Estructura Interna de Módulos
+## Internal module structure
 
-Cada módulo funcional dentro de `app/` (por ejemplo, `users`, `movements`, `articles`) debe organizarse de la siguiente manera:
+Functional modules under `app/` are organized around the following pattern:
 
 ```text
-backend/app/[modulo]/
+backend/app/[module]/
 ├── __init__.py
-├── models.py       # Modelos de Dominio y Schemas de Validación (Pydantic V2)
-├── ports.py        # Interfaces y Contratos Abstractos (Ports)
-└── services.py     # Servicios puros con la lógica de negocio y casos de uso
+├── models.py
+├── ports.py
+├── services.py
 ```
 
-### 1. Modelos de Dominio (`models.py`)
-Contiene los modelos de datos puros utilizando **Pydantic V2**. Aquí se definen los esquemas de validación de datos que entran y salen del dominio.
-- **Tipos comunes**:
-  - `[Entity]Base`: Atributos comunes de la entidad.
-  - `[Entity]Create`: Esquema para la creación.
-  - `[Entity]Update`: Esquema para actualizaciones parciales.
-  - `[Entity]`: Modelo completo representando la entidad del dominio, configurado con `ConfigDict(from_attributes=True)` para permitir la conversión desde objetos ORM en los adaptadores.
-- **Regla**: No deben contener decoradores de base de datos ni metadatos de persistencia.
+### 1. Domain models (`models.py`)
 
-### 2. Puertos (`ports.py`)
-Define las interfaces abstractas (contratos) utilizando `abc.ABC` and `abc.abstractmethod`. 
-- **Propósito**: Declarar qué operaciones de persistencia o comunicación externa necesita el dominio sin especificar cómo se implementan.
-- **Ejemplo**:
-  ```python
-  from abc import ABC, abstractmethod
-  from typing import List, Optional
-  from app.users.models import User, UserCreate
+This file contains the pure validation and business data models.
 
-  class UserRepositoryPort(ABC):
-      @abstractmethod
-      async def get_by_id(self, id_usuario: int) -> Optional[User]:
-          pass
+- `[Entity]Base`: common fields
+- `[Entity]Create`: creation schema
+- `[Entity]Update`: update schema
+- `[Entity]`: complete domain model
 
-      @abstractmethod
-      async def get_by_email(self, email: str) -> Optional[User]:
-          pass
+These models are intentionally framework-independent and use `ConfigDict(from_attributes=True)` where necessary for adaptation from ORM objects.
 
-      @abstractmethod
-      async def create(self, user: UserCreate) -> User:
-          pass
-  ```
+### 2. Ports (`ports.py`)
 
-### 3. Servicios de Aplicación (`services.py`)
-Contiene la lógica de negocio pura, cálculos y casos de uso que orquestan el flujo de datos.
-- **Regla**: Dependen exclusivamente de las abstracciones definidas en `ports.py` y de los modelos en `models.py`.
-- **Inyección de Dependencias**: Los servicios deben recibir sus dependencias (como repositorios) a través del constructor utilizando los puertos como anotaciones de tipo.
-- **Ejemplos de Lógica**: Cálculo fiscal condicional de IVA, ordenamiento FEFO de lotes, validación de reglas de negocio para auditorías.
+This file defines the abstract contracts used by the domain layer.
+
+Example pattern:
+
+```python
+from abc import ABC, abstractmethod
+from typing import Optional
+
+class UserRepositoryPort(ABC):
+    @abstractmethod
+    async def get_by_email(self, email: str, tenant_id: Optional[int] = None):
+        pass
+```
+
+The purpose is to declare required persistence or dependency behavior without coupling the domain to a concrete implementation.
+
+### 3. Services (`services.py`)
+
+This file implements business logic for each domain module.
+
+Examples from the current codebase include:
+
+- VAT classification and financial loss calculation
+- stock delta logic
+- audit session lifecycle behavior
+- reporting aggregations and summaries
+
+These services receive their dependencies through constructor injection using the port abstractions.
+
+---
+
+## Current modules in the domain layer
+
+- `articles/`
+- `branches/`
+- `enterprises/`
+- `movements/`
+- `reports/`
+- `users/`
+- `work_sessions/`
+- `ports/`
+
+This structure matches the actual backend implementation and is the basis for the API and repository wiring.

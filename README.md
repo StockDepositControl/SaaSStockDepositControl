@@ -1,63 +1,47 @@
 # 🏛️ SaaS Stock Deposit Control - Enterprise Platform
 
-A state-of-the-art Software as a Service (SaaS) platform designed for high-precision warehouse audits, real-time inventory reconciliation, and intelligent shelf-life tracking. The platform bridges physical reality on the warehouse floor with accounting ledgers, computing immediate financial discrepancy valuations and sorting expiration risks via a strict FIFO/FEFO scheduling engine.
+A multi-tenant inventory intelligence platform for warehouse auditing, stock reconciliation, branch operations, and finance-oriented reporting. The current implementation follows a strict Hexagonal Architecture, multi-database tenancy model, and RBAC-aware API layer built for operational and analytical workloads.
 
 ---
 
 ## 📖 Executive Summary
 
-The **SaaS Stock Deposit Control** platform provides a robust, multi-tenant solution for businesses managing complex inventory across multiple deposits or warehouses. 
+The platform connects warehouse operators, branch managers, and administrators through a single backend service that keeps operational data, authentication, and analytics separated by database and tenant context.
 
-*   **Field Auditing:** Physical operators utilize the camera modules of mobile devices to perform **blind/semi-blind audits** of items, ensuring data accuracy by removing confirmation bias.
-*   **Operational Sync:** An offline-first local database architecture queue synchronizes batch payloads automatically once connectivity is re-established.
-*   **Analytical Governance:** Supervisors and managers use analytical dashboards to track the **Net Day Balance**, analyze tax-adjusted shrinkage values (VAT/IVA exception matrix), and visualize semaphoric expiration risk distributions across five warehouses.
+- Field auditing and stock movements are handled through the inventory and audit flow.
+- User authentication and tenant-scoped access are resolved in the users database.
+- Articles, branches, and enterprises are managed through the operational catalog database.
+- Reports are generated from the analytics database and exposed through dedicated, role-protected endpoints.
+- Tenant-scoped access is enforced via JWT claims and a request context bound by middleware.
 
 ---
 
 ## 🛠️ Architecture & Technology Stack
 
-The platform is designed to scale from a single tenant (**Phase 1: Global Medica**) to a dynamic, database-per-tenant architecture (**Phase 2: Farmanor Network**).
+### Backend
+- Python 3.12+
+- FastAPI for the HTTP API
+- SQLAlchemy 2.0 async ORM
+- MariaDB/MySQL as the persistence layer
+- Alembic for migration lifecycle
+- Pydantic V2 schemas and domain models
+- JWT-based authentication and tenant binding
 
-```
-                      +-----------------------------+
-                      |       Primary Adapters      |
-                      |   - FastAPI (Web API)       |
-                      |   - Next.js (Dashboard)     |
-                      |   - React Native (Mobile)   |
-                      +--------------+--------------+
-                                     |
-                                     v
-                      +-----------------------------+
-                      |         Domain Ports        |
-                      |   - ConnectionProvider      |
-                      |   - Repositories Interfaces |
-                      +--------------+--------------+
-                                     ^
-                                     |
-                      +--------------+--------------+
-                      |      Secondary Adapters     |
-                      |   - SQLAlchemy 2.0 Async    |
-                      |   - MariaDB/MySQL Backend   |
-                      +-----------------------------+
-```
+### Frontend Web
+- Next.js App Router
+- React + TypeScript
+- Role-aware dashboard experiences and reporting views
 
-### Backend (Python Service)
-*   **Paradigm:** Strict **Hexagonal Architecture (Ports and Adapters)**.
-*   **Core Framework:** FastAPI (Asynchronous delivery layer running on Uvicorn).
-*   **Database ORM:** SQLAlchemy 2.0 (Declarative mapping with fully async execution wrappers).
-*   **Database Driver:** AIOMySQL (Asynchronous MySQL/MariaDB driver).
-*   **Migration Engine:** Alembic (Relational database schema evolution management).
+### Frontend Mobile
+- React Native + Expo
+- Mobile audit flows and field data capture
 
-### Frontend Mobile (Auditor Client)
-*   **Core Stack:** React Native, Expo, TypeScript.
-*   **Styling:** NativeWind (Tailwind CSS for React Native).
-*   **Persistence:** SQLite & WatermelonDB (Offline-first transactional engine with async batch synchronization queue).
-*   **Scanning Engine:** Camera interface bound with auto-focus loops targeting EAN-13, QR, and DataMatrix symbologies.
+### Architectural pattern
+The application is organized around Hexagonal Architecture with a clear separation of concerns:
 
-### Frontend Web (Analytical Dashboard)
-*   **Core Stack:** Next.js (App Router), React, TypeScript.
-*   **Styling:** Tailwind CSS & Tremor (Optimized analytical visualization components).
-*   **Features:** Role-Based Access Control (RBAC) with secure field-level masking for supervisors and auditors.
+- API layer: request parsing, auth, routing, validation, HTTP responses
+- Domain layer: pure business logic, ports, and Pydantic schemas
+- Adapters layer: repository implementations, DB session factories, JWT provider, password hashing
 
 ---
 
@@ -65,135 +49,157 @@ The platform is designed to scale from a single tenant (**Phase 1: Global Medica
 
 ```text
 SaaSStockDepositControl/
-├── docs/                           # Central Documentation
-│   ├── architecture.md             # System Architecture, Database Schema, and RBAC
-│   └── functional_specs.md         # Business Logic, FEFO engines, and Testing Protocols
-├── backend/                        # FastAPI core backend service
-│   ├── api/                        # Presentation Layer (FastAPI Routers, Middlewares, Deps)
-│   │   ├── middlewares/            # JWT Token validation and context tenant binding
-│   │   └── v1/                     # Versioned API routes (auth, health, articles, stock, branches, enterprises)
-│   ├── app/                        # Domain Core Layer (Business logic, ports, pure models)
-│   │   ├── articles/               # Article Pydantic schemas and metadata catalogs
-│   │   ├── branches/               # Branch/warehouse management schemas and operations
-│   │   ├── enterprises/            # Enterprise/tenant configuration schemas
-│   │   ├── movements/              # Inventory transaction ledger Pydantic models
-│   │   ├── users/                  # User authentication and profile schemas
-│   │   ├── work_sessions/          # Audit session tracking and lifecycle schemas
-│   │   └── ports/                  # Abstract port definitions (Database, clients)
-│   ├── adapters/                   # Infrastructure Adapters (SQLAlchemy repositories)
-│   │   └── database/               # Asynchronous connection pools and session states
-│   ├── migrations/                 # Alembic schema versioning scripts
-│   ├── scripts/                    # Parametric Faker seeding scripts
-│   └── tests/                      # Pytest unit and integration suites
-├── frontend-mobile/                # Expo / React Native Field Auditing Client
-└── frontend-web/                   # Next.js Analytics & Supervision Dashboard
+├── backend/
+│   ├── api/
+│   │   ├── dependencies/
+│   │   ├── middlewares/
+│   │   ├── v1/
+│   │   ├── exception_handlers.py
+│   │   └── main.py
+│   ├── app/
+│   │   ├── articles/
+│   │   ├── branches/
+│   │   ├── enterprises/
+│   │   ├── movements/
+│   │   ├── ports/
+│   │   ├── reports/
+│   │   ├── users/
+│   │   ├── work_sessions/
+│   │   ├── exceptions.py
+│   │   └── README.md
+│   ├── adapters/
+│   │   ├── database/
+│   │   ├── repositories/
+│   │   ├── security/
+│   │   └── README.md
+│   ├── migrations/
+│   ├── scripts/
+│   ├── tests/
+│   ├── README.md
+│   ├── requirements.txt
+│   └── pytest.ini
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── Plan.md
+│   └── deploy/
+├── frontend-web/
+├── frontend-mobile/
+├── specs/
+├── shared/
+├── README.md
+├── docker-compose.yml
+├── antigravity.yaml
+└── .gitignore
 ```
 
 ---
 
-## ⚙️ Requirements and Initial Configuration
+## 🔐 Multi-Database & Tenant Model
 
-### System Prerequisites
-*   Python 3.12+
-*   Node.js 18+ (npm or yarn)
-*   MySQL 8.0+ or MariaDB 10.5+
+The architecture currently uses three database contexts:
 
-### 1. Backend Setup
-1.  Navigate to the backend directory and create a virtual environment:
-    ```bash
-    cd backend
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
-2.  Install all Python dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
-3.  Configure your environment variables. Create a `.env` file in `backend/`:
-    ```env
-    DB_USER=root
-    DB_PASSWORD=your_secure_password
-    DB_HOST=127.0.0.1
-    DB_PORT=3306
-    DB_NAME=stock_deposit_control
-    DATABASE_URL=mysql+aiomysql://root:your_secure_password@127.0.0.1:3306/stock_deposit_control
-    CORS_ORIGINS=http://localhost:3000,http://localhost:3001
-    JWT_SECRET=your_jwt_signing_key_here
-    ```
+- db_users: authentication, users, roles, tenant-linked identity
+- db_articles: catalog, stock, branches, enterprises
+- db_analytics: audit records, session tracking, report data
 
-### 2. Frontend Web Setup
-1.  Navigate to the web directory and install Node modules:
-    ```bash
-    cd ../frontend-web
-    npm install
-    ```
-2.  Configure environment variables in a `.env.local` file:
-    ```env
-    NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
-    ```
+This is implemented through:
 
-### 3. Frontend Mobile Setup
-1.  Navigate to the mobile directory and install Node modules:
-    ```bash
-    cd ../frontend-mobile
-    npm install
-    ```
+- `backend/adapters/database/connection.py`
+- `backend/adapters/database/multi_tenant.py`
+- `backend/api/middlewares/tenant_auth.py`
+
+The tenant middleware reads the JWT, extracts `tenant_id`, `branch_id`, and `user_id`, and stores them in a request-scoped ContextVar so repositories can filter by tenant safely.
 
 ---
 
-## 🗄️ Database, Migrations, and Seeding
+## 🧩 Domain & API Boundaries
 
-### Schema Design & Composite Keys
-Every multi-tenant transaction table (`articulos`, `stock_por_deposito`, `lotes_por_deposito`, `auditorias_registro`) features a non-nullable `tenant_id` column. Primary keys and index constraints are built as composite structures starting with `tenant_id` to guarantee logical isolation and high query performance.
+The backend domain remains insulated from HTTP and SQL infrastructure.
 
-### Running Schema Migrations
-Alembic manages all schema updates. Make sure you apply migrations to bring the database structure up to the latest revision:
-```bash
-# Run inside backend/ directory
-alembic -c migrations/alembic.ini upgrade head
-```
-To rollback the latest migration:
-```bash
-alembic -c migrations/alembic.ini downgrade -1
-```
+- `backend/app/` contains pure domain logic and Pydantic models.
+- `backend/api/` contains routes, auth dependencies, and HTTP middleware.
+- `backend/adapters/` implements repository adapters and infrastructure providers.
 
-### Seeding Mock Data
-A parametric seed script uses the `Faker` library to populate the database tables with 500 distinct items across 5 deposits. It injects three real-world failure anomalies to test calculation accuracy:
-1.  **Ghost Items:** Theoretical stock > 0, physical stock = 0 (simulating inventory shrinkage).
-2.  **Expired Lots:** 25% of expiration lot entries (`vencimiento`) are preset to previous months (testing FEFO warnings).
-3.  **Fiscal Splits:** A 50/50 split between tax-exempt medicine families and taxable standard VAT items.
+Important rules currently in force:
 
-To run the seeding script:
-```bash
-python scripts/seed.py
+1. Domain code should not import `fastapi`, `sqlalchemy`, or other infrastructure libraries.
+2. Repository implementations must align to the abstract port contracts in `backend/app/*/ports.py`.
+3. JWT claims are decoded and verified; they are not encrypted payloads.
+4. Financial calculations use `Decimal` for monetary values.
+
+---
+
+## 📊 Reporting & Business Modules
+
+The current codebase includes report-oriented domain services beyond the base CRUD flow:
+
+- `backend/app/reports/` for shrinkage, goods-received, and daily inventory balance calculations
+- `backend/app/movements/` for audit and stock delta logic
+- `backend/app/work_sessions/` for session lifecycle and audit state
+- `backend/api/v1/reports.py` for administrator-only report endpoints
+
+These modules are wired through dependency providers in `backend/api/dependencies/services.py` and consumed by the FastAPI routes.
+
+---
+
+## ⚙️ Environment Configuration
+
+Example backend environment settings:
+
+```env
+DB_USER=root
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=3306
+
+ARTICLES_DATABASE_URL=mysql+aiomysql://root:your_password@localhost:3306/db_articles
+USERS_DATABASE_URL=mysql+aiomysql://root:your_password@localhost:3306/db_users
+ANALYTICS_DATABASE_URL=mysql+aiomysql://root:your_password@localhost:3306/db_analytics
+
+SECRET_KEY=your_jwt_signing_key_here
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 ```
 
 ---
 
 ## 🚀 Useful Commands
 
-Here is a quick reference guide of commands for local development:
+```bash
+cd backend
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn api.main:app --reload
+```
 
-| Command | Directory | Description |
-| :--- | :--- | :--- |
-| `source venv/bin/activate` | `backend/` | Activate Python virtual environment |
-| `uvicorn api.main:app --reload` | `backend/` | Start backend development server (API at port 8000) |
-| `PYTHONPATH=. ./backend/venv/bin/pytest` | Root `/` | Run the Python test suite |
-| `alembic -c migrations/alembic.ini upgrade head` | `backend/` | Run all outstanding database migrations |
-| `npm run dev` | `frontend-web/` | Start Next.js Analytical Web Dashboard |
-| `npx expo start` | `frontend-mobile/` | Start React Native Expo server |
+Run tests:
+
+```bash
+cd backend
+pytest
+```
+
+Run migrations from the backend directory:
+
+```bash
+alembic upgrade head
+```
 
 ---
 
-## ⚠️ Core Development Rules & Guidelines
+## ✅ Development Rules
 
-To maintain clean, safe code across our multi-agent pipeline, all developers and sub-agents must adhere to these policies:
+1. Keep domain logic pure and infrastructure-independent.
+2. Route all persistence through repository ports and adapters.
+3. Filter tenant-bound queries using JWT-derived context.
+4. Use distinct output schemas for role-based data masking when necessary.
+5. Preserve the ownership boundaries between domain code and DBA-managed ORM/migration files.
+6. Review architecture changes against this repo state before making new additions.
 
-1.  **The Domain is Pure:** Never import `fastapi`, `sqlalchemy`, `alembic`, or `requests` inside `backend/app/`. The domain core must remain 100% pure Python and Pydantic.
-2.  **Strict File Ownership boundaries:**
-    *   **Backend Core (Jules):** Owns `backend/app/` (all modules: articles, branches, enterprises, movements, users, work_sessions), `backend/api/`, and repositories (`backend/adapters/repositories/*_repository.py`).
-    *   **DBA Specialist:** Sole owner of `backend/adapters/repositories/models/`, `backend/migrations/`, and `backend/scripts/`. Core backend agents must NEVER edit models or create migrations directly.
-3.  **Decimal Precision:** All financial calculations, item costs (`pcio_com_siva`), and calculated balances must strictly use Python's `decimal.Decimal` library. Floating-point operations are banned for cost/margin valuations.
-4.  **No Raw SQL:** Writing raw SQL string queries inside services, API routers, or adapters is prohibited. Use SQLAlchemy async ORM models and mapping objects to maintain query isolation.
-5.  **Role-Based Security:** Product purchase prices (`pcio_com_siva`) must be structurally stripped from API schemas returned to the `supervisor` and `auditor` roles. Always use distinct Pydantic Output models (e.g., public vs admin) to enforce this.
-6.  **Migration Safeguards:** Every Alembic script generated must feature a fully functioning `downgrade()` implementation block.
+---
+
+## 📚 Key Documentation
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [backend/README.md](backend/README.md)
+- [backend/app/README.md](backend/app/README.md)
+- [backend/adapters/README.md](backend/adapters/README.md)

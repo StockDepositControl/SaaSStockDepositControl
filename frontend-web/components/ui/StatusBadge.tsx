@@ -39,9 +39,9 @@ export function StatusBadge({
     }
     return (
       <span
-        className={`inline-flex items-center rounded-full font-semibold bg-slate-900 text-slate-400 border border-slate-700/80 ${sizeClasses}`}
+        className={`inline-flex items-center rounded-full font-semibold bg-warning-950/80 text-warning-400 border border-warning-700/80 ${sizeClasses}`}
       >
-        <Clock className="w-3.5 h-3.5 text-slate-400" />
+        <Clock className="w-3.5 h-3.5 text-warning-400" />
         <span>Pendiente</span>
       </span>
     );

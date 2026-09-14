@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useDataClient } from "@/lib/hooks/useDataClient";
 import { UserRole, DashboardKPIsAdmin } from "@/lib/types/domain";
 import { DemoShell } from "@/components/layout/DemoShell";
+import { IconContainer } from "@/components/ui/IconContainer";
 import {
   ClipboardCheck,
   DollarSign,
@@ -14,6 +15,7 @@ import {
   LineChart,
   PackageMinus,
   CheckCircle2,
+  ArrowRight,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -97,9 +99,7 @@ export default function DashboardPage() {
                   <h3 className="text-slate-500 font-medium text-sm tracking-wide">
                     PROGRESO DE AUDITORÍA
                   </h3>
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-[#1a56db]">
-                    <ClipboardCheck className="w-5 h-5" />
-                  </div>
+                  <IconContainer icon={ClipboardCheck} variant="primary" />
                 </div>
                 <div>
                   <div className="flex items-baseline gap-2 mb-3">
@@ -124,9 +124,7 @@ export default function DashboardPage() {
                   <h3 className="text-slate-500 font-medium text-sm tracking-wide">
                     FALTANTES REGISTRADOS HOY
                   </h3>
-                  <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
-                    <DollarSign className="w-5 h-5" />
-                  </div>
+                  <IconContainer icon={DollarSign} variant="danger" />
                 </div>
                 <div>
                   <div className="text-4xl font-bold text-red-600 mb-1">
@@ -149,9 +147,7 @@ export default function DashboardPage() {
                   <h3 className="text-slate-500 font-medium text-sm tracking-wide">
                     ALERTAS CRÍTICAS DE ALMACÉN
                   </h3>
-                  <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500">
-                    <AlertTriangle className="w-5 h-5" />
-                  </div>
+                  <IconContainer icon={AlertTriangle} variant="warning" />
                 </div>
                 <div>
                   <div className="text-4xl font-bold text-orange-500 mb-1">
@@ -177,9 +173,7 @@ export default function DashboardPage() {
                   <h3 className="text-slate-500 font-medium text-xs font-semibold tracking-wider uppercase">
                     Progreso de Auditoría
                   </h3>
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-[#1a56db]">
-                    <ClipboardCheck className="w-5 h-5" />
-                  </div>
+                  <IconContainer icon={ClipboardCheck} variant="primary" />
                 </div>
                 <div>
                   <div className="flex items-baseline gap-2 mb-1">
@@ -209,9 +203,7 @@ export default function DashboardPage() {
                   <h3 className="text-slate-500 font-medium text-xs font-semibold tracking-wider uppercase">
                     Unidades con Faltante
                   </h3>
-                  <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-600">
-                    <PackageMinus className="w-5 h-5" />
-                  </div>
+                  <IconContainer icon={PackageMinus} variant="danger" />
                 </div>
                 <div>
                   <div className="text-4xl font-bold text-red-600 mb-1">
@@ -234,9 +226,7 @@ export default function DashboardPage() {
                   <h3 className="text-slate-500 font-medium text-xs font-semibold tracking-wider uppercase">
                     Artículos Auditados en mi Sesión
                   </h3>
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-                    <CheckCircle2 className="w-5 h-5" />
-                  </div>
+                  <IconContainer icon={CheckCircle2} variant="success" />
                 </div>
                 <div>
                   <div className="text-4xl font-bold text-emerald-600 mb-1">
@@ -267,41 +257,50 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Link
                 href="/catalog"
-                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#1a56db]/30 transition group"
+                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:-translate-y-1 hover:shadow-md hover:bg-slate-50 hover:border-[#1a56db]/30 transition-all duration-200 relative group"
               >
                 <Package className="w-8 h-8 text-amber-700 mb-4" strokeWidth={1.5} />
                 <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#1a56db] transition">
                   Ver Catálogo de Artículos
                 </h3>
-                <p className="text-sm text-slate-500 leading-relaxed">
+                <p className="text-sm text-slate-500 leading-relaxed pr-6">
                   Explorar el catálogo completo de inventario con costos y niveles de stock actuales.
                 </p>
+                <div className="absolute bottom-6 right-6 text-slate-400 group-hover:text-[#1a56db] group-hover:translate-x-1 transition-all">
+                  <ArrowRight className="w-5 h-5" />
+                </div>
               </Link>
 
               <Link
                 href="/audit"
-                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#1a56db]/30 transition group"
+                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:-translate-y-1 hover:shadow-md hover:bg-slate-50 hover:border-[#1a56db]/30 transition-all duration-200 relative group"
               >
                 <ClipboardList className="w-8 h-8 text-slate-600 mb-4" strokeWidth={1.5} />
                 <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#1a56db] transition">
                   Auditar Artículo
                 </h3>
-                <p className="text-sm text-slate-500 leading-relaxed">
+                <p className="text-sm text-slate-500 leading-relaxed pr-6">
                   Iniciar o continuar una sesión de auditoría física para el almacén.
                 </p>
+                <div className="absolute bottom-6 right-6 text-slate-400 group-hover:text-[#1a56db] group-hover:translate-x-1 transition-all">
+                  <ArrowRight className="w-5 h-5" />
+                </div>
               </Link>
 
               <Link
                 href="/reports"
-                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#1a56db]/30 transition group"
+                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:-translate-y-1 hover:shadow-md hover:bg-slate-50 hover:border-[#1a56db]/30 transition-all duration-200 relative group"
               >
                 <LineChart className="w-8 h-8 text-red-600 mb-4" strokeWidth={1.5} />
                 <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#1a56db] transition">
                   Ver Reporte de Faltantes
                 </h3>
-                <p className="text-sm text-slate-500 leading-relaxed">
+                <p className="text-sm text-slate-500 leading-relaxed pr-6">
                   Revisar el impacto financiero de los faltantes de stock registrados en este período.
                 </p>
+                <div className="absolute bottom-6 right-6 text-slate-400 group-hover:text-[#1a56db] group-hover:translate-x-1 transition-all">
+                  <ArrowRight className="w-5 h-5" />
+                </div>
               </Link>
             </div>
           ) : (
@@ -309,28 +308,34 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Link
                 href="/catalog"
-                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#1a56db]/30 transition group"
+                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:-translate-y-1 hover:shadow-md hover:bg-slate-50 hover:border-[#1a56db]/30 transition-all duration-200 relative group"
               >
                 <Package className="w-8 h-8 text-amber-700 mb-4" strokeWidth={1.5} />
                 <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#1a56db] transition">
                   Ver Catálogo de Artículos
                 </h3>
-                <p className="text-sm text-slate-500 leading-relaxed">
+                <p className="text-sm text-slate-500 leading-relaxed pr-6">
                   Explorar el catálogo de productos y verificar los niveles de stock de su área asignada.
                 </p>
+                <div className="absolute bottom-6 right-6 text-slate-400 group-hover:text-[#1a56db] group-hover:translate-x-1 transition-all">
+                  <ArrowRight className="w-5 h-5" />
+                </div>
               </Link>
 
               <Link
                 href="/audit"
-                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md hover:border-[#1a56db]/30 transition group"
+                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:-translate-y-1 hover:shadow-md hover:bg-slate-50 hover:border-[#1a56db]/30 transition-all duration-200 relative group"
               >
                 <ClipboardList className="w-8 h-8 text-slate-600 mb-4" strokeWidth={1.5} />
                 <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#1a56db] transition">
                   Auditar Artículo
                 </h3>
-                <p className="text-sm text-slate-500 leading-relaxed">
+                <p className="text-sm text-slate-500 leading-relaxed pr-6">
                   Escanear o buscar un artículo para contar unidades y registrar el stock físico.
                 </p>
+                <div className="absolute bottom-6 right-6 text-slate-400 group-hover:text-[#1a56db] group-hover:translate-x-1 transition-all">
+                  <ArrowRight className="w-5 h-5" />
+                </div>
               </Link>
             </div>
           )}

@@ -1,20 +1,36 @@
-# 💾 Capa de Adaptadores Secundarios (`backend/adapters/`)
+# 💾 Secondary Adapter Layer (`backend/adapters/`)
 
-Esta capa representa los **Adaptadores Secundarios (Driven Adapters)** de la aplicación, encargados de la comunicación con el exterior (bases de datos, clientes HTTP para APIs externas, colas de mensajes, etc.).
+This layer contains the concrete infrastructure implementations used by the application. It translates the domain contracts into real SQLAlchemy repositories, JWT providers, password hashing, and database session management.
 
-## 📁 Contenido de esta Capa
+## Contents
 
-1. **Repositorios (`adapters/repositories/`)**: Implementaciones concretas de los puertos (interfaces) declarados en el dominio (`app/[modulo]/ports.py`). Utilizan SQLAlchemy 2.0 Async para interactuar con MariaDB.
-2. **Modelos de Base de Datos (`adapters/repositories/models/`)**: Paquete con las definiciones de tablas y mapeos declarativos ORM de SQLAlchemy (`articles.py`, `users.py`, `analytics.py` y `__init__.py`).
-3. **Configuración de Conexiones**: Lógica para resolver dinámicamente las conexiones por inquilino (Multi-Tenancy) y gestionar las sesiones (`AsyncSession`).
+1. `adapters/database/`: async database connection factories and tenant context helpers
+2. `adapters/security/`: JWT, hashing, and authentication adapters
+3. `adapters/repositories/`: repository implementations for the domain ports
+4. `adapters/repositories/models/`: ORM mappings owned by the DBA side of the project
 
 ---
 
-## 🛑 Reglas y Prohibiciones Estrictas
+## Current adapter responsibilities
 
-- **Alineación con Puertos**: Cada repositorio concreto debe implementar estrictamente el contrato (Port) definido en el dominio. No debe exponer métodos públicos adicionales que no formen parte de la interfaz abstracta del puerto.
-- **Sin Lógica de Negocio**: Los repositorios solo leen, persisten y estructuran datos. No validan reglas de negocio (ej. excepciones de IVA o semáforos de vencimiento).
-- **Límites de Propiedad (Ownership)**:
-  - **Jules (Core Backend)**: Desarrolla y edita los repositorios concretos (`*_repository.py`).
-  - **DBA Specialist**: Posee y gestiona el paquete `backend/adapters/repositories/models/` y las migraciones de Alembic (`backend/migrations/`). **Jules no debe modificar los modelos ORM ni las migraciones directamente**.
-- **Aislamiento Multi-Inquilino (Multi-Tenancy)**: Todos los repositorios deben appendear automáticamente el filtro de `tenant_id` y `id_sucursal` en las consultas de lectura y mutación para evitar fuga de datos entre inquilinos.
+- `connection.py` creates the async engine and session factory for each database context
+- `tenant_auth.py` binds tenant and user claims into request-scoped `ContextVar` state
+- repository classes implement the port interfaces declared under `backend/app/*/ports.py`
+- JWT and password adapters implement the contracts in `backend/app/ports/security.py`
+
+---
+
+## Strict rules
+
+- Repositories must follow the port contract exactly and remain aligned with the domain interface.
+- Repositories should not contain business rules; they should handle persistence and mapping only.
+- The system is multi-database by design: each repository should work with the correct session factory for its target database.
+- Tenant-scoped filtering is enforced using the current request context populated by the middleware.
+
+---
+
+## Ownership boundaries
+
+- Core backend owns repository implementation files and adapter wiring.
+- ORM models and migration logic remain under the DBA-managed area.
+- Changes that affect schema or persistence structure should be coordinated with the DBA workflow before implementation.

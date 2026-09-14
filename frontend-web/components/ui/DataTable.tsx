@@ -69,10 +69,10 @@ export function DataTable({ articles, currentRole }: DataTableProps) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
       {/* Top Bar: Filters */}
-      <div className="p-4 border-b border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+      <div className="p-4 border-b border-slate-200 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:flex-1">
           {/* Search Input */}
-          <div className="relative w-full sm:w-72">
+          <div className="relative w-full sm:flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
@@ -129,6 +129,7 @@ export function DataTable({ articles, currentRole }: DataTableProps) {
               <th className="px-6 py-4 font-semibold">MARCA</th>
               <th className="px-6 py-4 font-semibold">FAMILIA</th>
               <th className="px-6 py-4 font-semibold text-right">STOCK</th>
+              {isAdmin && <th className="px-6 py-4 font-semibold text-right">COSTO</th>}
               <th className="px-6 py-4 font-semibold">ESTADO</th>
               {isSupervisor && <th className="px-6 py-4 font-semibold">AUDITADO POR</th>}
             </tr>
@@ -136,7 +137,7 @@ export function DataTable({ articles, currentRole }: DataTableProps) {
           <tbody className="divide-y divide-slate-100">
             {paginatedArticles.length === 0 ? (
               <tr>
-                <td colSpan={isSupervisor ? 7 : 6} className="px-6 py-8 text-center text-slate-500">
+                <td colSpan={isAdmin || isSupervisor ? 7 : 6} className="px-6 py-8 text-center text-slate-500">
                   No se encontraron resultados.
                 </td>
               </tr>
@@ -186,6 +187,15 @@ export function DataTable({ articles, currentRole }: DataTableProps) {
                       )}
                     </td>
 
+                    {/* Purchase Cost (Admin only, Right-aligned & Monospaced) */}
+                    {isAdmin && (
+                      <td className="px-6 py-4 text-right font-mono font-medium text-slate-700 whitespace-nowrap">
+                        {"pcio_com_siva" in art && art.pcio_com_siva !== undefined
+                          ? `$ ${art.pcio_com_siva.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`
+                          : "-"}
+                      </td>
+                    )}
+
                     {/* Status */}
                     <td className="px-6 py-4">
                       {art.fue_auditado ? (
@@ -193,7 +203,7 @@ export function DataTable({ articles, currentRole }: DataTableProps) {
                           AUDITADO
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold tracking-widest uppercase">
+                        <span className="inline-flex items-center px-2 py-1 rounded-full bg-warning-50 border-warning-200 text-warning-700 border text-[10px] font-bold tracking-widest uppercase">
                           PENDIENTE
                         </span>
                       )}
