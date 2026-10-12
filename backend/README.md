@@ -47,6 +47,13 @@ The backend service implements the core application logic for inventory audits, 
 
 The API will be available at `http://localhost:8000` and Swagger docs at `http://localhost:8000/docs`.
 
+### API Documentation & OpenAPI Specification
+- **Full API Documentation**: [`../docs/API_DOCUMENTATION.md`](../docs/API_DOCUMENTATION.md)
+- **OpenAPI 3.1.0 JSON Specification**: [`../docs/openapi.json`](../docs/openapi.json)
+- **Interactive Swagger UI**: `http://localhost:8000/docs`
+- **Interactive ReDoc**: `http://localhost:8000/redoc`
+
+
 ## Current Architecture
 
 This backend follows a strict Hexagonal Architecture with concrete implementation boundaries:

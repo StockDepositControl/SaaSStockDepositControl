@@ -79,6 +79,8 @@ SaaSStockDepositControl/
 │   ├── requirements.txt
 │   └── pytest.ini
 ├── docs/
+│   ├── API_DOCUMENTATION.md
+│   ├── openapi.json
 │   ├── ARCHITECTURE.md
 │   ├── Plan.md
 │   └── deploy/

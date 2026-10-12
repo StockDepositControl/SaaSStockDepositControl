@@ -1,0 +1,2421 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SaaS Stock Deposit Control API",
+    "description": "Backend API for the SaaS Stock Deposit Control system.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health Check",
+        "description": "Database-backed health check endpoint.\nProbes database connectivity via the ConnectionProvider port.\nReturns 200 OK if online, or 503 Service Unavailable if the probe fails.",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health Check",
+        "description": "Database-backed health check endpoint.\nProbes database connectivity via the ConnectionProvider port.\nReturns 200 OK if online, or 503 Service Unavailable if the probe fails.",
+        "operationId": "health_check_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Login",
+        "description": "Login endpoint that verifies user credentials against the database\nand returns a signed JWT token with user claims.",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginCredentials"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthToken"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/search": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Search articles by ID, barcode, or description",
+        "description": "Supports exact lookup by Article ID or barcode, and tokenized description search. Dynamically masks financial data based on user role.",
+        "operationId": "search_articles_api_v1_articles_search_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Search query string (Article ID, barcode, or name token)",
+              "title": "Query"
+            },
+            "description": "Search query string (Article ID, barcode, or name token)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/ArticuloAdminOut"
+                      },
+                      {
+                        "$ref": "#/components/schemas/ArticuloPublicOut"
+                      }
+                    ]
+                  },
+                  "title": "Response Search Articles Api V1 Articles Search Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "List and filter articles with pagination and stock enrichment",
+        "description": "Retrieves a paginated list of articles enriched with effective stock levels, optionally filtered by family, group, or search term.",
+        "operationId": "list_articles_api_v1_articles_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Page number (1-indexed)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "Page number (1-indexed)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "description": "Items per page",
+              "default": 50,
+              "title": "Limit"
+            },
+            "description": "Items per page"
+          },
+          {
+            "name": "id_deposito",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Deposit/Warehouse ID for stock resolution",
+              "default": 1,
+              "title": "Id Deposito"
+            },
+            "description": "Deposit/Warehouse ID for stock resolution"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Search term filter",
+              "title": "Search"
+            },
+            "description": "Search term filter"
+          },
+          {
+            "name": "id_familia",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Family ID filter",
+              "title": "Id Familia"
+            },
+            "description": "Family ID filter"
+          },
+          {
+            "name": "id_grupo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Group ID filter",
+              "title": "Id Grupo"
+            },
+            "description": "Group ID filter"
+          },
+          {
+            "name": "fue_auditado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by audited status",
+              "title": "Fue Auditado"
+            },
+            "description": "Filter by audited status"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Articles Api V1 Articles Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/articles/{id_articulo}": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Get a single article by ID with effective stock",
+        "description": "Retrieves a single article enriched with effective stock for the specified warehouse/deposit.",
+        "operationId": "get_article_api_v1_articles__id_articulo__get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_articulo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Article code",
+              "title": "Id Articulo"
+            },
+            "description": "Article code"
+          },
+          {
+            "name": "id_deposito",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Deposit/Warehouse ID for stock resolution",
+              "default": 1,
+              "title": "Id Deposito"
+            },
+            "description": "Deposit/Warehouse ID for stock resolution"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ArticuloAdminOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ArticuloPublicOut"
+                    }
+                  ],
+                  "title": "Response Get Article Api V1 Articles  Id Articulo  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stock/audit": {
+      "post": {
+        "tags": [
+          "Stock & Audit"
+        ],
+        "summary": "Register single stock audit entry",
+        "description": "Registers physical stock audit count or variance, computes theoretical discrepancy (delta), voucher classification, and valorized cost.",
+        "operationId": "register_single_audit_api_v1_stock_audit_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuditEntryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEntryResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/stock/position": {
+      "get": {
+        "tags": [
+          "Stock & Audit"
+        ],
+        "summary": "Fetch Article Stock Position",
+        "description": "Retrieves article catalog metadata alongside its current stock position scoped to a specific deposit.",
+        "operationId": "get_article_stock_position_api_v1_stock_position_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_articulo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Article Identifier",
+              "title": "Id Articulo"
+            },
+            "description": "Article Identifier"
+          },
+          {
+            "name": "id_sucursal",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Branch/Store ID",
+              "title": "Id Sucursal"
+            },
+            "description": "Branch/Store ID"
+          },
+          {
+            "name": "id_deposito",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Warehouse/Deposit ID",
+              "title": "Id Deposito"
+            },
+            "description": "Warehouse/Deposit ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ArticleStockPositionAdminOut"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ArticleStockPositionPublicOut"
+                    }
+                  ],
+                  "title": "Response Get Article Stock Position Api V1 Stock Position Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stock/audit/batch": {
+      "post": {
+        "tags": [
+          "Stock & Audit"
+        ],
+        "summary": "Register batch stock audit entries (offline sync)",
+        "description": "Processes queued audit records transmitted during mobile offline reconnection worker flush.",
+        "operationId": "register_batch_audit_api_v1_stock_audit_batch_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuditBatchInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditBatchResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/enterprises": {
+      "get": {
+        "tags": [
+          "Enterprises"
+        ],
+        "summary": "List Enterprises",
+        "description": "Retrieve all enterprises.",
+        "operationId": "list_enterprises_api_v1_enterprises_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Enterprise"
+                  },
+                  "type": "array",
+                  "title": "Response List Enterprises Api V1 Enterprises Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Enterprises"
+        ],
+        "summary": "Create Enterprise",
+        "description": "Create a new enterprise.",
+        "operationId": "create_enterprise_api_v1_enterprises_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnterpriseCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Enterprise"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/enterprises/{tenant_id}": {
+      "get": {
+        "tags": [
+          "Enterprises"
+        ],
+        "summary": "Get Enterprise",
+        "description": "Retrieve an enterprise by tenant_id.",
+        "operationId": "get_enterprise_api_v1_enterprises__tenant_id__get",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Enterprise"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Enterprises"
+        ],
+        "summary": "Update Enterprise",
+        "description": "Update an existing enterprise.",
+        "operationId": "update_enterprise_api_v1_enterprises__tenant_id__put",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnterpriseUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Enterprise"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Enterprises"
+        ],
+        "summary": "Delete Enterprise",
+        "description": "Delete an enterprise.",
+        "operationId": "delete_enterprise_api_v1_enterprises__tenant_id__delete",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/branches/{branch_id}": {
+      "get": {
+        "tags": [
+          "Branches"
+        ],
+        "summary": "Get Branch",
+        "description": "Retrieve a branch by id_branch.",
+        "operationId": "get_branch_api_v1_branches__branch_id__get",
+        "parameters": [
+          {
+            "name": "branch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Branch Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Branches"
+        ],
+        "summary": "Update Branch",
+        "description": "Update an existing branch.",
+        "operationId": "update_branch_api_v1_branches__branch_id__put",
+        "parameters": [
+          {
+            "name": "branch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Branch Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Branches"
+        ],
+        "summary": "Delete Branch",
+        "description": "Delete a branch.",
+        "operationId": "delete_branch_api_v1_branches__branch_id__delete",
+        "parameters": [
+          {
+            "name": "branch_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Branch Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/branches/tenant/{tenant_id}": {
+      "get": {
+        "tags": [
+          "Branches"
+        ],
+        "summary": "List Branches By Tenant",
+        "description": "List all branches belonging to a specific enterprise.",
+        "operationId": "list_branches_by_tenant_api_v1_branches_tenant__tenant_id__get",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Tenant Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Branch"
+                  },
+                  "title": "Response List Branches By Tenant Api V1 Branches Tenant  Tenant Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/branches": {
+      "post": {
+        "tags": [
+          "Branches"
+        ],
+        "summary": "Create Branch",
+        "description": "Create a new branch.",
+        "operationId": "create_branch_api_v1_branches_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BranchCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Branch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/shrinkage": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Generate Shrinkage and Financial Erosion Report",
+        "description": "Retrieves consolidated shrinkage movements (audit removals/bajas), applies VAT fiscal classification (0% for medications, parameterized default for others), and calculates total financial erosion. Restricted to administrator role.",
+        "operationId": "get_shrinkage_report_api_v1_reports_shrinkage_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Start date for audit records (inclusive)",
+              "title": "Start Date"
+            },
+            "description": "Start date for audit records (inclusive)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "End date for audit records (inclusive)",
+              "title": "End Date"
+            },
+            "description": "End date for audit records (inclusive)"
+          },
+          {
+            "name": "default_vat_rate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 1.0,
+                  "minimum": 0.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
+              "description": "Default VAT rate applied to non-exempt product families",
+              "default": "0.21",
+              "title": "Default Vat Rate"
+            },
+            "description": "Default VAT rate applied to non-exempt product families"
+          },
+          {
+            "name": "branch_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional branch ID filter",
+              "title": "Branch Id"
+            },
+            "description": "Optional branch ID filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShrinkageReportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/goods-received": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Generate Goods Received and Injected Capital Report",
+        "description": "Retrieves consolidated goods received movements (audit additions/altas), applies VAT fiscal classification (0% for medications, parameterized default for others), and calculates total injected capital. Restricted to administrator role.",
+        "operationId": "get_goods_received_report_api_v1_reports_goods_received_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Start date for audit records (inclusive)",
+              "title": "Start Date"
+            },
+            "description": "Start date for audit records (inclusive)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "End date for audit records (inclusive)",
+              "title": "End Date"
+            },
+            "description": "End date for audit records (inclusive)"
+          },
+          {
+            "name": "default_vat_rate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 1.0,
+                  "minimum": 0.0
+                },
+                {
+                  "type": "string",
+                  "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                }
+              ],
+              "description": "Default VAT rate applied to non-exempt product families",
+              "default": "0.21",
+              "title": "Default Vat Rate"
+            },
+            "description": "Default VAT rate applied to non-exempt product families"
+          },
+          {
+            "name": "branch_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional branch ID filter",
+              "title": "Branch Id"
+            },
+            "description": "Optional branch ID filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoodsReceivedReportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/inventory-balance": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Generate Daily Inventory Cost Ledger Report",
+        "description": "Retrieves consolidated daily inventory balance (Goods Received vs Shrinkage), calculates net patrimonial variation (Delta = Altas - Mermas). Exclusive to administrator role.",
+        "operationId": "get_daily_inventory_balance_report_api_v1_reports_inventory_balance_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "start_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Start date for audit records (inclusive)",
+              "title": "Start Date"
+            },
+            "description": "Start date for audit records (inclusive)"
+          },
+          {
+            "name": "end_date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "End date for audit records (inclusive)",
+              "title": "End Date"
+            },
+            "description": "End date for audit records (inclusive)"
+          },
+          {
+            "name": "branch_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional branch ID filter",
+              "title": "Branch Id"
+            },
+            "description": "Optional branch ID filter"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyInventoryBalanceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ArticleStockPositionAdminOut": {
+        "properties": {
+          "des_articulo": {
+            "type": "string",
+            "title": "Des Articulo"
+          },
+          "presentacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Presentacion"
+          },
+          "des_marca": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Marca"
+          },
+          "des_familia": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Familia"
+          },
+          "des_grupo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Grupo"
+          },
+          "id_sucursal": {
+            "type": "integer",
+            "title": "Id Sucursal"
+          },
+          "id_deposito": {
+            "type": "integer",
+            "title": "Id Deposito"
+          },
+          "stock_real": {
+            "type": "integer",
+            "title": "Stock Real"
+          },
+          "pcio_com_siva": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Pcio Com Siva"
+          }
+        },
+        "type": "object",
+        "required": [
+          "des_articulo",
+          "id_sucursal",
+          "id_deposito",
+          "stock_real",
+          "pcio_com_siva"
+        ],
+        "title": "ArticleStockPositionAdminOut"
+      },
+      "ArticleStockPositionPublicOut": {
+        "properties": {
+          "des_articulo": {
+            "type": "string",
+            "title": "Des Articulo"
+          },
+          "presentacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Presentacion"
+          },
+          "des_marca": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Marca"
+          },
+          "des_familia": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Familia"
+          },
+          "des_grupo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Grupo"
+          },
+          "id_sucursal": {
+            "type": "integer",
+            "title": "Id Sucursal"
+          },
+          "id_deposito": {
+            "type": "integer",
+            "title": "Id Deposito"
+          },
+          "stock_real": {
+            "type": "integer",
+            "title": "Stock Real"
+          }
+        },
+        "type": "object",
+        "required": [
+          "des_articulo",
+          "id_sucursal",
+          "id_deposito",
+          "stock_real"
+        ],
+        "title": "ArticleStockPositionPublicOut"
+      },
+      "ArticuloAdminOut": {
+        "properties": {
+          "id_articulo": {
+            "type": "string",
+            "title": "Id Articulo"
+          },
+          "presentacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Presentacion"
+          },
+          "des_articulo": {
+            "type": "string",
+            "title": "Des Articulo"
+          },
+          "id_marca": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Marca"
+          },
+          "des_marca": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Marca"
+          },
+          "id_familia": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Familia"
+          },
+          "des_familia": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Familia"
+          },
+          "id_grupo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Grupo"
+          },
+          "des_grupo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Grupo"
+          },
+          "fue_auditado": {
+            "type": "boolean",
+            "title": "Fue Auditado",
+            "default": false
+          },
+          "stock_real": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock Real"
+          },
+          "pcio_com_siva": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Pcio Com Siva"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_articulo",
+          "des_articulo",
+          "pcio_com_siva"
+        ],
+        "title": "ArticuloAdminOut"
+      },
+      "ArticuloPublicOut": {
+        "properties": {
+          "id_articulo": {
+            "type": "string",
+            "title": "Id Articulo"
+          },
+          "presentacion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Presentacion"
+          },
+          "des_articulo": {
+            "type": "string",
+            "title": "Des Articulo"
+          },
+          "id_marca": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Marca"
+          },
+          "des_marca": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Marca"
+          },
+          "id_familia": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Familia"
+          },
+          "des_familia": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Familia"
+          },
+          "id_grupo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Grupo"
+          },
+          "des_grupo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Des Grupo"
+          },
+          "fue_auditado": {
+            "type": "boolean",
+            "title": "Fue Auditado",
+            "default": false
+          },
+          "stock_real": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock Real"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_articulo",
+          "des_articulo"
+        ],
+        "title": "ArticuloPublicOut"
+      },
+      "AuditBatchInput": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEntryRequest"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "AuditBatchInput"
+      },
+      "AuditBatchResult": {
+        "properties": {
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEntryResult"
+            },
+            "type": "array",
+            "title": "Results"
+          },
+          "total_processed": {
+            "type": "integer",
+            "title": "Total Processed"
+          },
+          "duplicates_skipped": {
+            "type": "integer",
+            "title": "Duplicates Skipped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "results",
+          "total_processed",
+          "duplicates_skipped"
+        ],
+        "title": "AuditBatchResult"
+      },
+      "AuditEntryRequest": {
+        "properties": {
+          "id_sucursal": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Sucursal",
+            "description": "Branch/Store ID"
+          },
+          "id_deposito": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id Deposito",
+            "description": "Warehouse/Deposit ID"
+          },
+          "id_articulo": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Id Articulo",
+            "description": "Article identifier (barcode or code)"
+          },
+          "stock_fisico_contado": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock Fisico Contado",
+            "description": "Physical count observed"
+          },
+          "cantidad_afectada": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cantidad Afectada",
+            "description": "Variance amount (absolute)"
+          },
+          "tipo_accion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TipoAccion"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Action type for variance mode"
+          },
+          "observation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation",
+            "description": "Operator note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id_articulo"
+        ],
+        "title": "AuditEntryRequest"
+      },
+      "AuditEntryResult": {
+        "properties": {
+          "client_uuid": {
+            "type": "string",
+            "title": "Client Uuid"
+          },
+          "id_articulo": {
+            "type": "string",
+            "title": "Id Articulo"
+          },
+          "stock_real": {
+            "type": "integer",
+            "title": "Stock Real"
+          },
+          "stock_fisico_contado": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stock Fisico Contado"
+          },
+          "delta_stock": {
+            "type": "integer",
+            "title": "Delta Stock"
+          },
+          "tipo_accion": {
+            "$ref": "#/components/schemas/TipoAccion"
+          },
+          "cantidad_afectada": {
+            "type": "integer",
+            "title": "Cantidad Afectada"
+          },
+          "audit_quantity": {
+            "type": "integer",
+            "title": "Audit Quantity"
+          },
+          "monto_valorizado": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Monto Valorizado"
+          },
+          "audit_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audit Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "client_uuid",
+          "id_articulo",
+          "stock_real",
+          "delta_stock",
+          "tipo_accion",
+          "cantidad_afectada",
+          "audit_quantity",
+          "monto_valorizado"
+        ],
+        "title": "AuditEntryResult"
+      },
+      "AuthToken": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "token_type"
+        ],
+        "title": "AuthToken"
+      },
+      "Branch": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "id_branch": {
+            "type": "integer",
+            "title": "Id Branch"
+          },
+          "tenant_id": {
+            "type": "integer",
+            "title": "Tenant Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description",
+          "id_branch",
+          "tenant_id"
+        ],
+        "title": "Branch"
+      },
+      "BranchCreate": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "tenant_id": {
+            "type": "integer",
+            "title": "Tenant Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description",
+          "tenant_id"
+        ],
+        "title": "BranchCreate"
+      },
+      "BranchUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "title": "BranchUpdate"
+      },
+      "DailyInventoryBalanceResponse": {
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "branch_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch Id"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "total_days": {
+            "type": "integer",
+            "title": "Total Days"
+          },
+          "total_addition_value": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Addition Value"
+          },
+          "total_shrinkage_value": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Shrinkage Value"
+          },
+          "net_patrimonial_variation": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Patrimonial Variation"
+          },
+          "daily_summaries": {
+            "items": {
+              "$ref": "#/components/schemas/DailyInventoryBalanceSummary"
+            },
+            "type": "array",
+            "title": "Daily Summaries"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "start_date",
+          "end_date",
+          "total_days",
+          "total_addition_value",
+          "total_shrinkage_value",
+          "net_patrimonial_variation",
+          "daily_summaries"
+        ],
+        "title": "DailyInventoryBalanceResponse",
+        "description": "Consolidated daily inventory balance report response.\nExclusively returned to authorized administrative roles."
+      },
+      "DailyInventoryBalanceSummary": {
+        "properties": {
+          "report_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Report Date"
+          },
+          "total_audit_articles": {
+            "type": "integer",
+            "title": "Total Audit Articles"
+          },
+          "total_processed_units": {
+            "type": "integer",
+            "title": "Total Processed Units"
+          },
+          "total_addition_units": {
+            "type": "integer",
+            "title": "Total Addition Units"
+          },
+          "total_shrinkage_units": {
+            "type": "integer",
+            "title": "Total Shrinkage Units"
+          },
+          "total_addition_value": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Addition Value"
+          },
+          "total_shrinkage_value": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Shrinkage Value"
+          },
+          "net_patrimonial_variation": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Patrimonial Variation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "report_date",
+          "total_audit_articles",
+          "total_processed_units",
+          "total_addition_units",
+          "total_shrinkage_units",
+          "total_addition_value",
+          "total_shrinkage_value",
+          "net_patrimonial_variation"
+        ],
+        "title": "DailyInventoryBalanceSummary",
+        "description": "Summary metrics per day for inventory balance."
+      },
+      "Enterprise": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "tenant_id": {
+            "type": "integer",
+            "title": "Tenant Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description",
+          "tenant_id"
+        ],
+        "title": "Enterprise"
+      },
+      "EnterpriseCreate": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "tenant_id": {
+            "type": "integer",
+            "title": "Tenant Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description",
+          "tenant_id"
+        ],
+        "title": "EnterpriseCreate"
+      },
+      "EnterpriseUpdate": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "title": "EnterpriseUpdate"
+      },
+      "GoodsReceivedLineItem": {
+        "properties": {
+          "barcode": {
+            "type": "string",
+            "title": "Barcode"
+          },
+          "article_code": {
+            "type": "string",
+            "title": "Article Code"
+          },
+          "des_articulo": {
+            "type": "string",
+            "title": "Des Articulo"
+          },
+          "des_familia": {
+            "type": "string",
+            "title": "Des Familia"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "quantity_added": {
+            "type": "integer",
+            "title": "Quantity Added"
+          },
+          "pcio_com_siva": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Pcio Com Siva"
+          },
+          "vat_rate": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Vat Rate"
+          },
+          "total_unit_cost": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Unit Cost"
+          },
+          "capital_inyectado": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Capital Inyectado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "barcode",
+          "article_code",
+          "des_articulo",
+          "des_familia",
+          "reason",
+          "quantity_added",
+          "pcio_com_siva",
+          "vat_rate",
+          "total_unit_cost",
+          "capital_inyectado"
+        ],
+        "title": "GoodsReceivedLineItem",
+        "description": "Goods received and addition metrics per article catalog entry."
+      },
+      "GoodsReceivedReportResponse": {
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "default_vat_rate": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Default Vat Rate"
+          },
+          "total_items": {
+            "type": "integer",
+            "title": "Total Items"
+          },
+          "total_added_units": {
+            "type": "integer",
+            "title": "Total Added Units"
+          },
+          "total_capital_inyectado": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Capital Inyectado"
+          },
+          "line_items": {
+            "items": {
+              "$ref": "#/components/schemas/GoodsReceivedLineItem"
+            },
+            "type": "array",
+            "title": "Line Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "start_date",
+          "end_date",
+          "default_vat_rate",
+          "total_items",
+          "total_added_units",
+          "total_capital_inyectado",
+          "line_items"
+        ],
+        "title": "GoodsReceivedReportResponse",
+        "description": "Complete consolidated goods received and injected capital valorization report output.\nExclusively returned to authorized administrative roles."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LoginCredentials": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "LoginCredentials"
+      },
+      "ShrinkageLineItem": {
+        "properties": {
+          "article_code": {
+            "type": "string",
+            "title": "Article Code"
+          },
+          "des_articulo": {
+            "type": "string",
+            "title": "Des Articulo"
+          },
+          "des_familia": {
+            "type": "string",
+            "title": "Des Familia"
+          },
+          "pcio_com_siva": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Pcio Com Siva"
+          },
+          "vat_rate": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Vat Rate"
+          },
+          "total_unit_cost": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Unit Cost"
+          },
+          "total_quantity": {
+            "type": "integer",
+            "title": "Total Quantity"
+          },
+          "total_financial_loss": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Financial Loss"
+          }
+        },
+        "type": "object",
+        "required": [
+          "article_code",
+          "des_articulo",
+          "des_familia",
+          "pcio_com_siva",
+          "vat_rate",
+          "total_unit_cost",
+          "total_quantity",
+          "total_financial_loss"
+        ],
+        "title": "ShrinkageLineItem",
+        "description": "Aggregated shrinkage metrics per article catalog entry."
+      },
+      "ShrinkageReportResponse": {
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Start Date"
+          },
+          "end_date": {
+            "type": "string",
+            "format": "date",
+            "title": "End Date"
+          },
+          "default_vat_rate": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Default Vat Rate"
+          },
+          "total_items": {
+            "type": "integer",
+            "title": "Total Items"
+          },
+          "total_shrinkage_units": {
+            "type": "integer",
+            "title": "Total Shrinkage Units"
+          },
+          "total_financial_erosion": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Financial Erosion"
+          },
+          "line_items": {
+            "items": {
+              "$ref": "#/components/schemas/ShrinkageLineItem"
+            },
+            "type": "array",
+            "title": "Line Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "start_date",
+          "end_date",
+          "default_vat_rate",
+          "total_items",
+          "total_shrinkage_units",
+          "total_financial_erosion",
+          "line_items"
+        ],
+        "title": "ShrinkageReportResponse",
+        "description": "Complete consolidated shrinkage and financial erosion report output.\nExclusively returned to authorized administrative roles."
+      },
+      "TipoAccion": {
+        "type": "string",
+        "enum": [
+          "Alta",
+          "Baja",
+          "Sin Acci\u00f3n"
+        ],
+        "title": "TipoAccion"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "OAuth2PasswordBearer": {
+        "type": "oauth2",
+        "flows": {
+          "password": {
+            "scopes": {},
+            "tokenUrl": "/api/v1/auth/login"
+          }
+        }
+      }
+    }
+  }
+}
