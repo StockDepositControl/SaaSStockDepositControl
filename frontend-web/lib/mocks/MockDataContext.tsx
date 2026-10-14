@@ -19,6 +19,7 @@ import {
   INITIAL_AUDIT_LOGS_SEED,
   MOCK_USERS_SEED,
 } from "./seed-data";
+import { DataContext } from "../context/DataContext";
 
 /**
  * Strips confidential financial fields strictly at the data layer
@@ -396,9 +397,11 @@ export function MockDataProvider({
   );
 
   return (
-    <MockDataContext.Provider value={contextValue}>
-      {children}
-    </MockDataContext.Provider>
+    <DataContext.Provider value={contextValue}>
+      <MockDataContext.Provider value={contextValue}>
+        {children}
+      </MockDataContext.Provider>
+    </DataContext.Provider>
   );
 }
 

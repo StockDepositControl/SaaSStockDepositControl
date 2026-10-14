@@ -44,7 +44,7 @@ export default function CatalogPage() {
         <div className="w-full">
           <DataTable
             articles={articles}
-            currentRole={currentRole!}
+            currentRole={currentRole || UserRole.AUDITOR}
           />
         </div>
       </div>

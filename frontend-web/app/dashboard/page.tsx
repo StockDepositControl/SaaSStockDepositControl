@@ -27,11 +27,13 @@ export default function DashboardPage() {
   const outOfStockCount = useMemo(() => {
     let count = 0;
     articles.forEach((art) => {
-      let lotesConStock = 0;
-      art.lotes?.forEach((l) => {
-        lotesConStock += l.stock_real;
-      });
-      if (lotesConStock === 0) {
+      if (art.lotes && art.lotes.length > 0) {
+        let lotesConStock = 0;
+        art.lotes.forEach((l) => {
+          lotesConStock += l.stock_real;
+        });
+        if (lotesConStock === 0) count++;
+      } else if (art.stock_real === 0) {
         count++;
       }
     });

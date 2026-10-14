@@ -31,7 +31,7 @@ async def search_articles(
     Search articles catalog.
     """
     tenant_id = claims.get("tenant_id")
-    branch_id = claims.get("branch_id", 1)
+    branch_id = claims.get("branch_id") or 1
     
     session = await work_session_service.get_or_create_active_session(tenant_id=tenant_id, branch_id=branch_id)
     results = await search_service.search_articles(query, active_session_id=session.session_id)
@@ -63,7 +63,7 @@ async def list_articles(
     work_session_service: WorkSessionService = Depends(get_work_session_service),
 ) -> dict:
     tenant_id = claims.get("tenant_id")
-    branch_id = claims.get("branch_id", 1)
+    branch_id = claims.get("branch_id") or 1
 
     session = await work_session_service.get_or_create_active_session(tenant_id=tenant_id, branch_id=branch_id)
     items, total = await orchestrator.get_enriched_catalog(

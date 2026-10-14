@@ -1,6 +1,6 @@
 "use client";
 
-import { useMockDataContext } from "../mocks/MockDataContext";
+import { useDataContext } from "../context/DataContext";
 import { DataClientPort } from "../ports/DataClientPort";
 import {
   UserRole,
@@ -24,39 +24,32 @@ export interface UseDataClientReturn {
   articles: (ArticuloPublicView | ArticuloAdminView)[];
   auditLogs: AuditResult[];
   kpis: DashboardKPIsBase | DashboardKPIsAdmin;
+  isLoading?: boolean;
+  error?: string | null;
+  refreshData?: () => Promise<void>;
 }
 
 /**
  * Primary hook to interact with the domain data port.
- * UI components must consume this hook rather than directly importing mock stores or fetch adapters.
+ * UI components consume this hook rather than directly importing mock stores or fetch adapters.
  */
 export function useDataClient(): UseDataClientReturn {
-  const {
-    client,
-    currentUser,
-    currentRole,
-    users,
-    setRole,
-    switchUser,
-    login,
-    logout,
-    articles,
-    auditLogs,
-    kpis,
-  } = useMockDataContext();
+  const context = useDataContext();
 
   return {
-    client,
-    currentUser,
-    currentRole,
-    users,
-    setRole,
-    switchUser,
-    login,
-    logout,
-    articles,
-    auditLogs,
-    kpis,
+    client: context.client,
+    currentUser: context.currentUser,
+    currentRole: context.currentRole,
+    users: context.users,
+    setRole: context.setRole,
+    switchUser: context.switchUser,
+    login: context.login,
+    logout: context.logout,
+    articles: context.articles,
+    auditLogs: context.auditLogs,
+    kpis: context.kpis,
+    isLoading: context.isLoading,
+    error: context.error,
+    refreshData: context.refreshData,
   };
 }
-

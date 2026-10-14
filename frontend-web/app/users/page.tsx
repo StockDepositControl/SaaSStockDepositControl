@@ -13,6 +13,14 @@ export default function UsersPage() {
   // Local state for UI interactivity (deactivate/reactivate mock)
   const [users, setUsers] = useState(initialUsers);
 
+  React.useEffect(() => {
+    if (initialUsers && initialUsers.length > 0) {
+      setUsers(initialUsers);
+    }
+  }, [initialUsers]);
+
+  const isLiveApi = process.env.NEXT_PUBLIC_DATA_SOURCE !== "mock";
+
   const totalUsers = users.length;
   const activeUsers = users.filter((u) => u.is_active).length;
   const inactiveUsers = users.filter((u) => !u.is_active).length;
@@ -64,6 +72,15 @@ export default function UsersPage() {
 
         {isAdmin ? (
           <>
+            {isLiveApi && (
+              <div className="flex items-center gap-3 p-4 mb-6 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs">
+                <Info className="w-5 h-5 shrink-0 text-blue-600" />
+                <span>
+                  Visualizando sesión activa autenticada. El endpoint de administración de usuarios en el backend (<code>/api/v1/users</code>) se encuentra en desarrollo.
+                </span>
+              </div>
+            )}
+
             {/* KPI Strip */}
             <div className="bg-white border border-slate-200 rounded-xl px-8 py-5 flex items-center justify-between mb-6 shadow-sm overflow-x-auto">
               <div className="flex items-baseline gap-2 shrink-0 pr-6">

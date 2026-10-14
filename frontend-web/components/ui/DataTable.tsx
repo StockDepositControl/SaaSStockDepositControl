@@ -39,7 +39,7 @@ export function DataTable({ articles, currentRole }: DataTableProps) {
         art.id_articulo.toLowerCase().includes(term) ||
         art.des_articulo.toLowerCase().includes(term) ||
         (art.des_marca && art.des_marca.toLowerCase().includes(term)) ||
-        art.cod_barras.some((cb) => cb.includes(term));
+        Boolean(art.cod_barras?.some((cb) => cb.includes(term)));
 
       const matchesFamily = familyFilter === "all" || art.des_familia === familyFilter;
       

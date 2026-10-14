@@ -35,9 +35,10 @@ class SQLAlchemyWorkSessionRepository(WorkSessionRepositoryPort):
                     WorkSessionORM.status == "OPEN"
                 )
                 .order_by(WorkSessionORM.opened_at.desc())
+                .limit(1)
             )
             result = await session.execute(stmt)
-            orm_model = result.scalar_one_or_none()
+            orm_model = result.scalars().first()
             if not orm_model:
                 return None
             return self._to_domain(orm_model)
@@ -54,7 +55,7 @@ class SQLAlchemyWorkSessionRepository(WorkSessionRepositoryPort):
                 .limit(1)
             )
             result = await session.execute(stmt)
-            return result.scalar_one_or_none()
+            return result.scalars().first()
 
     async def create_session(self, session: WorkSessionCreate) -> WorkSession:
         async with self.session_factory() as db_session:
