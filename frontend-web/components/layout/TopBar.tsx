@@ -32,28 +32,28 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
   return (
     <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-6 flex items-center justify-between gap-4 z-20 shrink-0">
       {/* Left side: Mobile Menu Button & Page Title */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {onMenuToggle && (
           <button
             onClick={onMenuToggle}
-            className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition md:hidden"
+            className="w-11 h-11 rounded-xl flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 active:scale-95 transition md:hidden shrink-0 cursor-pointer"
             title="Abrir Menú"
             aria-label="Abrir Menú"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
-        <span className="text-slate-500 font-medium text-lg">
+        <span className="text-slate-700 font-semibold text-base sm:text-lg truncate">
           {getPageTitle()}
         </span>
       </div>
 
       {/* Right Controls: User Profile & Actions */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
         {/* Current User Pill */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* User Initials Circle */}
-          <div className="h-9 w-9 rounded-full bg-[#1a56db] flex items-center justify-center font-semibold text-sm text-white shadow-sm">
+          <div className="h-9 w-9 rounded-full bg-[#1a56db] flex items-center justify-center font-semibold text-xs text-white shadow-sm shrink-0">
             {currentUser?.name?.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase() || "U"}
           </div>
 
@@ -82,8 +82,9 @@ export function TopBar({ onMenuToggle }: TopBarProps) {
           {/* Logout Button */}
           <button
             onClick={handleLogout}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition ml-2"
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 active:scale-95 transition cursor-pointer"
             title="Cerrar Sesión"
+            aria-label="Cerrar Sesión"
           >
             <LogOut className="w-4 h-4" />
           </button>

@@ -46,12 +46,12 @@ trap cleanup_on_error EXIT
 
 # --- Compose CLI Command Resolver ---
 get_compose_cmd() {
-    if command -v docker-compose &>/dev/null; then
-        echo "docker-compose"
-    elif docker compose version &>/dev/null; then
+    if docker compose version &>/dev/null; then
         echo "docker compose"
+    elif command -v docker-compose &>/dev/null; then
+        echo "docker-compose"
     else
-        log_error "Neither 'docker-compose' nor 'docker compose' was found on system PATH."
+        log_error "Neither 'docker compose' nor 'docker-compose' was found on system PATH."
         exit 1
     fi
 }
@@ -95,8 +95,8 @@ check_prerequisites() {
     log_info "Pre-flight checks passed."
 }
 
-# --- MariaDB Health Gate ---
-wait_for_health() {
+# --- Health Gates ---
+wait_for_mariadb() {
     local max_wait=60
     local interval=5
     local elapsed=0
@@ -122,17 +122,47 @@ wait_for_health() {
     return 1
 }
 
+wait_for_nginx() {
+    local max_wait=30
+    local interval=3
+    local elapsed=0
+    local nginx_port
+    nginx_port=$(grep -E "^NGINX_PORT=" "${ENV_FILE}" 2>/dev/null | cut -d '=' -f2 || echo "8080")
+    nginx_port="${nginx_port:-8080}"
+
+    log_info "Waiting for NGINX ingress proxy to pass health checks (port: ${nginx_port}, timeout: ${max_wait}s)..."
+
+    while [ ${elapsed} -lt ${max_wait} ]; do
+        if ${COMPOSE_CMD} -f "${COMPOSE_FILE}" exec -T nginx wget --no-verbose --spider http://127.0.0.1:8080/nginx-health &>/dev/null; then
+            log_info "NGINX ingress proxy is healthy and serving requests on port ${nginx_port}!"
+            return 0
+        fi
+
+        log_warn "NGINX not ready yet... (${elapsed}s/${max_wait}s)"
+        sleep ${interval}
+        elapsed=$((elapsed + interval))
+    done
+
+    log_error "NGINX failed to reach healthy state within ${max_wait} seconds."
+    return 1
+}
+
+wait_for_health() {
+    wait_for_mariadb
+    wait_for_nginx
+}
+
 # --- Service Operations ---
 action_up() {
     check_prerequisites
-    log_info "Starting MariaDB consolidated service..."
+    log_info "Starting infrastructure services (MariaDB + NGINX ingress)..."
     ${COMPOSE_CMD} -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" up -d --remove-orphans
     wait_for_health
     log_info "Deployment completed successfully!"
 }
 
 action_down() {
-    log_info "Stopping MariaDB container service (persistent volume mariadb_data is PRESERVED)..."
+    log_info "Stopping infrastructure container services (persistent volume mariadb_data is PRESERVED)..."
     ${COMPOSE_CMD} -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" down
     log_info "Services stopped successfully."
 }
@@ -143,33 +173,73 @@ action_status() {
 }
 
 action_health() {
-    log_info "Running connectivity check on MariaDB container..."
+    local all_healthy=0
+    log_info "Running connectivity checks on infrastructure containers..."
+
+    # MariaDB check
     if ${COMPOSE_CMD} -f "${COMPOSE_FILE}" exec -T mariadb mariadb-admin ping -h 127.0.0.1 --silent &>/dev/null; then
-        echo -e "${GREEN}Status: HEALTHY${NC}"
+        echo -e "MariaDB (saas-stock-mariadb): ${GREEN}HEALTHY${NC}"
     else
-        echo -e "${RED}Status: UNHEALTHY / UNREACHABLE${NC}"
+        echo -e "MariaDB (saas-stock-mariadb): ${RED}UNHEALTHY / UNREACHABLE${NC}"
+        all_healthy=1
+    fi
+
+    # NGINX internal container check
+    if ${COMPOSE_CMD} -f "${COMPOSE_FILE}" exec -T nginx wget --no-verbose --spider http://127.0.0.1:8080/nginx-health &>/dev/null; then
+        echo -e "NGINX (saas-stock-nginx): ${GREEN}HEALTHY${NC}"
+    else
+        echo -e "NGINX (saas-stock-nginx): ${RED}UNHEALTHY / UNREACHABLE${NC}"
+        all_healthy=1
+    fi
+
+    # Host-level NGINX port probe
+    local nginx_port
+    nginx_port=$(grep -E "^NGINX_PORT=" "${ENV_FILE}" 2>/dev/null | cut -d '=' -f2 || echo "8080")
+    nginx_port="${nginx_port:-8080}"
+    if command -v curl &>/dev/null; then
+        if curl -fs "http://127.0.0.1:${nginx_port}/nginx-health" &>/dev/null; then
+            echo -e "NGINX Ingress Host Port (${nginx_port}): ${GREEN}ACCESSIBLE${NC}"
+        else
+            echo -e "NGINX Ingress Host Port (${nginx_port}): ${YELLOW}PORT NOT BOUND OR INACCESSIBLE${NC}"
+        fi
+
+        # Probe backend through NGINX proxy
+        if curl -fs "http://127.0.0.1:${nginx_port}/api/v1/health" &>/dev/null; then
+            echo -e "Backend Proxy via NGINX (/api/v1/health): ${GREEN}HEALTHY (200 OK)${NC}"
+        else
+            echo -e "Backend Proxy via NGINX (/api/v1/health): ${YELLOW}BACKEND OFFLINE (run backend on host port 8000)${NC}"
+        fi
+    fi
+
+    if [ ${all_healthy} -ne 0 ]; then
         exit 1
     fi
 }
 
 action_logs() {
-    log_info "Tailing MariaDB logs (last 50 lines)..."
-    ${COMPOSE_CMD} -f "${COMPOSE_FILE}" logs --tail=50 -f mariadb
+    local target="${1:-}"
+    if [ -n "${target}" ]; then
+        log_info "Tailing ${target} logs (last 50 lines)..."
+        ${COMPOSE_CMD} -f "${COMPOSE_FILE}" logs --tail=50 -f "${target}"
+    else
+        log_info "Tailing infrastructure logs (last 50 lines)..."
+        ${COMPOSE_CMD} -f "${COMPOSE_FILE}" logs --tail=50 -f
+    fi
 }
 
 show_usage() {
     cat << EOF
-Usage: $(basename "$0") <command>
+Usage: $(basename "$0") <command> [service]
 
-Single-File Deployment & Lifecycle Automation for MariaDB Consolidated Infrastructure.
+Single-File Deployment & Lifecycle Automation for MariaDB Consolidated Infrastructure & NGINX Ingress Proxy.
 
 Commands:
-  up        Start MariaDB multi-database container (runs initialization on first boot)
-  down      Stop containers gracefully (preserves persistent database volume)
-  status    Display current container status and health
-  health    Execute instant health check probe
-  logs      Follow container output logs (tail 50 lines)
-  help      Show this usage documentation
+  up                 Start infrastructure containers (MariaDB + NGINX)
+  down               Stop containers gracefully (preserves persistent database volume)
+  status             Display current container status, health, and port bindings
+  health             Execute instant health check probes (MariaDB and NGINX)
+  logs [service]     Follow container output logs (tail 50 lines; optional: mariadb, nginx)
+  help               Show this usage documentation
 
 EOF
 }
@@ -192,7 +262,7 @@ main() {
             action_health
             ;;
         logs)
-            action_logs
+            action_logs "${2:-}"
             ;;
         help|--help|-h)
             show_usage

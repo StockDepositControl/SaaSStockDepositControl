@@ -93,4 +93,101 @@ describe("HttpClient", () => {
       expect(apiErr.message).toContain("Field required");
     }
   });
+
+  describe("Relative URL & Reverse Proxy Ingress Support", () => {
+    it("should default to empty baseUrl when NEXT_PUBLIC_API_URL is unset or empty", () => {
+      const defaultClient = new HttpClient("");
+      expect(defaultClient.getBaseUrl()).toBe("");
+    });
+
+    it("should preserve relative path without params when baseUrl is empty", async () => {
+      const relativeClient = new HttpClient("");
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await relativeClient.get("/api/v1/articles");
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const calledUrl = fetchMock.mock.calls[0][0];
+      expect(calledUrl).toBe("/api/v1/articles");
+    });
+
+    it("should safely append query params to relative path without throwing Invalid URL", async () => {
+      const relativeClient = new HttpClient("");
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await relativeClient.get("/api/v1/articles", {
+        params: { page: 1, limit: 10, search: "paracetamol" },
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const calledUrl = fetchMock.mock.calls[0][0];
+      expect(calledUrl).toBe("/api/v1/articles?page=1&limit=10&search=paracetamol");
+    });
+
+    it("should use window.location.origin as base for query param parsing in browser environment", async () => {
+      vi.stubGlobal("window", {
+        location: { origin: "http://192.168.1.100:8080" },
+      });
+
+      const relativeClient = new HttpClient("");
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await relativeClient.get("/api/v1/health", { params: { check: "db" } });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const calledUrl = fetchMock.mock.calls[0][0];
+      expect(calledUrl).toBe("/api/v1/health?check=db");
+    });
+
+    it("should use fallback origin in non-browser environment without throwing", async () => {
+      vi.stubGlobal("window", undefined);
+
+      const relativeClient = new HttpClient("");
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await relativeClient.get("/api/v1/metrics", { params: { period: "day" } });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const calledUrl = fetchMock.mock.calls[0][0];
+      expect(calledUrl).toBe("/api/v1/metrics?period=day");
+    });
+
+    it("should preserve fully qualified absolute path regardless of baseUrl", async () => {
+      const relativeClient = new HttpClient("");
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await relativeClient.get("https://external-service.org/v1/status", {
+        params: { verbose: true },
+      });
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const calledUrl = fetchMock.mock.calls[0][0];
+      expect(calledUrl).toBe("https://external-service.org/v1/status?verbose=true");
+    });
+  });
 });

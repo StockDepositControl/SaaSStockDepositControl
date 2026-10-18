@@ -54,8 +54,6 @@ export default function ReportesPage() {
   const fetchReports = useCallback(
     async (start: string, end: string) => {
       if (!isAdmin) return;
-      setIsLoadingReports(true);
-      setReportsError(null);
 
       try {
         const [shrinkage, goodsReceived, balance] = await Promise.all([
@@ -109,8 +107,17 @@ export default function ReportesPage() {
 
   // Trigger backend fetch on mount and whenever date filters change
   useEffect(() => {
+    let ignore = false;
     if (isAdmin && startDate && endDate) {
-      fetchReports(startDate, endDate);
+      const timer = setTimeout(() => {
+        if (!ignore) {
+          fetchReports(startDate, endDate);
+        }
+      }, 0);
+      return () => {
+        ignore = true;
+        clearTimeout(timer);
+      };
     }
   }, [isAdmin, startDate, endDate, fetchReports]);
 
@@ -186,8 +193,14 @@ export default function ReportesPage() {
             <GlobalFilters
               startDate={startDate}
               endDate={endDate}
-              onStartDateChange={setStartDate}
-              onEndDateChange={setEndDate}
+              onStartDateChange={(d) => {
+                setStartDate(d);
+                setIsLoadingReports(true);
+              }}
+              onEndDateChange={(d) => {
+                setEndDate(d);
+                setIsLoadingReports(true);
+              }}
               onExport={handleExport}
               isExporting={isExporting}
             />
@@ -201,7 +214,10 @@ export default function ReportesPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => fetchReports(startDate, endDate)}
+                  onClick={() => {
+                    setIsLoadingReports(true);
+                    fetchReports(startDate, endDate);
+                  }}
                   className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg transition-colors cursor-pointer"
                 >
                   <RefreshCw className="w-3 h-3" />

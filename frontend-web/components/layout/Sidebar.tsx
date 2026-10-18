@@ -96,9 +96,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
 
       {/* Main Sidebar Aside */}
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col justify-between border-r transition-all duration-300 shrink-0 bg-[var(--sidebar-background)] border-[var(--sidebar-divider)] relative ${
+        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col justify-between border-r transition-transform md:transition-all duration-300 shrink-0 bg-[var(--sidebar-background)] border-[var(--sidebar-divider)] shadow-2xl md:shadow-none ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
-        } ${collapsed ? "md:w-20" : "md:w-64"} w-64 h-full`}
+        } ${collapsed ? "md:w-20" : "md:w-64"} w-72 md:w-64 h-[100dvh] md:h-full`}
       >
         {/* Brand Header */}
         <div
@@ -150,13 +150,13 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             )}
           </button>
 
-          {/* Mobile Close Button */}
+          {/* Mobile Close Button (48x48px touch target) */}
           <button
             onClick={onMobileClose}
-            className="p-1.5 rounded-lg text-[var(--sidebar-item-inactive-fg)] hover:text-[var(--sidebar-item-active-fg)] hover:bg-[var(--sidebar-surface-elevated)] transition md:hidden"
+            className="w-12 h-12 rounded-xl flex items-center justify-center text-[var(--sidebar-item-inactive-fg)] hover:text-[var(--sidebar-item-active-fg)] hover:bg-[var(--sidebar-surface-elevated)] active:scale-95 transition md:hidden"
             aria-label="Cerrar Menú"
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6" />
           </button>
         </div>
 

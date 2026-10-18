@@ -10,14 +10,15 @@ export default function UsersPage() {
   const { currentRole, currentUser, users: initialUsers } = useDataClient();
   const isAdmin = currentRole === UserRole.ADMINISTRADOR;
   
-  // Local state for UI interactivity (deactivate/reactivate mock)
-  const [users, setUsers] = useState(initialUsers);
+  // Local status overrides for UI interactivity
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, boolean>>({});
 
-  React.useEffect(() => {
-    if (initialUsers && initialUsers.length > 0) {
-      setUsers(initialUsers);
-    }
-  }, [initialUsers]);
+  const users = React.useMemo(() => {
+    return (initialUsers || []).map((u) => ({
+      ...u,
+      is_active: statusOverrides[u.id] !== undefined ? statusOverrides[u.id] : u.is_active,
+    }));
+  }, [initialUsers, statusOverrides]);
 
   const isLiveApi = process.env.NEXT_PUBLIC_DATA_SOURCE !== "mock";
 
@@ -29,9 +30,13 @@ export default function UsersPage() {
   const administrators = users.filter((u) => u.role === UserRole.ADMINISTRADOR).length;
 
   const toggleUserStatus = (id: string) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, is_active: !u.is_active } : u))
-    );
+    setStatusOverrides((prev) => {
+      const currentVal = users.find((u) => u.id === id)?.is_active ?? true;
+      return {
+        ...prev,
+        [id]: !currentVal,
+      };
+    });
   };
 
   const getInitials = (name: string) => {
@@ -82,7 +87,7 @@ export default function UsersPage() {
             )}
 
             {/* KPI Strip */}
-            <div className="bg-white border border-slate-200 rounded-xl px-8 py-5 flex items-center justify-between mb-6 shadow-sm overflow-x-auto">
+            <div className="bg-white border border-slate-200 rounded-xl px-4 sm:px-8 py-4 sm:py-5 flex items-center justify-between mb-6 shadow-sm overflow-x-auto no-scrollbar">
               <div className="flex items-baseline gap-2 shrink-0 pr-6">
                 <span className="text-2xl font-bold text-slate-900">{totalUsers}</span>
                 <span className="text-sm text-slate-500 font-medium">usuarios totales</span>

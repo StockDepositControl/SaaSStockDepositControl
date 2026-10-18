@@ -94,7 +94,7 @@ export default function DashboardPage() {
 
           {isAdmin ? (
             /* Admin KPI Cards */
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Audit Progress */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
                 <div className="flex items-start justify-between mb-4">
@@ -168,7 +168,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             /* Auditor & Supervisor KPI Cards */
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {/* Audit Progress */}
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between">
                 <div className="flex items-start justify-between mb-4">
@@ -256,7 +256,7 @@ export default function DashboardPage() {
 
           {isAdmin ? (
             /* Admin 3 Quick Access Cards */
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               <Link
                 href="/catalog"
                 className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:-translate-y-1 hover:shadow-md hover:bg-slate-50 hover:border-[#1a56db]/30 transition-all duration-200 relative group"

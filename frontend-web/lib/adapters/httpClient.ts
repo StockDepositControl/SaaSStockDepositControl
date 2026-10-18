@@ -18,7 +18,7 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
 export class HttpClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000") {
+  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_URL ?? "") {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
   }
 
@@ -48,20 +48,35 @@ export class HttpClient {
   }
 
   private buildUrl(path: string, params?: Record<string, string | number | boolean | null | undefined>): string {
-    const cleanPath = path.startsWith("http://") || path.startsWith("https://")
+    const isAbsolute = path.startsWith("http://") || path.startsWith("https://");
+    const cleanPath = isAbsolute
       ? path
-      : `${this.baseUrl}/${path.replace(/^\/+/, "")}`;
+      : this.baseUrl
+      ? `${this.baseUrl}/${path.replace(/^\/+/, "")}`
+      : `/${path.replace(/^\/+/, "")}`;
 
     if (!params) {
       return cleanPath;
     }
 
-    const url = new URL(cleanPath);
+    // Supply window.location.origin in browser, or fallback base for server/test environments
+    const baseOrigin =
+      typeof window !== "undefined" && window.location?.origin
+        ? window.location.origin
+        : "http://127.0.0.1:8080";
+
+    const url = new URL(cleanPath, baseOrigin);
     Object.entries(params).forEach(([key, value]) => {
       if (value !== null && value !== undefined) {
         url.searchParams.append(key, String(value));
       }
     });
+
+    // If original path was relative, preserve relative pathname + search
+    if (!isAbsolute && !this.baseUrl) {
+      return `${url.pathname}${url.search}`;
+    }
+
     return url.toString();
   }
 

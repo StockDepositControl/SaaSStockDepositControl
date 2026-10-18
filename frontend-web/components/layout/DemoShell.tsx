@@ -26,7 +26,7 @@ export function DemoShell({ children }: DemoShellProps) {
   }
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
       {/* Collapsible Left Navigation Sidebar */}
       <Sidebar
         mobileOpen={mobileSidebarOpen}
@@ -39,7 +39,7 @@ export function DemoShell({ children }: DemoShellProps) {
         <TopBar onMenuToggle={() => setMobileSidebarOpen((prev) => !prev)} />
 
         {/* Scrollable Viewport */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           {children}
         </main>
       </div>
