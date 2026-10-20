@@ -77,9 +77,10 @@ describe("HttpClient", () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
       status: 422,
-      json: async () => ({
-        detail: [{ loc: ["body", "id_articulo"], msg: "Field required", type: "missing" }],
-      }),
+      text: async () =>
+        JSON.stringify({
+          detail: [{ loc: ["body", "id_articulo"], msg: "Field required", type: "missing" }],
+        }),
     });
     vi.stubGlobal("fetch", fetchMock);
 

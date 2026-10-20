@@ -2,13 +2,15 @@
 
 import React from "react";
 import { useDataClient } from "@/lib/hooks/useDataClient";
+import { useArticles } from "@/lib/hooks/useArticles";
 import { UserRole } from "@/lib/types/domain";
 import { DemoShell } from "@/components/layout/DemoShell";
 import { DataTable } from "@/components/ui/DataTable";
 import { Lock } from "lucide-react";
 
 export default function CatalogPage() {
-  const { articles, currentRole } = useDataClient();
+  const { currentRole } = useDataClient();
+  const { articles, isLoading, error } = useArticles();
   const isAdmin = currentRole === UserRole.ADMINISTRADOR;
   const isSupervisor = currentRole === UserRole.SUPERVISOR;
 
@@ -40,11 +42,18 @@ export default function CatalogPage() {
           )}
         </div>
 
+        {error && (
+          <div role="alert" className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Main Data Table */}
         <div className="w-full">
           <DataTable
             articles={articles}
             currentRole={currentRole || UserRole.AUDITOR}
+            isLoading={isLoading}
           />
         </div>
       </div>

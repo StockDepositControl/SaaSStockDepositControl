@@ -4,11 +4,6 @@ import { createContext, useContext } from "react";
 import { DataClientPort } from "../ports/DataClientPort";
 import {
   UserRole,
-  ArticuloPublicView,
-  ArticuloAdminView,
-  AuditResult,
-  DashboardKPIsBase,
-  DashboardKPIsAdmin,
   MockUser,
 } from "../types/domain";
 
@@ -21,9 +16,6 @@ export interface DataContextValue {
   switchUser: (userId: string) => void;
   login: (email: string, password?: string) => Promise<MockUser>;
   logout: () => void;
-  articles: (ArticuloPublicView | ArticuloAdminView)[];
-  auditLogs: AuditResult[];
-  kpis: DashboardKPIsBase | DashboardKPIsAdmin;
   isLoading?: boolean;
   error?: string | null;
   refreshData?: () => Promise<void>;

@@ -105,8 +105,6 @@ interface MockDataContextType {
   login: (email: string, password?: string) => Promise<MockUser>;
   logout: () => void;
   articles: (ArticuloPublicView | ArticuloAdminView)[];
-  auditLogs: AuditResult[];
-  kpis: DashboardKPIsBase | DashboardKPIsAdmin;
 }
 
 export const MockDataContext = createContext<MockDataContextType | null>(null);
@@ -361,12 +359,6 @@ export function MockDataProvider({
     [articles, currentRole]
   );
 
-  // Cached KPIs based on current reactive state
-  const activeKPIs = useMemo(
-    () => calculateKPIs(articles, auditLogs, currentRole ?? UserRole.AUDITOR),
-    [articles, auditLogs, currentRole]
-  );
-
   const contextValue: MockDataContextType = useMemo(
     () => ({
       client,
@@ -378,8 +370,6 @@ export function MockDataProvider({
       login,
       logout,
       articles: activeArticles,
-      auditLogs,
-      kpis: activeKPIs,
     }),
     [
       client,
@@ -391,8 +381,6 @@ export function MockDataProvider({
       login,
       logout,
       activeArticles,
-      auditLogs,
-      activeKPIs,
     ]
   );
 

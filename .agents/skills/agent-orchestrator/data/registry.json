@@ -1,0 +1,419 @@
+{
+  "generated_at": "2026-10-20T09:31:08.771959",
+  "skills_root": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills",
+  "skills": [
+    {
+      "name": "agent-creator",
+      "description": "Create custom AI subagents with proper plugin structure, persona generation, and companion routing skills.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/agent-creator",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/agent-creator/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.856736"
+    },
+    {
+      "name": "ai-agents-architect",
+      "description": "Expert in designing and building autonomous AI agents. Masters tool use, memory systems, planning strategies, and multi-agent orchestration.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/ai-agents-architect",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/ai-agents-architect/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [
+        "context-management"
+      ],
+      "triggers": [
+        "memory"
+      ],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.859736"
+    },
+    {
+      "name": "ai-engineering-toolkit",
+      "description": "6 production-ready AI engineering workflows: prompt evaluation (8-dimension scoring), context budget planning, RAG pipeline design, agent security audit (65-point checklist), eval harness building, and product sense coaching.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/ai-engineering-toolkit",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/ai-engineering-toolkit/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [
+        "context-management",
+        "image-generation",
+        "monitoring",
+        "security"
+      ],
+      "triggers": [
+        "audit",
+        "context",
+        "design",
+        "security"
+      ],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.859736"
+    },
+    {
+      "name": "architecture-patterns",
+      "description": "Master proven backend architecture patterns including Clean Architecture, Hexagonal Architecture, and Domain-Driven Design to build maintainable, testable, and scalable systems.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/architecture-patterns",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/architecture-patterns/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [
+        "image-generation"
+      ],
+      "triggers": [
+        "design"
+      ],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-07-15T10:17:34.185736"
+    },
+    {
+      "name": "auth-implementation-patterns",
+      "description": "Build secure, scalable authentication and authorization systems using industry-standard patterns and modern best practices.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/auth-implementation-patterns",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/auth-implementation-patterns/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-07-15T10:17:34.188736"
+    },
+    {
+      "name": "bash-pro",
+      "description": "Master of defensive Bash scripting for production automation, CI/CD\npipelines, and system utilities. Expert in safe, portable, and testable shell\nscripts.\n",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/bash-pro",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/bash-pro/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.861736"
+    },
+    {
+      "name": "bash-scripting",
+      "description": "Bash scripting workflow for creating production-ready shell scripts with defensive patterns, error handling, and testing.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/bash-scripting",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/bash-scripting/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.861736"
+    },
+    {
+      "name": "codebase-memory",
+      "description": "Enforces the mandatory usage of the Codebase Memory MCP tool for codebase exploration, symbol search, graph querying, and architectural analysis to optimize performance and reduce token consumption.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/codebase-memory",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/codebase-memory/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [
+        "api-integration",
+        "context-management"
+      ],
+      "triggers": [
+        "graph",
+        "memory"
+      ],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.862736"
+    },
+    {
+      "name": "container-security-hardening",
+      "description": "Harden Docker/container images and runtime deployments with secure base images, non-root users, CVE scanning, SBOM/signing, seccomp/AppArmor, and Kubernetes pod security controls. Use for Dockerfile security reviews, container CVEs, image scanning, distroless images, or production hardening.\n",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/container-security-hardening",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/container-security-hardening/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": true,
+      "has_data": false,
+      "capabilities": [
+        "image-generation",
+        "security"
+      ],
+      "triggers": [
+        "cve",
+        "image",
+        "security"
+      ],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.862736"
+    },
+    {
+      "name": "database-admin",
+      "description": "Expert database administrator specializing in modern cloud databases, automation, and reliability engineering.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/database-admin",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/database-admin/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.864736"
+    },
+    {
+      "name": "database-architect",
+      "description": "Expert database architect specializing in data layer design from scratch, technology selection, schema modeling, and scalable database architectures.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/database-architect",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/database-architect/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [
+        "image-generation"
+      ],
+      "triggers": [
+        "design"
+      ],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.864736"
+    },
+    {
+      "name": "database-migrations-sql-migrations",
+      "description": "SQL database migrations with zero-downtime strategies for PostgreSQL, MySQL, and SQL Server. Focus on data integrity and rollback plans.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/database-migrations-sql",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/database-migrations-sql/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-07-22T09:24:32.933087"
+    },
+    {
+      "name": "ddd-tactical-patterns",
+      "description": "Apply DDD tactical patterns in code using entities, value objects, aggregates, repositories, and domain events with explicit invariants.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/ddd-tactical-patterns",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/ddd-tactical-patterns/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": true,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-07-15T10:17:34.189736"
+    },
+    {
+      "name": "devops-deploy",
+      "description": "DevOps e deploy de aplicacoes — Docker, CI/CD com GitHub Actions, AWS Lambda, SAM, Terraform, infraestrutura como codigo e monitoramento.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/devops-deploy",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/devops-deploy/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.865736"
+    },
+    {
+      "name": "docker-expert",
+      "description": "You are an advanced Docker containerization expert with comprehensive, practical knowledge of container optimization, security hardening, multi-stage builds, orchestration patterns, and production deployment strategies based on current industry best practices.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/docker-expert",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/docker-expert/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [
+        "security"
+      ],
+      "triggers": [
+        "security"
+      ],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.865736"
+    },
+    {
+      "name": "fastapi-pro",
+      "description": "Build high-performance async APIs with FastAPI, SQLAlchemy 2.0, and Pydantic V2. Master microservices, WebSockets, and modern Python async patterns.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/fastapi-pro",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/fastapi-pro/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-07-15T10:17:34.193736"
+    },
+    {
+      "name": "llm-prompt-optimizer",
+      "description": "Use when improving prompts for any LLM. Applies proven prompt engineering techniques to boost output quality, reduce hallucinations, and cut token usage.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/llm-prompt-optimizer",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/llm-prompt-optimizer/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.865736"
+    },
+    {
+      "name": "nextjs-app-router-patterns",
+      "description": "Comprehensive patterns for Next.js 14+ App Router architecture, Server Components, and modern full-stack React development.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/nextjs-app-router-patterns",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/nextjs-app-router-patterns/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-07-15T10:17:34.193736"
+    },
+    {
+      "name": "prompt-engineering",
+      "description": "Expert guide on prompt engineering patterns, best practices, and optimization techniques. Use when user wants to improve prompts, learn prompting strategies, or debug agent behavior.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/prompt-engineering",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/prompt-engineering/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.866736"
+    },
+    {
+      "name": "pytest-skill",
+      "description": "Generates production-grade pytest tests in Python with fixtures, parametrize, markers, mocking, and conftest patterns. Use when user mentions \"pytest\", \"conftest\", \"@pytest.fixture\", \"@pytest.mark\", \"Python test\". Triggers on: \"pytest\", \"conftest\", \"Python test\", \"parametrize\", \"Python...",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/pytest-skill",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/pytest-skill/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-07-15T10:17:34.194736"
+    },
+    {
+      "name": "react-native-architecture",
+      "description": "Production-ready patterns for React Native development with Expo, including navigation, state management, native modules, and offline-first architecture.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/react-native-architecture",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/react-native-architecture/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-07-15T10:17:34.198736"
+    },
+    {
+      "name": "saas-multi-tenant",
+      "description": "Design and implement multi-tenant SaaS architectures with row-level security, tenant-scoped queries, shared-schema isolation, and safe cross-tenant admin patterns in PostgreSQL and TypeScript.",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/saas-multi-tenant",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/saas-multi-tenant/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [
+        "image-generation",
+        "security"
+      ],
+      "triggers": [
+        "design",
+        "security"
+      ],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-07-15T10:17:34.200736"
+    },
+    {
+      "name": "systematic-debugging",
+      "description": "Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes",
+      "version": "",
+      "location": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/systematic-debugging",
+      "skill_md": "/home/fede/Proyectos/SaaSStockDepositControl/.agents/skills/systematic-debugging/SKILL.md",
+      "registered": false,
+      "has_scripts": false,
+      "has_references": false,
+      "has_data": false,
+      "capabilities": [],
+      "triggers": [],
+      "language": "none",
+      "status": "active",
+      "last_modified": "2026-08-12T08:11:22.866736"
+    }
+  ]
+}

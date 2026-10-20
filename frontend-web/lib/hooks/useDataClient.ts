@@ -4,11 +4,6 @@ import { useDataContext } from "../context/DataContext";
 import { DataClientPort } from "../ports/DataClientPort";
 import {
   UserRole,
-  ArticuloPublicView,
-  ArticuloAdminView,
-  AuditResult,
-  DashboardKPIsBase,
-  DashboardKPIsAdmin,
   MockUser,
 } from "../types/domain";
 
@@ -21,9 +16,6 @@ export interface UseDataClientReturn {
   switchUser: (userId: string) => void;
   login: (email: string, password?: string) => Promise<MockUser>;
   logout: () => void;
-  articles: (ArticuloPublicView | ArticuloAdminView)[];
-  auditLogs: AuditResult[];
-  kpis: DashboardKPIsBase | DashboardKPIsAdmin;
   isLoading?: boolean;
   error?: string | null;
   refreshData?: () => Promise<void>;
@@ -45,9 +37,6 @@ export function useDataClient(): UseDataClientReturn {
     switchUser: context.switchUser,
     login: context.login,
     logout: context.logout,
-    articles: context.articles,
-    auditLogs: context.auditLogs,
-    kpis: context.kpis,
     isLoading: context.isLoading,
     error: context.error,
     refreshData: context.refreshData,

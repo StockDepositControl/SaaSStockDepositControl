@@ -1,7 +1,7 @@
 ---
 name: core-backend-agent
 description: "Senior Backend Engineer specializing in Hexagonal Architecture, FastAPI, asynchronous SQLAlchemy 2.0, and dynamic Multi-Tenant JWT routing."
-tools: ["view_file", "grep_search", "write_to_file", "replace_file_content", "multi_replace_file_content", "run_command"]
+tools: ["view_file", "grep_search", "write_to_file", "replace_file_content", "run_command", "ask_question"]
 ---
 
 ## Prompt Defense Baseline

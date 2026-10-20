@@ -3,6 +3,9 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { useDataClient } from "@/lib/hooks/useDataClient";
+import { useArticles } from "@/lib/hooks/useArticles";
+import { useKPIs } from "@/lib/hooks/useKPIs";
+import { useAuditLogs } from "@/lib/hooks/useAuditLogs";
 import { UserRole, DashboardKPIsAdmin } from "@/lib/types/domain";
 import { DemoShell } from "@/components/layout/DemoShell";
 import { IconContainer } from "@/components/ui/IconContainer";
@@ -19,7 +22,10 @@ import {
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const { currentUser, currentRole, articles, kpis, auditLogs } = useDataClient();
+  const { currentUser, currentRole } = useDataClient();
+  const { articles } = useArticles();
+  const { kpis } = useKPIs();
+  const { auditLogs } = useAuditLogs();
   const isAdmin = currentRole === UserRole.ADMINISTRADOR;
   const adminKPIs = isAdmin ? (kpis as DashboardKPIsAdmin) : null;
 

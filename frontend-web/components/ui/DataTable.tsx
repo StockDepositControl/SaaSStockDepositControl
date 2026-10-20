@@ -8,9 +8,11 @@ import { Search, ChevronDown, AlertTriangle, ChevronLeft, ChevronRight, Chevrons
 export interface DataTableProps {
   articles: (ArticuloPublicView | ArticuloAdminView)[];
   currentRole: UserRole;
+  isLoading?: boolean;
 }
 
-export function DataTable({ articles, currentRole }: DataTableProps) {
+export function DataTable({ articles, currentRole, isLoading = false }: DataTableProps) {
+  const emptyMessage = isLoading ? "Cargando artículos..." : "No se encontraron resultados.";
   const { users } = useDataClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [familyFilter, setFamilyFilter] = useState("all");
@@ -122,8 +124,8 @@ export function DataTable({ articles, currentRole }: DataTableProps) {
       {/* Mobile Card List (Visible on < md) */}
       <div className="block md:hidden divide-y divide-slate-100">
         {paginatedArticles.length === 0 ? (
-          <div className="p-8 text-center text-sm text-slate-500">
-            No se encontraron resultados.
+          <div className="p-8 text-center text-sm text-slate-500" aria-live="polite">
+            {emptyMessage}
           </div>
         ) : (
           paginatedArticles.map((art) => {
@@ -228,7 +230,7 @@ export function DataTable({ articles, currentRole }: DataTableProps) {
             {paginatedArticles.length === 0 ? (
               <tr>
                 <td colSpan={isAdmin || isSupervisor ? 7 : 6} className="px-6 py-8 text-center text-slate-500">
-                  No se encontraron resultados.
+                  {emptyMessage}
                 </td>
               </tr>
             ) : (

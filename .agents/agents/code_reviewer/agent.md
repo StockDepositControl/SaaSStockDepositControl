@@ -1,6 +1,7 @@
 ---
 name: code-reviewer
 description: Senior code reviewer that evaluates changes across five dimensions — correctness, readability, architecture, security, and performance. Use for thorough code review before merge.
+tools: ["view_file", "grep_search", "write_to_file", "replace_file_content", "run_command", "ask_question"]
 ---
 
 # Senior Code Reviewer

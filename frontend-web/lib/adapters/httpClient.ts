@@ -122,11 +122,12 @@ export class HttpClient {
     }
 
     if (!response.ok) {
+      const rawText = await response.text()
       let errorData: unknown;
       try {
-        errorData = await response.json();
+        errorData = JSON.parse(rawText)
       } catch {
-        errorData = await response.text();
+        errorData = rawText
       }
 
       let message = `Request failed with status ${response.status}`;

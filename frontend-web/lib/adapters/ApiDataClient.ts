@@ -49,35 +49,43 @@ export class ApiDataClient implements DataClientPort {
     return null;
   }
 
+  private clearStoredSession(): void {
+    window.localStorage.removeItem("auth_token");
+    window.localStorage.removeItem("auth_user");
+  }
+
   private getStoredUser(): MockUser | null {
-    if (typeof window !== "undefined" && window.localStorage) {
-      const stored = window.localStorage.getItem("auth_user");
-      if (stored) {
-        try {
-          return JSON.parse(stored) as MockUser;
-        } catch {
-          // parse error
-        }
-      }
-      // Reconstruct from token if present and valid
-      const token = this.getStoredToken();
-      if (token) {
-        const payload = parseJwt(token);
-        if (payload) {
-          const user: MockUser = {
-            id: String(payload.user_id || payload.id_usuario || payload.sub),
-            email: payload.sub,
-            password: "",
-            name: payload.sub.split("@")[0],
-            role: mapRoleToUserRole(payload.role),
-            badgeToken: token,
-          };
-          window.localStorage.setItem("auth_user", JSON.stringify(user));
-          return user;
-        }
+    if (typeof window === "undefined" || !window.localStorage) {
+      return null;
+    }
+
+    // A session is valid only when an unexpired token exists (parseJwt rejects expired tokens).
+    const token = this.getStoredToken();
+    const payload = token ? parseJwt(token) : null;
+    if (!token || !payload) {
+      this.clearStoredSession();
+      return null;
+    }
+
+    const stored = window.localStorage.getItem("auth_user");
+    if (stored) {
+      try {
+        return JSON.parse(stored) as MockUser;
+      } catch {
+        // parse error: rebuild from token below
       }
     }
-    return null;
+
+    const user: MockUser = {
+      id: String(payload.user_id || payload.id_usuario || payload.sub),
+      email: payload.sub,
+      password: "",
+      name: payload.sub.split("@")[0],
+      role: mapRoleToUserRole(payload.role),
+      badgeToken: token,
+    };
+    window.localStorage.setItem("auth_user", JSON.stringify(user));
+    return user;
   }
 
   public async login(email: string, password: string = "password123"): Promise<MockUser> {

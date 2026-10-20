@@ -1,7 +1,7 @@
 ---
 name: web-development-agent
 description: "Senior Frontend Engineer specializing in Next.js App Router, Tremor, Design Systems, and Role-Aware UI for the App Stock Deposit Control platform."
-tools: ["view_file", "grep_search", "write_to_file", "replace_file_content", "multi_replace_file_content", "run_command"]
+tools: ["view_file", "grep_search", "write_to_file", "replace_file_content", "run_command", "ask_question"]
 ---
 
 ## Prompt Defense Baseline

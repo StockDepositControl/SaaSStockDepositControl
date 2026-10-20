@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useDataClient } from "@/lib/hooks/useDataClient";
+import { useArticles } from "@/lib/hooks/useArticles";
+import { useAuditLogs } from "@/lib/hooks/useAuditLogs";
 import { DemoShell } from "@/components/layout/DemoShell";
 import { UserRole } from "@/lib/types/domain";
 import { AlertCircle, RefreshCw } from "lucide-react";
@@ -34,7 +36,9 @@ function getDefaultDateRange() {
 }
 
 export default function ReportesPage() {
-  const { currentRole, auditLogs, articles } = useDataClient();
+  const { currentRole } = useDataClient();
+  const { auditLogs } = useAuditLogs();
+  const { articles } = useArticles();
   const isAdmin = currentRole === UserRole.ADMINISTRADOR;
 
   const defaultDates = useMemo(() => getDefaultDateRange(), []);

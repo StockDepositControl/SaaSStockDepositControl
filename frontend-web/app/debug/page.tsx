@@ -2,6 +2,9 @@
 
 import React, { useState } from "react";
 import { useDataClient } from "../../lib/hooks/useDataClient";
+import { useArticles } from "../../lib/hooks/useArticles";
+import { useKPIs } from "../../lib/hooks/useKPIs";
+import { useAuditLogs } from "../../lib/hooks/useAuditLogs";
 import { UserRole, ArticuloAdminView, TipoAccion } from "../../lib/types/domain";
 
 export default function DebugPage() {
@@ -10,12 +13,11 @@ export default function DebugPage() {
     currentRole,
     users,
     switchUser,
-    setRole,
-    articles,
-    auditLogs,
-    kpis,
     client,
   } = useDataClient();
+  const { articles, refetch: refetchArticles } = useArticles();
+  const { kpis, refetch: refetchKPIs } = useKPIs();
+  const { auditLogs, refetch: refetchAuditLogs } = useAuditLogs();
 
   const [selectedArticleId, setSelectedArticleId] = useState<string>(
     articles[0]?.id_articulo || ""
@@ -51,6 +53,13 @@ export default function DebugPage() {
         } (${result.tipo_accion}) | Valorización: $${result.monto_valorizado.toLocaleString()}`
       );
       setNotes("");
+
+      // Trigger targeted domain refetches for debug console
+      await Promise.all([
+        refetchArticles(),
+        refetchKPIs(),
+        refetchAuditLogs(),
+      ]);
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setAuditFeedback(`❌ Error: ${errorMsg}`);

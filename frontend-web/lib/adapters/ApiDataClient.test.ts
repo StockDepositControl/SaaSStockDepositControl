@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ApiDataClient } from "./ApiDataClient";
 import { HttpClient } from "./httpClient";
@@ -96,5 +97,42 @@ describe("ApiDataClient", () => {
     const logs = await client.getAuditLog();
     expect(logs.length).toBe(1);
     expect(logs[0].client_uuid).toBe("uuid-999");
+  });
+
+  describe("stored session validation", () => {
+    const makeToken = (exp: number) => {
+      const payload = btoa(
+        JSON.stringify({ sub: "u@example.com", role: "auditor", user_id: 7, exp })
+      );
+      return `h.${payload}.s`;
+    };
+
+    beforeEach(() => {
+      window.localStorage.clear();
+    });
+
+    it("returns null and purges storage when token is expired", async () => {
+      window.localStorage.setItem("auth_token", makeToken(1));
+      window.localStorage.setItem("auth_user", JSON.stringify({ id: "7" }));
+
+      expect(await client.getCurrentUser()).toBeNull();
+      expect(window.localStorage.getItem("auth_token")).toBeNull();
+      expect(window.localStorage.getItem("auth_user")).toBeNull();
+    });
+
+    it("does not trust cached auth_user when token is missing", async () => {
+      window.localStorage.setItem("auth_user", JSON.stringify({ id: "7" }));
+
+      expect(await client.getCurrentUser()).toBeNull();
+      expect(window.localStorage.getItem("auth_user")).toBeNull();
+    });
+
+    it("restores user from a valid unexpired token", async () => {
+      window.localStorage.setItem("auth_token", makeToken(9999999999));
+
+      const user = await client.getCurrentUser();
+      expect(user?.email).toBe("u@example.com");
+      expect(user?.role).toBe(UserRole.AUDITOR);
+    });
   });
 });
