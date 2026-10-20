@@ -18,6 +18,7 @@ export const defaultKPIs: DashboardKPIsBase = {
   discrepanciasAlta: 0,
   discrepanciasBaja: 0,
   sinAccion: 0,
+  outOfStockCount: 0,
 };
 
 export interface UseKPIsReturn {

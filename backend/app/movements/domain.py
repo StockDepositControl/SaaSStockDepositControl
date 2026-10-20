@@ -78,6 +78,19 @@ class StockLookupResult(BaseModel):
     source: str
 
 
+class SessionAuditAggregates(BaseModel):
+    """
+    Aggregated audit counters for a single work session, computed by the repository.
+    Counts are distinct articles per action type.
+    """
+    audited_count: int = 0
+    alta_count: int = 0
+    baja_count: int = 0
+    sin_accion_count: int = 0
+    monto_valorizado_baja: Decimal = Decimal("0")
+    monto_valorizado_alta: Decimal = Decimal("0")
+
+
 class VatClassifier:
     """
     Pure Fabrication domain service encapsulating product family tax/VAT rate classification.

@@ -59,6 +59,12 @@ function calculateKPIs(
     (log) => log.tipo_accion === TipoAccion.SIN_ACCION
   ).length;
 
+  const outOfStockCount = articles.filter((a) =>
+    a.lotes && a.lotes.length > 0
+      ? a.lotes.reduce((sum, l) => sum + l.stock_real, 0) === 0
+      : a.stock_real === 0
+  ).length;
+
   const baseKPIs: DashboardKPIsBase = {
     totalArticulos,
     auditados,
@@ -67,6 +73,7 @@ function calculateKPIs(
     discrepanciasAlta,
     discrepanciasBaja,
     sinAccion,
+    outOfStockCount,
   };
 
   if (role === UserRole.ADMINISTRADOR) {

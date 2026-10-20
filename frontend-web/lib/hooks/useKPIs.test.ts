@@ -47,6 +47,7 @@ describe("useKPIs", () => {
       discrepanciasAlta: 1,
       discrepanciasBaja: 2,
       sinAccion: 7,
+      outOfStockCount: 3,
     };
     const getKPIs = vi.fn().mockResolvedValue(mockKPIs);
     setup({ id: "1" }, getKPIs, UserRole.SUPERVISOR);
@@ -69,6 +70,7 @@ describe("useKPIs", () => {
       discrepanciasAlta: 5,
       discrepanciasBaja: 5,
       sinAccion: 70,
+      outOfStockCount: 9,
       montoValorizadoTotal: 5000,
       montoValorizadoAlta: 3000,
       montoValorizadoBaja: 2000,

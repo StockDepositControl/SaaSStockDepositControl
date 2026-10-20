@@ -302,4 +302,222 @@ def test_post_batch_audit_endpoint(mock_audit_service):
     app.dependency_overrides.clear()
 
 
+def test_post_single_audit_defaults_omitted_deposit_and_branch(mock_audit_service):
+    from backend.api.v1.stock import require_audit_roles
+    from backend.app.movements.schemas import AuditEntryResult
+    from backend.app.movements.domain import TipoAccion
+
+    app.dependency_overrides[require_audit_roles] = lambda: {
+        "sub": "auditor@example.com",
+        "role": "auditor",
+        "tenant_id": "1",
+        "branch_id": 2,
+        "id_usuario": 5,
+    }
+
+    mock_audit_service.register_single_audit.return_value = AuditEntryResult(
+        client_uuid="uuid-fallback-1",
+        id_articulo="1042",
+        stock_real=100,
+        stock_fisico_contado=90,
+        delta_stock=-10,
+        tipo_accion=TipoAccion.BAJA,
+        cantidad_afectada=10,
+        audit_quantity=90,
+        monto_valorizado=Decimal("1500.0000"),
+        audit_id=101,
+    )
+    app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/stock/audit",
+        json={
+            "id_articulo": "1042",
+            "stock_fisico_contado": 90,
+            "observation": "Omitted branch and deposit",
+        },
+    )
+
+    assert response.status_code == 201
+    call_args = mock_audit_service.register_single_audit.call_args
+    assert call_args is not None
+    effective_entry = call_args.kwargs["entry"]
+    assert effective_entry.id_sucursal == 2
+    assert effective_entry.id_deposito == 1
+
+    app.dependency_overrides.clear()
+
+
+def test_post_single_audit_defaults_branch_when_claim_missing(mock_audit_service):
+    from backend.api.v1.stock import require_audit_roles
+    from backend.app.movements.schemas import AuditEntryResult
+    from backend.app.movements.domain import TipoAccion
+
+    app.dependency_overrides[require_audit_roles] = lambda: {
+        "sub": "auditor@example.com",
+        "role": "auditor",
+        "tenant_id": "1",
+        "id_usuario": 5,
+    }
+
+    mock_audit_service.register_single_audit.return_value = AuditEntryResult(
+        client_uuid="uuid-fallback-2",
+        id_articulo="1042",
+        stock_real=100,
+        stock_fisico_contado=90,
+        delta_stock=-10,
+        tipo_accion=TipoAccion.BAJA,
+        cantidad_afectada=10,
+        audit_quantity=90,
+        monto_valorizado=Decimal("1500.0000"),
+        audit_id=102,
+    )
+    app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/stock/audit",
+        json={
+            "id_articulo": "1042",
+            "stock_fisico_contado": 90,
+        },
+    )
+
+    assert response.status_code == 201
+    call_args = mock_audit_service.register_single_audit.call_args
+    assert call_args is not None
+    effective_entry = call_args.kwargs["entry"]
+    assert effective_entry.id_sucursal == 1
+    assert effective_entry.id_deposito == 1
+
+    app.dependency_overrides.clear()
+
+
+def test_post_single_audit_preserves_explicit_ids(mock_audit_service):
+    from backend.api.v1.stock import require_audit_roles
+    from backend.app.movements.schemas import AuditEntryResult
+    from backend.app.movements.domain import TipoAccion
+
+    app.dependency_overrides[require_audit_roles] = lambda: {
+        "sub": "auditor@example.com",
+        "role": "auditor",
+        "tenant_id": "1",
+        "branch_id": 1,
+        "id_usuario": 5,
+    }
+
+    mock_audit_service.register_single_audit.return_value = AuditEntryResult(
+        client_uuid="uuid-explicit",
+        id_articulo="1042",
+        stock_real=100,
+        stock_fisico_contado=90,
+        delta_stock=-10,
+        tipo_accion=TipoAccion.BAJA,
+        cantidad_afectada=10,
+        audit_quantity=90,
+        monto_valorizado=Decimal("1500.0000"),
+        audit_id=103,
+    )
+    app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/stock/audit",
+        json={
+            "id_sucursal": 3,
+            "id_deposito": 2,
+            "id_articulo": "1042",
+            "stock_fisico_contado": 90,
+        },
+    )
+
+    assert response.status_code == 201
+    call_args = mock_audit_service.register_single_audit.call_args
+    assert call_args is not None
+    effective_entry = call_args.kwargs["entry"]
+    assert effective_entry.id_sucursal == 3
+    assert effective_entry.id_deposito == 2
+
+    app.dependency_overrides.clear()
+
+
+def test_post_batch_audit_defaults_omitted_deposit_and_branch(mock_audit_service):
+    from backend.api.v1.stock import require_audit_roles
+    from backend.app.movements.schemas import AuditBatchResult, AuditEntryResult
+    from backend.app.movements.domain import TipoAccion
+
+    app.dependency_overrides[require_audit_roles] = lambda: {
+        "sub": "auditor@example.com",
+        "role": "auditor",
+        "tenant_id": "1",
+        "branch_id": 4,
+        "user_id": 5,
+    }
+
+    mock_audit_service.register_batch_audit.return_value = AuditBatchResult(
+        results=[
+            AuditEntryResult(
+                client_uuid="uuid-b1",
+                id_articulo="1042",
+                stock_real=100,
+                stock_fisico_contado=95,
+                delta_stock=-5,
+                tipo_accion=TipoAccion.BAJA,
+                cantidad_afectada=5,
+                audit_quantity=95,
+                monto_valorizado=Decimal("750.0000"),
+                audit_id=104,
+            ),
+            AuditEntryResult(
+                client_uuid="uuid-b2",
+                id_articulo="1043",
+                stock_real=50,
+                stock_fisico_contado=50,
+                delta_stock=0,
+                tipo_accion=TipoAccion.SIN_ACCION,
+                cantidad_afectada=0,
+                audit_quantity=50,
+                monto_valorizado=Decimal("0.0000"),
+                audit_id=105,
+            ),
+        ],
+        total_processed=2,
+        duplicates_skipped=0,
+    )
+    app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
+
+    client = TestClient(app)
+    response = client.post(
+        "/api/v1/stock/audit/batch",
+        json={
+            "items": [
+                {
+                    "id_articulo": "1042",
+                    "stock_fisico_contado": 95,
+                },
+                {
+                    "id_sucursal": 5,
+                    "id_deposito": 3,
+                    "id_articulo": "1043",
+                    "stock_fisico_contado": 50,
+                },
+            ]
+        },
+    )
+
+    assert response.status_code == 200
+    call_args = mock_audit_service.register_batch_audit.call_args
+    assert call_args is not None
+    effective_batch = call_args.kwargs["batch"]
+    assert len(effective_batch.items) == 2
+    assert effective_batch.items[0].id_sucursal == 4
+    assert effective_batch.items[0].id_deposito == 1
+    assert effective_batch.items[1].id_sucursal == 5
+    assert effective_batch.items[1].id_deposito == 3
+
+    app.dependency_overrides.clear()
+
+
+
 

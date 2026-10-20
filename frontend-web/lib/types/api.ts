@@ -144,3 +144,21 @@ export interface ApiDailyInventoryBalanceResponse {
   total_net_patrimonial_variation?: string | number;
   daily_summaries: ApiDailyInventoryBalanceSummary[];
 }
+
+// Mirrors backend DashboardKPIsPublicOut (no financial fields for non-admin roles).
+export interface ApiDashboardKPIsPublicOut {
+  total_articulos: number;
+  auditados: number;
+  pendientes: number;
+  porcentaje_avance: number;
+  discrepancias_alta: number;
+  discrepancias_baja: number;
+  sin_accion: number;
+  out_of_stock_count: number;
+}
+
+// Mirrors backend DashboardKPIsResponse (administrator only).
+export interface ApiDashboardKPIsResponse extends ApiDashboardKPIsPublicOut {
+  monto_valorizado_baja?: string | number | null;
+  monto_valorizado_alta?: string | number | null;
+}

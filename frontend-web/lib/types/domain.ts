@@ -60,6 +60,8 @@ export interface ArticuloInternal extends ArticuloBase {
 export interface AuditEntry {
   id_articulo: string;
   stock_fisico_contado: number;
+  id_sucursal?: number | null;
+  id_deposito?: number | null;
   lote?: string | null;
   observation?: string | null;
 }
@@ -91,12 +93,26 @@ export interface DashboardKPIsBase {
   discrepanciasAlta: number;
   discrepanciasBaja: number;
   sinAccion: number;
+  outOfStockCount: number;
 }
 
 export interface DashboardKPIsAdmin extends DashboardKPIsBase {
   montoValorizadoTotal: number;
   montoValorizadoAlta: number;
   montoValorizadoBaja: number;
+}
+
+/**
+ * Runtime type guard to safely discriminate Admin KPIs with valorized financial fields.
+ */
+export function isAdminKPIs(
+  kpis: DashboardKPIsBase | DashboardKPIsAdmin | null | undefined
+): kpis is DashboardKPIsAdmin {
+  return (
+    kpis != null &&
+    "montoValorizadoBaja" in kpis &&
+    typeof kpis.montoValorizadoBaja === "number"
+  );
 }
 
 export interface MockUser {

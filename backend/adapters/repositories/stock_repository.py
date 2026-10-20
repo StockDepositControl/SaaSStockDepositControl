@@ -1,10 +1,11 @@
 from typing import Optional, List, Dict
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from backend.app.movements.domain import StockPorDeposito
 from backend.app.movements.ports import StockRepositoryPort
 from backend.adapters.repositories.models.articles import (
+    Articulo as ArticuloORM,
     StockPorDeposito as StockPorDepositoORM,
 )
 from backend.adapters.database.connection import get_articles_session_factory
@@ -74,3 +75,24 @@ class SQLAlchemyStockRepository(StockRepositoryPort):
                 for row in rows
             }
 
+    async def count_catalog_articles(self) -> int:
+        async with self.session_factory() as session:
+            result = await session.execute(select(func.count()).select_from(ArticuloORM))
+            return int(result.scalar_one() or 0)
+
+    async def count_out_of_stock_articles(
+        self, tenant_id: int, branch_id: int, deposit_id: int
+    ) -> int:
+        async with self.session_factory() as session:
+            stmt = (
+                select(func.count())
+                .select_from(StockPorDepositoORM)
+                .where(
+                    StockPorDepositoORM.id_empresa == tenant_id,
+                    StockPorDepositoORM.id_sucursal == branch_id,
+                    StockPorDepositoORM.id_deposito == deposit_id,
+                    StockPorDepositoORM.stock_real == 0,
+                )
+            )
+            result = await session.execute(stmt)
+            return int(result.scalar_one() or 0)

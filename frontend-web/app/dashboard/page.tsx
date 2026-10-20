@@ -3,10 +3,9 @@
 import React, { useMemo } from "react";
 import Link from "next/link";
 import { useDataClient } from "@/lib/hooks/useDataClient";
-import { useArticles } from "@/lib/hooks/useArticles";
 import { useKPIs } from "@/lib/hooks/useKPIs";
 import { useAuditLogs } from "@/lib/hooks/useAuditLogs";
-import { UserRole, DashboardKPIsAdmin } from "@/lib/types/domain";
+import { UserRole, DashboardKPIsAdmin, isAdminKPIs } from "@/lib/types/domain";
 import { DemoShell } from "@/components/layout/DemoShell";
 import { IconContainer } from "@/components/ui/IconContainer";
 import {
@@ -23,28 +22,13 @@ import {
 
 export default function DashboardPage() {
   const { currentUser, currentRole } = useDataClient();
-  const { articles } = useArticles();
   const { kpis } = useKPIs();
   const { auditLogs } = useAuditLogs();
   const isAdmin = currentRole === UserRole.ADMINISTRADOR;
-  const adminKPIs = isAdmin ? (kpis as DashboardKPIsAdmin) : null;
+  const adminKPIs = isAdmin && isAdminKPIs(kpis) ? kpis : null;
 
-  // Derive "Critical warehouse alerts" count (items with stock_real === 0)
-  const outOfStockCount = useMemo(() => {
-    let count = 0;
-    articles.forEach((art) => {
-      if (art.lotes && art.lotes.length > 0) {
-        let lotesConStock = 0;
-        art.lotes.forEach((l) => {
-          lotesConStock += l.stock_real;
-        });
-        if (lotesConStock === 0) count++;
-      } else if (art.stock_real === 0) {
-        count++;
-      }
-    });
-    return count;
-  }, [articles]);
+  // Critical warehouse alerts: sourced directly from backend DB aggregation
+  const outOfStockCount = kpis.outOfStockCount ?? 0;
 
   // Derive total negative units deficit for Auditor/Supervisor
   const unitsWithShortage = useMemo(() => {
@@ -136,7 +120,9 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <div className="text-4xl font-bold text-red-600 mb-1">
-                    $ {adminKPIs ? adminKPIs.montoValorizadoBaja.toLocaleString("en-US", { minimumFractionDigits: 2 }) : "---"}
+                    $ {adminKPIs?.montoValorizadoBaja != null
+                      ? adminKPIs.montoValorizadoBaja.toLocaleString("en-US", { minimumFractionDigits: 2 })
+                      : "---"}
                   </div>
                   <div className="text-sm text-slate-600 font-medium mb-4">
                     {kpis.discrepanciasBaja} artículos con faltante

@@ -1,6 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import Optional, List, Dict
-from backend.app.movements.domain import StockPorDeposito, AuditRecordCreate, AuditRecord
+from backend.app.movements.domain import (
+    StockPorDeposito,
+    AuditRecordCreate,
+    AuditRecord,
+    SessionAuditAggregates,
+)
 
 class StockRepositoryPort(ABC):
     """
@@ -24,6 +29,23 @@ class StockRepositoryPort(ABC):
         Retrieves current stock positions (stock_real) for multiple articles in a specific deposit.
         Automatically filters by ContextVar(tenant_id, branch_id).
         Returns a mapping of {id_articulo: stock_real}.
+        """
+        pass
+
+    @abstractmethod
+    async def count_catalog_articles(self) -> int:
+        """
+        Returns the total number of articles in the catalog (articulos).
+        The articulos table is a shared legacy catalog with no tenant column.
+        """
+        pass
+
+    @abstractmethod
+    async def count_out_of_stock_articles(
+        self, tenant_id: int, branch_id: int, deposit_id: int
+    ) -> int:
+        """
+        Returns how many stock positions have stock_real == 0 for the given deposit.
         """
         pass
 
@@ -67,6 +89,16 @@ class AuditRepositoryPort(ABC):
         """
         Retrieves the latest audit quantity for multiple articles within a specific session.
         Returns a mapping of {id_articulo: audit_quantity}.
+        """
+        pass
+
+    @abstractmethod
+    async def get_session_audit_aggregates(
+        self, tenant_id: int, branch_id: int, deposit_id: int, session_id: int
+    ) -> SessionAuditAggregates:
+        """
+        Returns audit counters (distinct audited articles, per-action counts and
+        valorized amounts) for a work session, aggregated in the database.
         """
         pass
 

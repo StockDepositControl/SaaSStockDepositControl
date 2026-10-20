@@ -33,16 +33,44 @@ vi.mock("@/lib/hooks/useAuditLogs", () => ({
   useAuditLogs: () => mockUseAuditLogs(),
 }));
 
+const baseKPIsFixture: DashboardKPIsBase = {
+  totalArticulos: 50,
+  auditados: 25,
+  pendientes: 25,
+  porcentajeAvance: 50,
+  discrepanciasAlta: 2,
+  discrepanciasBaja: 3,
+  sinAccion: 20,
+  outOfStockCount: 0,
+};
+
 describe("DashboardPage (Integration with decoupled hooks)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
 
-    mockUseArticles.mockReturnValue({
-      articles: [],
+  it("does not execute useArticles on mount (no catalog overfetch)", () => {
+    mockUseDataClient.mockReturnValue({
+      currentUser: { id: "USR-001", name: "Juan Auditor", role: UserRole.AUDITOR },
+      currentRole: UserRole.AUDITOR,
+      logout: vi.fn(),
+    });
+    mockUseKPIs.mockReturnValue({
+      kpis: { ...baseKPIsFixture },
       isLoading: false,
       error: null,
       refetch: vi.fn(),
     });
+    mockUseAuditLogs.mockReturnValue({
+      auditLogs: [],
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    render(<DashboardPage />);
+
+    expect(mockUseArticles).not.toHaveBeenCalled();
   });
 
   it("renders auditor view with decoupled KPI and audit log metrics", () => {
@@ -52,15 +80,7 @@ describe("DashboardPage (Integration with decoupled hooks)", () => {
       logout: vi.fn(),
     });
 
-    const auditorKPIs: DashboardKPIsBase = {
-      totalArticulos: 50,
-      auditados: 25,
-      pendientes: 25,
-      porcentajeAvance: 50,
-      discrepanciasAlta: 2,
-      discrepanciasBaja: 3,
-      sinAccion: 20,
-    };
+    const auditorKPIs: DashboardKPIsBase = { ...baseKPIsFixture };
 
     const mockLogs: AuditResult[] = [
       {
@@ -137,6 +157,7 @@ describe("DashboardPage (Integration with decoupled hooks)", () => {
       discrepanciasAlta: 4,
       discrepanciasBaja: 6,
       sinAccion: 70,
+      outOfStockCount: 12,
       montoValorizadoTotal: 154200,
       montoValorizadoAlta: 12400,
       montoValorizadoBaja: 8900,
@@ -167,6 +188,7 @@ describe("DashboardPage (Integration with decoupled hooks)", () => {
     expect(screen.getByText("FALTANTES REGISTRADOS HOY")).toBeDefined();
     expect(screen.getByText(/\$ 8,900\.00/)).toBeDefined();
     expect(screen.getByText("ALERTAS CRÍTICAS DE ALMACÉN")).toBeDefined();
+    expect(screen.getByText("12")).toBeDefined();
   });
 
   it("handles loading and empty hook states gracefully without throwing", () => {
@@ -185,6 +207,7 @@ describe("DashboardPage (Integration with decoupled hooks)", () => {
         discrepanciasAlta: 0,
         discrepanciasBaja: 0,
         sinAccion: 0,
+        outOfStockCount: 0,
       },
       isLoading: true,
       error: null,
@@ -201,5 +224,41 @@ describe("DashboardPage (Integration with decoupled hooks)", () => {
     const { container } = render(<DashboardPage />);
     expect(container).toBeDefined();
     expect(screen.getByText("Progreso de Auditoría")).toBeDefined();
+  });
+
+  it("renders administrator view in loading state without throwing", () => {
+    mockUseDataClient.mockReturnValue({
+      currentUser: { id: "USR-ADMIN", name: "Valeria Admin", role: UserRole.ADMINISTRADOR },
+      currentRole: UserRole.ADMINISTRADOR,
+      logout: vi.fn(),
+    });
+
+    mockUseKPIs.mockReturnValue({
+      kpis: {
+        totalArticulos: 0,
+        auditados: 0,
+        pendientes: 0,
+        porcentajeAvance: 0,
+        discrepanciasAlta: 0,
+        discrepanciasBaja: 0,
+        sinAccion: 0,
+        outOfStockCount: 0,
+      },
+      isLoading: true,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    mockUseAuditLogs.mockReturnValue({
+      auditLogs: [],
+      isLoading: true,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    const { container } = render(<DashboardPage />);
+    expect(container).toBeDefined();
+    expect(screen.getByText("FALTANTES REGISTRADOS HOY")).toBeDefined();
+    expect(screen.getByText("$ ---")).toBeDefined();
   });
 });

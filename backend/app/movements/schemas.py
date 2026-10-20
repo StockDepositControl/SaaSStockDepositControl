@@ -52,3 +52,21 @@ class AuditBatchResult(BaseModel):
     results: List[AuditEntryResult]
     total_processed: int
     duplicates_skipped: int
+
+
+class DashboardKPIsPublicOut(BaseModel):
+    """Dashboard KPIs for non-admin roles. Contains no financial fields (structural RBAC)."""
+    total_articulos: int
+    auditados: int
+    pendientes: int
+    porcentaje_avance: int
+    discrepancias_alta: int
+    discrepancias_baja: int
+    sin_accion: int
+    out_of_stock_count: int
+
+
+class DashboardKPIsResponse(DashboardKPIsPublicOut):
+    """Dashboard KPIs for administrators, including valorized amounts."""
+    monto_valorizado_baja: Optional[Decimal] = None
+    monto_valorizado_alta: Optional[Decimal] = None

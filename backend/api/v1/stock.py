@@ -5,15 +5,23 @@ from backend.app.movements.schemas import (
     AuditEntryResult,
     AuditBatchInput,
     AuditBatchResult,
+    DashboardKPIsPublicOut,
+    DashboardKPIsResponse,
 )
 from backend.api.v1.schemas.stock import (
     ArticleStockPositionPublicOut,
     ArticleStockPositionAdminOut,
 )
-from backend.app.movements.services import AuditService
+from backend.app.movements.services import AuditService, StockKPIService
 from backend.app.articles.services import ArticleSearchService
+from backend.app.work_sessions.services import WorkSessionService
 from backend.api.dependencies.auth import get_current_user_claims, RoleChecker
-from backend.api.dependencies.services import get_audit_service, get_article_search_service
+from backend.api.dependencies.services import (
+    get_audit_service,
+    get_article_search_service,
+    get_stock_kpi_service,
+    get_work_session_service,
+)
 
 
 router = APIRouter()
@@ -36,9 +44,14 @@ async def register_single_audit(
     tenant_id = str(claims.get("tenant_id", "1"))
     id_usuario = int(claims.get("id_usuario") or claims.get("user_id", 1))
 
-    effective_entry = entry
-    if effective_entry.id_sucursal is None and claims.get("branch_id") is not None:
-        effective_entry = entry.model_copy(update={"id_sucursal": claims.get("branch_id")})
+    # Defensive fallback normalization
+    updates = {}
+    if entry.id_sucursal is None:
+        updates["id_sucursal"] = claims.get("branch_id") or 1
+    if entry.id_deposito is None:
+        updates["id_deposito"] = 1
+
+    effective_entry = entry.model_copy(update=updates) if updates else entry
 
     result = await audit_service.register_single_audit(
         tenant_id=tenant_id,
@@ -121,9 +134,54 @@ async def register_batch_audit(
     tenant_id = str(claims.get("tenant_id", "1"))
     id_usuario = int(claims.get("user_id") or claims.get("id_usuario", 1))
 
+    default_branch = claims.get("branch_id") or 1
+    normalized_items = []
+    for item in batch.items:
+        updates = {}
+        if item.id_sucursal is None:
+            updates["id_sucursal"] = default_branch
+        if item.id_deposito is None:
+            updates["id_deposito"] = 1
+        normalized_items.append(item.model_copy(update=updates) if updates else item)
+
+    effective_batch = AuditBatchInput(items=normalized_items)
+
     result = await audit_service.register_batch_audit(
         tenant_id=tenant_id,
         id_usuario=id_usuario,
-        batch=batch,
+        batch=effective_batch,
     )
     return result
+
+
+@router.get(
+    "/kpis",
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+    summary="Get aggregated stock and audit KPIs for dashboard",
+    description=(
+        "Returns database-aggregated dashboard KPIs for the active work session. "
+        "Valorized amounts are included only for administrators."
+    ),
+    responses={200: {"model": Union[DashboardKPIsResponse, DashboardKPIsPublicOut]}},
+)
+async def get_dashboard_kpis(
+    id_deposito: int = Query(1, ge=1, description="Warehouse ID"),
+    claims: dict = Depends(require_audit_roles),
+    service: StockKPIService = Depends(get_stock_kpi_service),
+    work_session_service: WorkSessionService = Depends(get_work_session_service),
+) -> Union[DashboardKPIsResponse, DashboardKPIsPublicOut]:
+    tenant_id = str(claims.get("tenant_id", "1"))
+    branch_id = claims.get("branch_id") or 1
+    session = await work_session_service.get_or_create_active_session(
+        tenant_id=tenant_id, branch_id=branch_id
+    )
+    is_admin = claims.get("role", "").lower() == "administrador"
+
+    return await service.get_dashboard_kpis(
+        tenant_id=tenant_id,
+        branch_id=branch_id,
+        deposit_id=id_deposito,
+        session_id=session.session_id,
+        is_admin=is_admin,
+    )

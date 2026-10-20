@@ -13,9 +13,10 @@ import {
   ApiArticleListResponse,
   ApiArticuloAdminOut,
   ApiArticuloPublicOut,
+  ApiAuditEntryRequest,
   ApiAuditEntryResult,
   ApiAuthToken,
-  ApiDailyInventoryBalanceResponse,
+  ApiDashboardKPIsResponse,
 } from "../types/api";
 import { httpClient, HttpClient, ApiError } from "./httpClient";
 import { parseJwt, mapRoleToUserRole } from "../utils/jwt";
@@ -194,8 +195,15 @@ export class ApiDataClient implements DataClientPort {
   }
 
   public async registerAudit(entry: AuditEntry): Promise<AuditResult> {
-    const payload = {
+    const token = this.getStoredToken();
+    const claims = token ? parseJwt(token) : null;
+    const branchId = entry.id_sucursal ?? (claims?.branch_id ? Number(claims.branch_id) : 1);
+    const depositId = entry.id_deposito ?? 1;
+
+    const payload: ApiAuditEntryRequest = {
       id_articulo: entry.id_articulo,
+      id_sucursal: branchId,
+      id_deposito: depositId,
       stock_fisico_contado: entry.stock_fisico_contado,
       observation: entry.observation || null,
     };
@@ -214,79 +222,31 @@ export class ApiDataClient implements DataClientPort {
     const effectiveRole = role || this.getCurrentRole();
     const isAdmin = effectiveRole === UserRole.ADMINISTRADOR;
 
-    // Fetch live articles count to calculate progress and base quantities
-    let totalArticulos = 0;
-    let auditados = 0;
-    try {
-      const articlesRes = await this.http.get<ApiArticleListResponse>("/api/v1/articles", {
-        params: { page: 1, limit: 1 },
-      });
-      totalArticulos = articlesRes.total || 0;
-    } catch {
-      totalArticulos = 0;
-    }
-
-    // Try fetching audited count if supported
-    try {
-      const auditedRes = await this.http.get<ApiArticleListResponse>("/api/v1/articles", {
-        params: { page: 1, limit: 1, fue_auditado: true },
-      });
-      auditados = auditedRes.total || 0;
-    } catch {
-      auditados = this.sessionAuditLogs.length;
-    }
-
-    const pendientes = Math.max(0, totalArticulos - auditados);
-    const porcentajeAvance = totalArticulos > 0 ? Math.round((auditados / totalArticulos) * 100) : 0;
-
-    let discrepanciasAlta = 0;
-    let discrepanciasBaja = 0;
-    let sinAccion = 0;
-
-    this.sessionAuditLogs.forEach((log) => {
-      if (log.delta_stock > 0) discrepanciasAlta++;
-      else if (log.delta_stock < 0) discrepanciasBaja++;
-      else sinAccion++;
+    const data = await this.http.get<ApiDashboardKPIsResponse>("/api/v1/stock/kpis", {
+      params: { id_deposito: 1 },
     });
 
     const baseKPIs: DashboardKPIsBase = {
-      totalArticulos,
-      auditados,
-      pendientes,
-      porcentajeAvance,
-      discrepanciasAlta,
-      discrepanciasBaja,
-      sinAccion,
+      totalArticulos: Number(data.total_articulos) || 0,
+      auditados: Number(data.auditados) || 0,
+      pendientes: Number(data.pendientes) || 0,
+      porcentajeAvance: Number(data.porcentaje_avance) || 0,
+      discrepanciasAlta: Number(data.discrepancias_alta) || 0,
+      discrepanciasBaja: Number(data.discrepancias_baja) || 0,
+      sinAccion: Number(data.sin_accion) || 0,
+      outOfStockCount: Number(data.out_of_stock_count) || 0,
     };
 
     if (!isAdmin) {
       return baseKPIs;
     }
 
-    // Attempt to query financial totals from live backend report if available
-    let montoValorizadoAlta = 0;
-    let montoValorizadoBaja = 0;
-    let montoValorizadoTotal = 0;
-
-    try {
-      const today = new Date().toISOString().split("T")[0];
-      const past30Days = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-      const balance = await this.http.get<ApiDailyInventoryBalanceResponse>("/api/v1/reports/inventory-balance", {
-        params: { start_date: past30Days, end_date: today },
-      });
-      montoValorizadoTotal = Number(balance.total_net_patrimonial_variation) || 0;
-    } catch {
-      // If reports endpoint is pending or restricted, aggregate from active session audit results
-      this.sessionAuditLogs.forEach((log) => {
-        if (log.delta_stock > 0) montoValorizadoAlta += log.monto_valorizado;
-        if (log.delta_stock < 0) montoValorizadoBaja += log.monto_valorizado;
-      });
-      montoValorizadoTotal = montoValorizadoAlta - montoValorizadoBaja;
-    }
+    const montoValorizadoAlta = Number(data.monto_valorizado_alta) || 0;
+    const montoValorizadoBaja = Number(data.monto_valorizado_baja) || 0;
 
     return {
       ...baseKPIs,
-      montoValorizadoTotal,
+      montoValorizadoTotal: montoValorizadoAlta - montoValorizadoBaja,
       montoValorizadoAlta,
       montoValorizadoBaja,
     };

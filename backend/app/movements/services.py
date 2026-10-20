@@ -15,6 +15,8 @@ from backend.app.movements.schemas import (
     AuditEntryResult,
     AuditBatchInput,
     AuditBatchResult,
+    DashboardKPIsPublicOut,
+    DashboardKPIsResponse,
 )
 from backend.app.movements.ports import StockRepositoryPort, AuditRepositoryPort
 from backend.app.articles.ports import ArticleRepositoryPort
@@ -272,3 +274,68 @@ class AuditService:
             total_processed=len(results),
             duplicates_skipped=duplicates_skipped,
         )
+
+
+class KPICalculator:
+    """
+    Pure Fabrication: stateless dashboard progress math, testable without any Port.
+    """
+    @staticmethod
+    def pendientes(total_articulos: int, auditados: int) -> int:
+        return max(0, total_articulos - auditados)
+
+    @staticmethod
+    def porcentaje_avance(total_articulos: int, auditados: int) -> int:
+        if total_articulos <= 0:
+            return 0
+        return round((auditados / total_articulos) * 100)
+
+
+class StockKPIService:
+    """
+    Read-only use case (CQS): orchestrates stock and audit ports to build dashboard KPIs.
+    Financial amounts are returned only to administrators.
+    """
+    def __init__(self, stock_repository: StockRepositoryPort, audit_repository: AuditRepositoryPort):
+        self.stock_repository = stock_repository
+        self.audit_repository = audit_repository
+
+    async def get_dashboard_kpis(
+        self,
+        tenant_id: str,
+        branch_id: int,
+        deposit_id: int,
+        session_id: int,
+        is_admin: bool,
+    ) -> DashboardKPIsPublicOut:
+        try:
+            tenant_int = int(tenant_id)
+        except (ValueError, TypeError):
+            tenant_int = 1
+
+        total = await self.stock_repository.count_catalog_articles()
+        out_of_stock = await self.stock_repository.count_out_of_stock_articles(
+            tenant_int, branch_id, deposit_id
+        )
+        agg = await self.audit_repository.get_session_audit_aggregates(
+            tenant_int, branch_id, deposit_id, session_id
+        )
+
+        base = {
+            "total_articulos": total,
+            "auditados": agg.audited_count,
+            "pendientes": KPICalculator.pendientes(total, agg.audited_count),
+            "porcentaje_avance": KPICalculator.porcentaje_avance(total, agg.audited_count),
+            "discrepancias_alta": agg.alta_count,
+            "discrepancias_baja": agg.baja_count,
+            "sin_accion": agg.sin_accion_count,
+            "out_of_stock_count": out_of_stock,
+        }
+
+        if is_admin:
+            return DashboardKPIsResponse(
+                **base,
+                monto_valorizado_baja=agg.monto_valorizado_baja,
+                monto_valorizado_alta=agg.monto_valorizado_alta,
+            )
+        return DashboardKPIsPublicOut(**base)

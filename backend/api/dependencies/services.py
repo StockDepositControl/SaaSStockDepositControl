@@ -97,6 +97,20 @@ def get_audit_service() -> "AuditService":
     )
 
 
+def get_stock_kpi_service() -> "StockKPIService":
+    """
+    FastAPI dependency for the read-only StockKPIService.
+    """
+    from backend.app.movements.services import StockKPIService
+    from backend.adapters.repositories.stock_repository import SQLAlchemyStockRepository
+    from backend.adapters.repositories.audit_repository import SQLAlchemyAuditRepository
+
+    return StockKPIService(
+        stock_repository=SQLAlchemyStockRepository(),
+        audit_repository=SQLAlchemyAuditRepository(),
+    )
+
+
 def get_work_session_service() -> "WorkSessionService":
     """
     FastAPI dependency for WorkSessionService.

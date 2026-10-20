@@ -5,7 +5,7 @@ import { useDataClient } from "../../lib/hooks/useDataClient";
 import { useArticles } from "../../lib/hooks/useArticles";
 import { useKPIs } from "../../lib/hooks/useKPIs";
 import { useAuditLogs } from "../../lib/hooks/useAuditLogs";
-import { UserRole, ArticuloAdminView, TipoAccion } from "../../lib/types/domain";
+import { UserRole, ArticuloAdminView, TipoAccion, isAdminKPIs, DashboardKPIsAdmin } from "../../lib/types/domain";
 
 export default function DebugPage() {
   const {
@@ -67,7 +67,7 @@ export default function DebugPage() {
   };
 
   const isAdmin = currentRole === UserRole.ADMINISTRADOR;
-  const adminKPIs = isAdmin ? (kpis as import("../../lib/types/domain").DashboardKPIsAdmin) : null;
+  const adminKPIs = isAdmin && isAdminKPIs(kpis) ? kpis : null;
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
@@ -217,7 +217,7 @@ export default function DebugPage() {
             {isAdmin ? "Impacto Financiero Total (IVA incl.)" : "Sin Discrepancia"}
           </span>
           <div className="text-2xl font-bold text-amber-400 mt-1">
-            {isAdmin && adminKPIs ? (
+            {isAdmin && adminKPIs?.montoValorizadoTotal != null ? (
               `$${adminKPIs.montoValorizadoTotal.toLocaleString("es-AR", {
                 minimumFractionDigits: 2,
               })}`
@@ -226,7 +226,7 @@ export default function DebugPage() {
             )}
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            {isAdmin && adminKPIs
+            {isAdmin && adminKPIs && adminKPIs.montoValorizadoAlta != null && adminKPIs.montoValorizadoBaja != null
               ? `Alta: $${adminKPIs.montoValorizadoAlta.toLocaleString()} | Baja: $${adminKPIs.montoValorizadoBaja.toLocaleString()}`
               : "Stock físico coincide"}
           </p>
