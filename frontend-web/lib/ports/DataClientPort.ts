@@ -59,9 +59,20 @@ export interface DataClientPort {
   setRole(role: UserRole): void;
 
   /**
-   * Retrieves list of all available mock users.
+   * Retrieves list of all organization users.
    */
-  getUsers(): Promise<MockUser[]>;
+  getUsers(includeInactive?: boolean): Promise<MockUser[]>;
+
+  /**
+   * Toggles activation status for a user.
+   */
+  updateUserStatus(userId: string | number, isActive: boolean): Promise<MockUser>;
+
+  /**
+   * Assigns operational role to a user.
+   */
+  updateUserRole(userId: string | number, role: UserRole): Promise<MockUser>;
+
 
   /**
    * Gets current authenticated mock user.

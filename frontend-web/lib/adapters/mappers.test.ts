@@ -4,9 +4,10 @@ import {
   mapToArticuloPublicView,
   mapToArticuloAdminView,
   mapToDomainAuditResult,
+  mapToDomainUser,
 } from "./mappers";
 import { UserRole, TipoAccion } from "../types/domain";
-import { ApiArticuloAdminOut, ApiAuditEntryResult } from "../types/api";
+import { ApiArticuloAdminOut, ApiAuditEntryResult, ApiUserResponse } from "../types/api";
 
 describe("mappers - RBAC Field Stripping & Conversions", () => {
   const rawAdminArticle: ApiArticuloAdminOut = {
@@ -72,4 +73,27 @@ describe("mappers - RBAC Field Stripping & Conversions", () => {
     expect(domainAudit.tipo_accion).toBe(TipoAccion.BAJA);
     expect(domainAudit.observation).toBe("Falta física");
   });
+
+  it("maps ApiUserResponse correctly to domain MockUser", () => {
+    const apiUser: ApiUserResponse = {
+      user_id: 15,
+      tenant_id: 1,
+      first_name: "Juan",
+      last_name: "Pérez",
+      email: "juan@example.com",
+      branch_id: 2,
+      is_active: true,
+      roles: ["supervisor"],
+    };
+
+    const domainUser = mapToDomainUser(apiUser);
+    expect(domainUser.id).toBe("15");
+    expect(domainUser.name).toBe("Juan Pérez");
+    expect(domainUser.email).toBe("juan@example.com");
+    expect(domainUser.role).toBe(UserRole.SUPERVISOR);
+    expect(domainUser.is_active).toBe(true);
+    expect(domainUser.tenant_id).toBe(1);
+    expect(domainUser.branch_id).toBe(2);
+  });
 });
+

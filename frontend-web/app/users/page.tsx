@@ -1,45 +1,98 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useDataClient } from "@/lib/hooks/useDataClient";
 import { DemoShell } from "@/components/layout/DemoShell";
-import { UserRole } from "@/lib/types/domain";
-import { AlertCircle, Plus, MinusCircle, Check, Info } from "lucide-react";
+import { UserRole, MockUser } from "@/lib/types/domain";
+import { AlertCircle, Plus, MinusCircle, Check, Info, AlertTriangle, X } from "lucide-react";
 
 export default function UsersPage() {
-  const { currentRole, currentUser, users: initialUsers } = useDataClient();
+  const { currentRole, currentUser, client } = useDataClient();
   const isAdmin = currentRole === UserRole.ADMINISTRADOR;
-  
-  // Local status overrides for UI interactivity
-  const [statusOverrides, setStatusOverrides] = useState<Record<string, boolean>>({});
 
-  const users = React.useMemo(() => {
-    return (initialUsers || []).map((u) => ({
-      ...u,
-      is_active: statusOverrides[u.id] !== undefined ? statusOverrides[u.id] : u.is_active,
-    }));
-  }, [initialUsers, statusOverrides]);
+  const [users, setUsers] = useState<MockUser[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  const isLiveApi = process.env.NEXT_PUBLIC_DATA_SOURCE !== "mock";
+  const fetchUsers = useCallback(async () => {
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const fetched = await client.getUsers(true);
+      setUsers(fetched);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error al cargar la lista de usuarios";
+      setActionError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [client, isAdmin]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const totalUsers = users.length;
-  const activeUsers = users.filter((u) => u.is_active).length;
-  const inactiveUsers = users.filter((u) => !u.is_active).length;
-  const auditors = users.filter((u) => u.role === UserRole.AUDITOR).length;
-  const supervisors = users.filter((u) => u.role === UserRole.SUPERVISOR).length;
-  const administrators = users.filter((u) => u.role === UserRole.ADMINISTRADOR).length;
+  const activeUsers = useMemo(() => users.filter((u) => u.is_active !== false).length, [users]);
+  const inactiveUsers = useMemo(() => users.filter((u) => u.is_active === false).length, [users]);
+  const auditors = useMemo(() => users.filter((u) => u.role === UserRole.AUDITOR).length, [users]);
+  const supervisors = useMemo(() => users.filter((u) => u.role === UserRole.SUPERVISOR).length, [users]);
+  const administrators = useMemo(() => users.filter((u) => u.role === UserRole.ADMINISTRADOR).length, [users]);
 
-  const toggleUserStatus = (id: string) => {
-    setStatusOverrides((prev) => {
-      const currentVal = users.find((u) => u.id === id)?.is_active ?? true;
-      return {
-        ...prev,
-        [id]: !currentVal,
-      };
-    });
+  const handleToggleStatus = async (userId: string) => {
+    const targetUser = users.find((u) => u.id === userId);
+    if (!targetUser) return;
+
+    const previousStatus = targetUser.is_active !== false;
+    const newStatus = !previousStatus;
+
+    // Optimistic UI update
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, is_active: newStatus } : u))
+    );
+    setActionError(null);
+
+    try {
+      await client.updateUserStatus(userId, newStatus);
+    } catch (err: unknown) {
+      // Rollback on failure
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, is_active: previousStatus } : u))
+      );
+      const msg = err instanceof Error ? err.message : "No se pudo actualizar el estado del usuario";
+      setActionError(msg);
+    }
   };
 
-  const getInitials = (name: string) => {
+  const handleRoleChange = async (userId: string, newRole: UserRole) => {
+    const targetUser = users.find((u) => u.id === userId);
+    if (!targetUser || targetUser.role === newRole) return;
+
+    const previousRole = targetUser.role;
+
+    // Optimistic UI update
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+    );
+    setActionError(null);
+
+    try {
+      await client.updateUserRole(userId, newRole);
+    } catch (err: unknown) {
+      // Rollback on failure
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, role: previousRole } : u))
+      );
+      const msg = err instanceof Error ? err.message : "No se pudo actualizar el rol del usuario";
+      setActionError(msg);
+    }
+  };
+
+  const getInitials = (name?: string) => {
+    if (!name) return "US";
     return name
       .split(" ")
       .map((n) => n[0])
@@ -75,17 +128,27 @@ export default function UsersPage() {
           )}
         </div>
 
+        {actionError && (
+          <div
+            role="alert"
+            className="flex items-center justify-between gap-3 p-4 mb-6 rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm animate-in fade-in duration-200"
+          >
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-red-600" />
+              <span>{actionError}</span>
+            </div>
+            <button
+              onClick={() => setActionError(null)}
+              className="text-red-500 hover:text-red-700 p-1"
+              aria-label="Cerrar notificación"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {isAdmin ? (
           <>
-            {isLiveApi && (
-              <div className="flex items-center gap-3 p-4 mb-6 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs">
-                <Info className="w-5 h-5 shrink-0 text-blue-600" />
-                <span>
-                  Visualizando sesión activa autenticada. El endpoint de administración de usuarios en el backend (<code>/api/v1/users</code>) se encuentra en desarrollo.
-                </span>
-              </div>
-            )}
-
             {/* KPI Strip */}
             <div className="bg-white border border-slate-200 rounded-xl px-4 sm:px-8 py-4 sm:py-5 flex items-center justify-between mb-6 shadow-sm overflow-x-auto no-scrollbar">
               <div className="flex items-baseline gap-2 shrink-0 pr-6">
@@ -133,103 +196,129 @@ export default function UsersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {users.map((u) => {
-                      const isMe = currentUser?.id === u.id;
-                      const opacityClass = u.is_active ? "opacity-100" : "opacity-60";
-                      return (
-                        <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-6 py-4">
-                            <div className={`flex items-center gap-4 ${opacityClass}`}>
-                              <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
-                                  u.is_active
-                                    ? "bg-[#1a56db] text-white"
-                                    : "bg-slate-200 text-slate-500"
-                                }`}
-                              >
-                                {getInitials(u.name)}
-                              </div>
-                              <div>
-                                <div className="flex items-center">
-                                  <span className={`font-bold ${u.is_active ? "text-slate-900" : "text-slate-500"}`}>
-                                    {u.name}
-                                  </span>
-                                  {isMe && (
-                                    <span className="ml-2 bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                      Tú
+                    {loading ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                          Cargando usuarios...
+                        </td>
+                      </tr>
+                    ) : users.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                          No se encontraron usuarios en la organización.
+                        </td>
+                      </tr>
+                    ) : (
+                      users.map((u) => {
+                        const isMe = currentUser?.id === u.id;
+                        const isActive = u.is_active !== false;
+                        const opacityClass = isActive ? "opacity-100" : "opacity-60";
+
+                        return (
+                          <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className={`flex items-center gap-4 ${opacityClass}`}>
+                                <div
+                                  className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
+                                    isActive
+                                      ? "bg-[#1a56db] text-white"
+                                      : "bg-slate-200 text-slate-500"
+                                  }`}
+                                >
+                                  {getInitials(u.name)}
+                                </div>
+                                <div>
+                                  <div className="flex items-center">
+                                    <span className={`font-bold ${isActive ? "text-slate-900" : "text-slate-500"}`}>
+                                      {u.name}
                                     </span>
-                                  )}
-                                </div>
-                                <div className="text-xs text-slate-400 mt-0.5">
-                                  {getMockLastActive(!!u.is_active, u.role)}
+                                    {isMe && (
+                                      <span className="ml-2 bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                        Tú
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs text-slate-400 mt-0.5">
+                                    {getMockLastActive(isActive, u.role)}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </td>
-                          <td className={`px-6 py-4 text-slate-500 ${opacityClass}`}>
-                            {u.email}
-                          </td>
-                          <td className={`px-6 py-4 ${opacityClass}`}>
-                            {u.role === UserRole.ADMINISTRADOR && (
-                              <span className="bg-slate-900 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                                ADMINISTRADOR
-                              </span>
-                            )}
-                            {u.role === UserRole.AUDITOR && (
-                              <span className="bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                                AUDITOR
-                              </span>
-                            )}
-                            {u.role === UserRole.SUPERVISOR && (
-                              <span className="bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                                SUPERVISOR
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            {u.is_active ? (
-                              <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                ACTIVO
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                                <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-                                INACTIVO
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            {u.is_active ? (
-                              <button
-                                onClick={() => toggleUserStatus(u.id)}
-                                disabled={isMe}
-                                className={`inline-flex items-center gap-1.5 text-sm font-medium ${
-                                  isMe
-                                    ? "text-slate-300 pointer-events-none"
-                                    : "text-red-500 hover:text-red-700"
-                                } transition-colors`}
+                            </td>
+                            <td className={`px-6 py-4 text-slate-500 ${opacityClass}`}>
+                              {u.email}
+                            </td>
+                            <td className={`px-6 py-4 ${opacityClass}`}>
+                              <select
+                                aria-label={`Rol para ${u.name}`}
+                                value={u.role}
+                                disabled={isMe && u.role === UserRole.ADMINISTRADOR}
+                                onChange={(e) => handleRoleChange(u.id, e.target.value as UserRole)}
+                                className={`text-[11px] font-bold uppercase tracking-wider rounded-lg px-2.5 py-1.5 border transition-colors cursor-pointer outline-none focus:ring-2 focus:ring-blue-500 ${
+                                  u.role === UserRole.ADMINISTRADOR
+                                    ? "bg-slate-900 text-white border-slate-800"
+                                    : u.role === UserRole.SUPERVISOR
+                                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                                    : "bg-blue-50 text-blue-700 border-blue-200"
+                                } ${isMe && u.role === UserRole.ADMINISTRADOR ? "opacity-75 cursor-not-allowed" : ""}`}
                               >
-                                <MinusCircle className="w-4 h-4" />
-                                <span>Desactivar</span>
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => toggleUserStatus(u.id)}
-                                className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
-                              >
-                                <Check className="w-4 h-4" />
-                                <span>Reactivar</span>
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                                <option value={UserRole.ADMINISTRADOR} className="bg-white text-slate-900">
+                                  ADMINISTRADOR
+                                </option>
+                                <option value={UserRole.SUPERVISOR} className="bg-white text-slate-900">
+                                  SUPERVISOR
+                                </option>
+                                <option value={UserRole.AUDITOR} className="bg-white text-slate-900">
+                                  AUDITOR
+                                </option>
+                              </select>
+                            </td>
+                            <td className="px-6 py-4">
+                              {isActive ? (
+                                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                  ACTIVO
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                  INACTIVO
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              {isActive ? (
+                                <button
+                                  onClick={() => handleToggleStatus(u.id)}
+                                  disabled={isMe}
+                                  aria-label={`Desactivar usuario ${u.name}`}
+                                  className={`inline-flex items-center gap-1.5 text-sm font-medium ${
+                                    isMe
+                                      ? "text-slate-300 pointer-events-none cursor-not-allowed"
+                                      : "text-red-500 hover:text-red-700"
+                                  } transition-colors`}
+                                >
+                                  <MinusCircle className="w-4 h-4" />
+                                  <span>Desactivar</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleToggleStatus(u.id)}
+                                  aria-label={`Reactivar usuario ${u.name}`}
+                                  className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+                                >
+                                  <Check className="w-4 h-4" />
+                                  <span>Reactivar</span>
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
-              
+
               {/* Footer Note */}
               <div className="bg-slate-50/80 border-t border-slate-200 p-4 flex items-center gap-2 text-sm text-slate-500 font-medium">
                 <Info className="w-4 h-4 shrink-0 text-slate-400" />

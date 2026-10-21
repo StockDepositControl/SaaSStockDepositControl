@@ -4,12 +4,15 @@ import {
   ArticuloAdminView,
   AuditResult,
   TipoAccion,
+  MockUser,
 } from "../types/domain";
 import {
   ApiArticuloAdminOut,
   ApiArticuloPublicOut,
   ApiAuditEntryResult,
+  ApiUserResponse,
 } from "../types/api";
+import { mapRoleToUserRole } from "../utils/jwt";
 
 /**
  * Whitelist mapper for public article view (Auditor & Supervisor).
@@ -111,3 +114,24 @@ export function mapToDomainAuditResult(
     scan_timestamp: new Date().toISOString(),
   };
 }
+
+/**
+ * Maps backend ApiUserResponse to domain MockUser.
+ */
+export function mapToDomainUser(apiUser: ApiUserResponse): MockUser {
+  const roleStr = apiUser.roles && apiUser.roles.length > 0 ? apiUser.roles[0] : "auditor";
+  const fullName = [apiUser.first_name, apiUser.last_name].filter(Boolean).join(" ").trim() || apiUser.email.split("@")[0];
+
+  return {
+    id: String(apiUser.user_id),
+    email: apiUser.email,
+    name: fullName,
+    first_name: apiUser.first_name,
+    last_name: apiUser.last_name,
+    role: mapRoleToUserRole(roleStr),
+    is_active: apiUser.is_active,
+    tenant_id: apiUser.tenant_id,
+    branch_id: apiUser.branch_id ?? null,
+  };
+}
+

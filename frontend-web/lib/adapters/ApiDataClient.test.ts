@@ -251,4 +251,87 @@ describe("ApiDataClient", () => {
       expect(user?.role).toBe(UserRole.AUDITOR);
     });
   });
+
+  describe("User Management endpoints", () => {
+    it("getUsers fetches users from /api/v1/users and maps them", async () => {
+      const getSpy = vi.spyOn(mockHttp, "get").mockResolvedValue([
+        {
+          user_id: 1,
+          tenant_id: 1,
+          first_name: "Admin",
+          last_name: "User",
+          email: "admin@example.com",
+          branch_id: 1,
+          is_active: true,
+          roles: ["administrador"],
+        },
+        {
+          user_id: 2,
+          tenant_id: 1,
+          first_name: "Auditor",
+          last_name: "User",
+          email: "auditor@example.com",
+          branch_id: 1,
+          is_active: false,
+          roles: ["auditor"],
+        },
+      ]);
+
+      const users = await client.getUsers(true);
+
+      expect(getSpy).toHaveBeenCalledWith("/api/v1/users", {
+        params: { include_inactive: true },
+      });
+      expect(users.length).toBe(2);
+      expect(users[0].id).toBe("1");
+      expect(users[0].name).toBe("Admin User");
+      expect(users[0].role).toBe(UserRole.ADMINISTRADOR);
+      expect(users[0].is_active).toBe(true);
+      expect(users[1].id).toBe("2");
+      expect(users[1].role).toBe(UserRole.AUDITOR);
+      expect(users[1].is_active).toBe(false);
+    });
+
+    it("updateUserStatus issues PATCH /api/v1/users/{id}/status and returns mapped user", async () => {
+      const patchSpy = vi.spyOn(mockHttp, "patch").mockResolvedValue({
+        user_id: 2,
+        tenant_id: 1,
+        first_name: "Auditor",
+        last_name: "User",
+        email: "auditor@example.com",
+        branch_id: 1,
+        is_active: false,
+        roles: ["auditor"],
+      });
+
+      const updated = await client.updateUserStatus("2", false);
+
+      expect(patchSpy).toHaveBeenCalledWith("/api/v1/users/2/status", {
+        is_active: false,
+      });
+      expect(updated.id).toBe("2");
+      expect(updated.is_active).toBe(false);
+    });
+
+    it("updateUserRole issues PUT /api/v1/users/{id}/roles and returns mapped user", async () => {
+      const putSpy = vi.spyOn(mockHttp, "put").mockResolvedValue({
+        user_id: 3,
+        tenant_id: 1,
+        first_name: "Staff",
+        last_name: "Member",
+        email: "staff@example.com",
+        branch_id: 1,
+        is_active: true,
+        roles: ["supervisor"],
+      });
+
+      const updated = await client.updateUserRole("3", UserRole.SUPERVISOR);
+
+      expect(putSpy).toHaveBeenCalledWith("/api/v1/users/3/roles", {
+        roles: [UserRole.SUPERVISOR],
+      });
+      expect(updated.id).toBe("3");
+      expect(updated.role).toBe(UserRole.SUPERVISOR);
+    });
+  });
 });

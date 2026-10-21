@@ -22,7 +22,7 @@ class Enterprise(BaseUsers):
     description: Mapped[str] = mapped_column(String(255), nullable=False)
 
     branches: Mapped[List["Branch"]] = relationship("Branch", back_populates="enterprise", cascade="all, delete-orphan")
-    users: Mapped[List["User"]] = relationship("User", back_populates="enterprise")
+    users: Mapped[List["User"]] = relationship("User", back_populates="enterprise", cascade="all, delete-orphan")
 
 
 class Branch(BaseUsers):

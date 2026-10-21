@@ -19,6 +19,8 @@ export interface UseDataClientReturn {
   isLoading?: boolean;
   error?: string | null;
   refreshData?: () => Promise<void>;
+  updateUserStatus: (userId: string | number, isActive: boolean) => Promise<MockUser>;
+  updateUserRole: (userId: string | number, role: UserRole) => Promise<MockUser>;
 }
 
 /**
@@ -40,5 +42,7 @@ export function useDataClient(): UseDataClientReturn {
     isLoading: context.isLoading,
     error: context.error,
     refreshData: context.refreshData,
+    updateUserStatus: (userId, isActive) => context.client.updateUserStatus(userId, isActive),
+    updateUserRole: (userId, role) => context.client.updateUserRole(userId, role),
   };
 }

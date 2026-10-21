@@ -125,7 +125,7 @@ export function MockDataProvider({
   children,
   initialRole,
 }: MockDataProviderProps) {
-  const [users] = useState<MockUser[]>(MOCK_USERS_SEED);
+  const [users, setUsers] = useState<MockUser[]>(MOCK_USERS_SEED);
   const [currentUser, setCurrentUser] = useState<MockUser | null>(null);
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null);
 
@@ -163,9 +163,77 @@ export function MockDataProvider({
     setCurrentRole(null);
   }, []);
 
-  const getUsers = useCallback(async (): Promise<MockUser[]> => {
-    return users;
-  }, [users]);
+  const getUsers = useCallback(
+    async (includeInactive: boolean = true): Promise<MockUser[]> => {
+      if (includeInactive) return users;
+      return users.filter((u) => u.is_active !== false);
+    },
+    [users]
+  );
+
+  const updateUserStatus = useCallback(
+    async (userId: string | number, isActive: boolean): Promise<MockUser> => {
+      const idStr = String(userId);
+      // Invariant: cannot deactivate own active account
+      if (currentUser && currentUser.id === idStr && !isActive) {
+        throw new Error("Administrators cannot deactivate their own account");
+      }
+
+      const userIndex = users.findIndex((u) => u.id === idStr);
+      if (userIndex === -1) {
+        throw new Error(`User with ID '${userId}' not found.`);
+      }
+
+      const updatedUser: MockUser = {
+        ...users[userIndex],
+        is_active: isActive,
+      };
+
+      setUsers((prev) => prev.map((u) => (u.id === idStr ? updatedUser : u)));
+
+      if (currentUser && currentUser.id === idStr) {
+        setCurrentUser(updatedUser);
+      }
+
+      return updatedUser;
+    },
+    [currentUser, users]
+  );
+
+  const updateUserRole = useCallback(
+    async (userId: string | number, role: UserRole): Promise<MockUser> => {
+      const idStr = String(userId);
+      const userIndex = users.findIndex((u) => u.id === idStr);
+      if (userIndex === -1) {
+        throw new Error(`User with ID '${userId}' not found.`);
+      }
+
+      // Invariant: cannot remove admin role from oneself
+      if (
+        currentUser &&
+        currentUser.id === idStr &&
+        currentUser.role === UserRole.ADMINISTRADOR &&
+        role !== UserRole.ADMINISTRADOR
+      ) {
+        throw new Error("Administrators cannot remove the administrator role from themselves");
+      }
+
+      const updatedUser: MockUser = {
+        ...users[userIndex],
+        role,
+      };
+
+      setUsers((prev) => prev.map((u) => (u.id === idStr ? updatedUser : u)));
+
+      if (currentUser && currentUser.id === idStr) {
+        setCurrentUser(updatedUser);
+        setCurrentRole(role);
+      }
+
+      return updatedUser;
+    },
+    [currentUser, users]
+  );
 
   const getCurrentUser = useCallback(async (): Promise<MockUser | null> => {
     return currentUser;
@@ -324,6 +392,7 @@ export function MockDataProvider({
   const resetData = useCallback((): void => {
     setArticles(INITIAL_ARTICULOS_SEED);
     setAuditLogs(INITIAL_AUDIT_LOGS_SEED);
+    setUsers(MOCK_USERS_SEED);
   }, []);
 
   const client: DataClientPort = useMemo(
@@ -337,6 +406,8 @@ export function MockDataProvider({
       getCurrentRole,
       setRole,
       getUsers,
+      updateUserStatus,
+      updateUserRole,
       getCurrentUser,
       login,
       switchUser,
@@ -353,6 +424,8 @@ export function MockDataProvider({
       getCurrentRole,
       setRole,
       getUsers,
+      updateUserStatus,
+      updateUserRole,
       getCurrentUser,
       login,
       switchUser,

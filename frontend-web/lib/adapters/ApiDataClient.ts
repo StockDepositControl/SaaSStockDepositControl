@@ -17,12 +17,16 @@ import {
   ApiAuditEntryResult,
   ApiAuthToken,
   ApiDashboardKPIsResponse,
+  ApiUserResponse,
+  ApiUserStatusUpdate,
+  ApiUserRoleAssignment,
 } from "../types/api";
 import { httpClient, HttpClient, ApiError } from "./httpClient";
 import { parseJwt, mapRoleToUserRole } from "../utils/jwt";
 import {
   mapArticleByRole,
   mapToDomainAuditResult,
+  mapToDomainUser,
 } from "./mappers";
 
 export class ApiDataClient implements DataClientPort {
@@ -130,13 +134,31 @@ export class ApiDataClient implements DataClientPort {
     return this.getStoredUser();
   }
 
-  public async getUsers(): Promise<MockUser[]> {
-    const currentUser = await this.getCurrentUser();
-    if (currentUser) {
-      return [currentUser];
-    }
-    return [];
+  public async getUsers(includeInactive: boolean = true): Promise<MockUser[]> {
+    const data = await this.http.get<ApiUserResponse[]>("/api/v1/users", {
+      params: { include_inactive: includeInactive },
+    });
+    return (data || []).map(mapToDomainUser);
   }
+
+  public async updateUserStatus(userId: string | number, isActive: boolean): Promise<MockUser> {
+    const payload: ApiUserStatusUpdate = { is_active: isActive };
+    const data = await this.http.patch<ApiUserResponse>(
+      `/api/v1/users/${encodeURIComponent(String(userId))}/status`,
+      payload
+    );
+    return mapToDomainUser(data);
+  }
+
+  public async updateUserRole(userId: string | number, role: UserRole): Promise<MockUser> {
+    const payload: ApiUserRoleAssignment = { roles: [role] };
+    const data = await this.http.put<ApiUserResponse>(
+      `/api/v1/users/${encodeURIComponent(String(userId))}/roles`,
+      payload
+    );
+    return mapToDomainUser(data);
+  }
+
 
   public switchUser(_userId: string): void {
     console.warn("ApiDataClient: switchUser is disabled in API mode. Please use login with account credentials.");

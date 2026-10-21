@@ -118,12 +118,16 @@ export function isAdminKPIs(
 export interface MockUser {
   id: string;
   email: string;
-  password: string;
+  password?: string;
   name: string;
+  first_name?: string;
+  last_name?: string;
   role: UserRole;
-  badgeToken: string;
+  badgeToken?: string;
   avatar?: string;
   is_active?: boolean;
+  tenant_id?: number;
+  branch_id?: number | null;
 }
 
 export interface UserSession {

@@ -265,26 +265,53 @@ async def run_seed(
 
             # 8. Seed Users & UserRoles (db_users)
             new_users = []
-            for idx in range(12):
+            user_role_assocs = []
+
+            # Deterministic core accounts for Tenant 1
+            deterministic_profiles = [
+                ("Admin", "Global", "admin@globalmedica.com", role_admin, True),
+                ("Supervisor", "Centro", "supervisor@globalmedica.com", role_sup, True),
+                ("Auditor", "Campo", "auditor@globalmedica.com", role_aud, True),
+                ("ExAuditor", "Inactivo", "inactive_auditor@globalmedica.com", role_aud, False),
+            ]
+            for first, last, email_addr, role_obj, active_flag in deterministic_profiles:
+                u_obj = User(
+                    tenant_id=1,
+                    first_name=first,
+                    last_name=last,
+                    email=email_addr,
+                    password_hash=password_hash,
+                    branch_id=1,
+                    is_active=active_flag
+                )
+                new_users.append(u_obj)
+                # Stash role for association after flush provides user_id
+                u_obj._target_role = role_obj
+
+            # Additional parameterized tenant users (8 users to total 12 for Tenant 1)
+            role_pool = [role_aud, role_sup, role_aud, role_admin, role_aud, role_sup, role_aud, role_sup]
+            for idx in range(4, 12):
                 first, *last = fake.name().split()
                 last_name = " ".join(last) if last else "Doe"
-                new_u = User(
+                # Make 2 out of the 8 random users inactive for realistic turnover (idx 5 and idx 9)
+                is_active = (idx not in (5, 9))
+                u_obj = User(
                     tenant_id=1,
                     first_name=first,
                     last_name=last_name,
                     email=f"user_{idx}@example.com",
                     password_hash=password_hash,
                     branch_id=1,
-                    is_active=True
+                    is_active=is_active
                 )
-                new_users.append(new_u)
+                u_obj._target_role = role_pool[idx - 4]
+                new_users.append(u_obj)
+
             s_users.raw_session.add_all(new_users)
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
 
-            user_role_assocs = []
             for u in new_users:
-                role_obj = random.choice([role_admin, role_sup, role_aud])
-                user_role_assocs.append(UserRoleAssociation(user_id=u.user_id, role_id=role_obj.role_id))
+                user_role_assocs.append(UserRoleAssociation(user_id=u.user_id, role_id=u._target_role.role_id))
             s_users.raw_session.add_all(user_role_assocs)
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
 
@@ -469,7 +496,9 @@ async def run_seed(
             print(f"   • Barcodes: {len(barcodes)}")
             print(f"   • Lots: {len(lotes)} (Expired: {expired_count})")
             print(f"   • Roles (db_users): 3")
-            print(f"   • Users (db_users): {len(new_users)}")
+            active_count = sum(1 for u in new_users if u.is_active)
+            inactive_count = sum(1 for u in new_users if not u.is_active)
+            print(f"   • Users (db_users): {len(new_users)} (Active: {active_count}, Inactive: {inactive_count})")
             print(f"   • Record Tenants (db_analytics): {len(rec_tenants)}")
             print(f"   • Analytics Audits (db_analytics): {len(analytics_audits)}")
             print(f"   • Daily Reports (db_analytics): {len(daily_reports)}")

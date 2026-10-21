@@ -26,6 +26,18 @@ def get_auth_service(
     )
 
 
+def get_user_service() -> "UserService":
+    """
+    FastAPI dependency that instantiates the SQLAlchemyUserRepository using the
+    Users database session factory and returns the configured UserService.
+    """
+    from backend.app.users.services import UserService
+
+    session_factory = get_users_session_factory()
+    user_repo = SQLAlchemyUserRepository(session_factory)
+    return UserService(user_repository=user_repo)
+
+
 def get_article_search_service() -> "ArticleSearchService":
     """
     FastAPI dependency that instantiates the SQLAlchemyArticleRepository using the

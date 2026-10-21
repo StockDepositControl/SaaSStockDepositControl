@@ -5,7 +5,7 @@ from backend.scripts.seed import run_seed
 from backend.adapters.repositories.models import (
     Articulo, StockPorDeposito, LotePorDeposito, CodigoBarraArticulo, Familia,
     Empresa, Sucursal, Deposito,
-    Role, User, RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert
+    Role, User, UserRoleAssociation, RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert
 )
 
 @pytest.mark.asyncio
@@ -237,6 +237,49 @@ async def test_seed_creates_goods_received_audit_records(async_sessions, db_engi
         assert audit.valorized_amount > 0, f"Expected valorized_amount > 0, got {audit.valorized_amount}"
         assert audit.observation is not None and len(audit.observation) > 0, "Expected non-empty observation"
         assert audit.tenant_id == 1
+
+
+@pytest.mark.asyncio
+async def test_seed_user_management_profiles_and_roles(async_sessions, db_engines):
+    """Verify seeded users include deterministic admin/supervisor/auditor, active & inactive flags, and single-role associations."""
+    await run_seed(
+        count=50,
+        seed_val=123,
+        url_articles=db_engines["url_articles"],
+        url_users=db_engines["url_users"],
+        url_analytics=db_engines["url_analytics"]
+    )
+
+    s_users = async_sessions["users"]
+
+    # 1. Check all users have tenant_id = 1
+    res_users = await s_users.execute(select(User))
+    users = res_users.scalars().all()
+    assert len(users) == 12
+
+    # 2. Check active vs inactive user distribution
+    active_users = [u for u in users if u.is_active]
+    inactive_users = [u for u in users if not u.is_active]
+    assert len(active_users) > 0, "Expected active users to be seeded"
+    assert len(inactive_users) > 0, "Expected inactive users to be seeded for admin deactivation testing"
+
+    # 3. Check deterministic user fixtures exist
+    emails = {u.email: u for u in users}
+    assert "admin@globalmedica.com" in emails
+    assert emails["admin@globalmedica.com"].is_active is True
+    assert "supervisor@globalmedica.com" in emails
+    assert "auditor@globalmedica.com" in emails
+    assert "inactive_auditor@globalmedica.com" in emails
+    assert emails["inactive_auditor@globalmedica.com"].is_active is False
+
+    # 4. Check single-role invariant: exactly one role per user
+    res_assocs = await s_users.execute(select(UserRoleAssociation))
+    assocs = res_assocs.scalars().all()
+    assert len(assocs) == len(users), f"Expected exactly {len(users)} role associations (1 per user), got {len(assocs)}"
+
+    user_ids_in_assocs = [a.user_id for a in assocs]
+    assert len(user_ids_in_assocs) == len(set(user_ids_in_assocs)), "Each user must have exactly ONE role association"
+
 
 
 

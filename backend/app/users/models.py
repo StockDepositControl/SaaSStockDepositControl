@@ -40,3 +40,21 @@ class User(UserBase):
     user_id: int
 
     model_config = ConfigDict(from_attributes=True)
+
+class UserStatusUpdate(BaseModel):
+    is_active: bool
+
+class UserRoleAssignment(BaseModel):
+    roles: List[UserRole]
+
+class UserResponse(BaseModel):
+    user_id: int
+    tenant_id: int
+    first_name: str
+    last_name: str
+    email: str
+    branch_id: Optional[int] = None
+    is_active: bool
+    roles: List[UserRole]
+
+    model_config = ConfigDict(from_attributes=True)

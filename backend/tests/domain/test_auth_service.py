@@ -98,3 +98,34 @@ async def test_authenticate_invalid_password():
         await auth_service.authenticate("user@tenant.com", "wrong_password")
 
     assert "Invalid credentials" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_authenticate_inactive_user():
+    mock_repo = AsyncMock()
+    mock_hasher = MagicMock()
+    mock_token_provider = MagicMock()
+
+    inactive_user = User(
+        user_id=2,
+        tenant_id=1,
+        first_name="Inactive",
+        last_name="User",
+        email="inactive@tenant.com",
+        roles=[UserRole.AUDITOR],
+        branch_id=1,
+        is_active=False
+    )
+
+    mock_repo.get_by_email.return_value = inactive_user
+
+    auth_service = AuthService(
+        user_repository=mock_repo,
+        password_hasher=mock_hasher,
+        token_provider=mock_token_provider
+    )
+
+    with pytest.raises(BusinessRuleViolationException) as exc_info:
+        await auth_service.authenticate("inactive@tenant.com", "password")
+
+    assert "User account is inactive" in str(exc_info.value)

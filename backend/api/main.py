@@ -19,6 +19,7 @@ from backend.api.v1.stock import router as stock_router
 from backend.api.v1.enterprises import router as enterprises_router
 from backend.api.v1.branches import router as branches_router
 from backend.api.v1.reports import router as reports_router
+from backend.api.v1.users import router as users_router
 
 # Load environment configuration
 load_dotenv()
@@ -72,6 +73,7 @@ v1_router.include_router(stock_router, prefix="/stock", tags=["Stock & Audit"])
 v1_router.include_router(enterprises_router, prefix="/enterprises", tags=["Enterprises"])
 v1_router.include_router(branches_router, prefix="/branches", tags=["Branches"])
 v1_router.include_router(reports_router, prefix="/reports", tags=["Reports"])
+v1_router.include_router(users_router, prefix="/users", tags=["Users"])
 
 # Include versioned router to layout future resources cleanly
 app.include_router(v1_router)

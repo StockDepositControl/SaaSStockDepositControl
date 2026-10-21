@@ -162,3 +162,24 @@ export interface ApiDashboardKPIsResponse extends ApiDashboardKPIsPublicOut {
   monto_valorizado_baja?: string | number | null;
   monto_valorizado_alta?: string | number | null;
 }
+
+// User Management API Contracts
+export interface ApiUserResponse {
+  user_id: number;
+  tenant_id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  branch_id?: number | null;
+  is_active: boolean;
+  roles: string[];
+}
+
+export interface ApiUserStatusUpdate {
+  is_active: boolean;
+}
+
+export interface ApiUserRoleAssignment {
+  roles: string[];
+}
+
