@@ -562,6 +562,66 @@
         ]
       }
     },
+    "/api/v1/stock/kpis": {
+      "get": {
+        "tags": [
+          "Stock & Audit"
+        ],
+        "summary": "Get aggregated stock and audit KPIs for dashboard",
+        "description": "Returns database-aggregated dashboard KPIs for the active work session. Valorized amounts are included only for administrators.",
+        "operationId": "get_dashboard_kpis_api_v1_stock_kpis_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id_deposito",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Warehouse ID",
+              "default": 1,
+              "title": "Id Deposito"
+            },
+            "description": "Warehouse ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/DashboardKPIsResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DashboardKPIsPublicOut"
+                    }
+                  ],
+                  "title": "Response 200 Get Dashboard Kpis Api V1 Stock Kpis Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/enterprises": {
       "get": {
         "tags": [
@@ -1246,6 +1306,177 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DailyInventoryBalanceResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List Organization Users",
+        "description": "Retrieves all users belonging to the administrator's tenant, with optional inclusion of inactive accounts.",
+        "operationId": "list_users_api_v1_users_get",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Whether to include inactive users",
+              "default": true,
+              "title": "Include Inactive"
+            },
+            "description": "Whether to include inactive users"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserResponse"
+                  },
+                  "title": "Response List Users Api V1 Users Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/status": {
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Toggle User Active Status",
+        "description": "Activates or deactivates a user. Prevents administrator self-deactivation.",
+        "operationId": "update_user_status_api_v1_users__user_id__status_patch",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserStatusUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/roles": {
+      "put": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Assign User Roles",
+        "description": "Assigns operational roles to a user. Enforces single-role constraint and prevents administrator self-demotion.",
+        "operationId": "assign_user_roles_api_v1_users__user_id__roles_put",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleAssignment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
                 }
               }
             }
@@ -2044,6 +2275,128 @@
         "title": "DailyInventoryBalanceSummary",
         "description": "Summary metrics per day for inventory balance."
       },
+      "DashboardKPIsPublicOut": {
+        "properties": {
+          "total_articulos": {
+            "type": "integer",
+            "title": "Total Articulos"
+          },
+          "auditados": {
+            "type": "integer",
+            "title": "Auditados"
+          },
+          "pendientes": {
+            "type": "integer",
+            "title": "Pendientes"
+          },
+          "porcentaje_avance": {
+            "type": "integer",
+            "title": "Porcentaje Avance"
+          },
+          "discrepancias_alta": {
+            "type": "integer",
+            "title": "Discrepancias Alta"
+          },
+          "discrepancias_baja": {
+            "type": "integer",
+            "title": "Discrepancias Baja"
+          },
+          "sin_accion": {
+            "type": "integer",
+            "title": "Sin Accion"
+          },
+          "out_of_stock_count": {
+            "type": "integer",
+            "title": "Out Of Stock Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_articulos",
+          "auditados",
+          "pendientes",
+          "porcentaje_avance",
+          "discrepancias_alta",
+          "discrepancias_baja",
+          "sin_accion",
+          "out_of_stock_count"
+        ],
+        "title": "DashboardKPIsPublicOut",
+        "description": "Dashboard KPIs for non-admin roles. Contains no financial fields (structural RBAC)."
+      },
+      "DashboardKPIsResponse": {
+        "properties": {
+          "total_articulos": {
+            "type": "integer",
+            "title": "Total Articulos"
+          },
+          "auditados": {
+            "type": "integer",
+            "title": "Auditados"
+          },
+          "pendientes": {
+            "type": "integer",
+            "title": "Pendientes"
+          },
+          "porcentaje_avance": {
+            "type": "integer",
+            "title": "Porcentaje Avance"
+          },
+          "discrepancias_alta": {
+            "type": "integer",
+            "title": "Discrepancias Alta"
+          },
+          "discrepancias_baja": {
+            "type": "integer",
+            "title": "Discrepancias Baja"
+          },
+          "sin_accion": {
+            "type": "integer",
+            "title": "Sin Accion"
+          },
+          "out_of_stock_count": {
+            "type": "integer",
+            "title": "Out Of Stock Count"
+          },
+          "monto_valorizado_baja": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Valorizado Baja"
+          },
+          "monto_valorizado_alta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Valorizado Alta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_articulos",
+          "auditados",
+          "pendientes",
+          "porcentaje_avance",
+          "discrepancias_alta",
+          "discrepancias_baja",
+          "sin_accion",
+          "out_of_stock_count"
+        ],
+        "title": "DashboardKPIsResponse",
+        "description": "Dashboard KPIs for administrators, including valorized amounts."
+      },
       "Enterprise": {
         "properties": {
           "description": {
@@ -2364,6 +2717,101 @@
           "Sin Acci\u00f3n"
         ],
         "title": "TipoAccion"
+      },
+      "UserResponse": {
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "title": "User Id"
+          },
+          "tenant_id": {
+            "type": "integer",
+            "title": "Tenant Id"
+          },
+          "first_name": {
+            "type": "string",
+            "title": "First Name"
+          },
+          "last_name": {
+            "type": "string",
+            "title": "Last Name"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "branch_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch Id"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/UserRole"
+            },
+            "type": "array",
+            "title": "Roles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "tenant_id",
+          "first_name",
+          "last_name",
+          "email",
+          "is_active",
+          "roles"
+        ],
+        "title": "UserResponse"
+      },
+      "UserRole": {
+        "type": "string",
+        "enum": [
+          "administrador",
+          "supervisor",
+          "auditor"
+        ],
+        "title": "UserRole"
+      },
+      "UserRoleAssignment": {
+        "properties": {
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/UserRole"
+            },
+            "type": "array",
+            "title": "Roles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "roles"
+        ],
+        "title": "UserRoleAssignment"
+      },
+      "UserStatusUpdate": {
+        "properties": {
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          }
+        },
+        "type": "object",
+        "required": [
+          "is_active"
+        ],
+        "title": "UserStatusUpdate"
       },
       "ValidationError": {
         "properties": {

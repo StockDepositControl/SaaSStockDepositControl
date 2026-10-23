@@ -21,6 +21,7 @@ This document specifies all endpoints, authentication mechanisms, request payloa
    - [5. Enterprises Management](#5-enterprises-management)
    - [6. Branches Management](#6-branches-management)
    - [7. Executive & Analytics Reports (Admin Only)](#7-executive--analytics-reports-admin-only)
+   - [8. User Management (Admin Only)](#8-user-management-admin-only)
 8. [Machine-Readable Specification](#-machine-readable-specification)
 
 ---
@@ -69,9 +70,9 @@ The system enforces strict Role-Based Access Control (RBAC):
 
 | Role | Identifier | Permitted Operations |
 | :--- | :--- | :--- |
-| **Administrador** | `administrador` | **Full access**: Financial queries, executive reports (`/reports/*`), unmasked purchase prices (`pcio_com_siva`), enterprise/branch CRUD, stock adjustments. |
-| **Supervisor** | `supervisor` | **Supervisory access**: Physical counts, stock adjustments, catalog browsing with financial fields masked, branch stock visibility. |
-| **Auditor** | `auditor` | **Field operator**: Physical count capture, batch offline synchronization, catalog lookup with financial fields masked. |
+| **Administrador** | `administrador` | **Full access**: Financial queries, executive reports (`/reports/*`), tenant user administration (`/users/*`), valorized dashboard KPIs (`/stock/kpis`), unmasked purchase prices (`pcio_com_siva`), enterprise/branch CRUD, stock adjustments. |
+| **Supervisor** | `supervisor` | **Supervisory access**: Physical counts, stock adjustments, operational dashboard KPIs (`/stock/kpis` with financial fields masked), catalog browsing with financial fields masked, branch stock visibility. |
+| **Auditor** | `auditor` | **Field operator**: Physical count capture, batch offline synchronization, operational dashboard KPIs (`/stock/kpis` with financial fields masked), catalog lookup with financial fields masked. |
 | **Public / Anonymous** | *None* | Health checks (`/health`, `/api/v1/health`), and user authentication (`/api/v1/auth/login`). |
 
 ### JWT Token Claims Structure
@@ -105,9 +106,9 @@ The API implements dynamic multi-tenancy using context variables (`contextvars`)
 
 ## 🎭 Dynamic Data Masking
 
-Sensitive financial attributes (specifically `pcio_com_siva` - Purchase Cost Without VAT) are conditionally exposed based on the requesting user's role:
-- **`administrador`**: Full schema is serialized, including `pcio_com_siva` and complete margin metrics.
-- **`supervisor` / `auditor`**: The response automatically falls back to public schemas (`ArticuloPublicOut`, `ArticleStockPositionPublicOut`), excluding `pcio_com_siva` at the serializer boundary.
+Sensitive financial attributes (such as `pcio_com_siva` — Purchase Cost Without VAT — and valorized discrepancy totals `monto_valorizado_baja` / `monto_valorizado_alta`) are conditionally exposed based on the requesting user's role:
+- **`administrador`**: Full schemas are serialized (`ArticuloAdminOut`, `ArticleStockPositionAdminOut`, `DashboardKPIsResponse`), including `pcio_com_siva` and valorized financial totals.
+- **`supervisor` / `auditor`**: Responses automatically fall back to public schemas (`ArticuloPublicOut`, `ArticleStockPositionPublicOut`, `DashboardKPIsPublicOut`), excluding financial fields at the serializer boundary.
 
 ---
 
@@ -203,6 +204,7 @@ Verifies user credentials against `db_users` and issues a signed JWT access toke
 
 ##### Error Responses
 - `400 Bad Request`: `{"detail": "Invalid credentials", "error_type": "BusinessRuleViolation"}`
+- `400 Bad Request`: `{"detail": "User account is inactive", "error_type": "BusinessRuleViolation"}` (when the user's `is_active` flag is `false`)
 - `404 Not Found`: `{"detail": "User not found", "error_type": "EntityNotFound"}`
 
 ---
@@ -520,6 +522,78 @@ Batch processor designed for mobile devices operating in offline mode. When mobi
 
 ---
 
+#### `GET /api/v1/stock/kpis`
+Returns database-aggregated dashboard KPIs for the active work session scoped to the user's tenant and branch. Enforces structural RBAC so valorized financial discrepancy totals are returned only to administrators.
+
+- **Authentication**: Bearer Token (`administrador`, `supervisor`, `auditor`)
+- **Status Code**: `200 OK`
+- **Query Parameters & Context Scoping**:
+
+| Parameter | Source | Type | Required | Default | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `id_deposito` | Query | integer | No | `1` | Warehouse/Deposit ID ($\ge 1$) for stock & out-of-stock resolution |
+| `branch_id` (`id_sucursal`) | JWT Claims | integer | Implicit | `1` | Branch ID extracted from `claims.branch_id` to resolve the active work session |
+| `tenant_id` | JWT Claims | string | Implicit | `"1"` | Tenant ID extracted from `claims.tenant_id` |
+
+##### Response Schema Fields (`DashboardKPIsResponse` / `DashboardKPIsPublicOut`)
+| Field | Type | Visibility | Description |
+| :--- | :--- | :--- | :--- |
+| `total_articulos` | integer | All audit roles | Total number of catalog articles |
+| `auditados` | integer | All audit roles | Distinct articles audited in the active work session |
+| `pendientes` | integer | All audit roles | Remaining unaudited articles (`total_articulos - auditados`) |
+| `porcentaje_avance` | integer | All audit roles | Audit completion percentage (`0` to `100`) |
+| `discrepancias_alta` | integer | All audit roles | Number of positive variance entries (`Alta` / surplus) in the active session |
+| `discrepancias_baja` | integer | All audit roles | Number of negative variance entries (`Baja` / shrinkage) in the active session |
+| `sin_accion` | integer | All audit roles | Number of zero-variance entries (`Sin Acción`) in the active session |
+| `out_of_stock_count` | integer | All audit roles | Number of articles with effective stock $\le 0$ in `id_deposito` |
+| `monto_valorizado_baja` | string (Decimal) \| null | `administrador` only | Total valorized financial loss from `Baja` discrepancies |
+| `monto_valorizado_alta` | string (Decimal) \| null | `administrador` only | Total valorized capital addition from `Alta` discrepancies |
+
+##### Example `curl` Request
+```bash
+curl -X GET "http://localhost:8000/api/v1/stock/kpis?id_deposito=1" \
+  -H "Authorization: Bearer <your_jwt_access_token>" \
+  -H "Accept: application/json"
+```
+
+##### Response `200 OK` (Admin role — `DashboardKPIsResponse`)
+```json
+{
+  "total_articulos": 1200,
+  "auditados": 450,
+  "pendientes": 750,
+  "porcentaje_avance": 38,
+  "discrepancias_alta": 12,
+  "discrepancias_baja": 8,
+  "sin_accion": 430,
+  "out_of_stock_count": 34,
+  "monto_valorizado_baja": "18450.75",
+  "monto_valorizado_alta": "9230.00"
+}
+```
+
+##### Response `200 OK` (Supervisor/Auditor role — `DashboardKPIsPublicOut`)
+```json
+{
+  "total_articulos": 1200,
+  "auditados": 450,
+  "pendientes": 750,
+  "porcentaje_avance": 38,
+  "discrepancias_alta": 12,
+  "discrepancias_baja": 8,
+  "sin_accion": 430,
+  "out_of_stock_count": 34
+}
+```
+
+##### Status Codes & Error Responses
+- `200 OK`: Aggregated KPI metrics returned.
+- `401 Unauthorized`: Missing or invalid JWT Bearer token.
+- `403 Forbidden`: User role is not in `["administrador", "supervisor", "auditor"]`.
+- `422 Unprocessable Entity`: Invalid query parameter (e.g., `id_deposito < 1`).
+
+---
+
 ### 5. Enterprises Management
 
 #### `GET /api/v1/enterprises`
@@ -824,6 +898,201 @@ $$\Delta \text{Patrimonial} = \text{Total Altas (Valorizadas)} - \text{Total Mer
   ]
 }
 ```
+
+---
+
+### 8. User Management (Admin Only)
+
+> [!IMPORTANT]
+> All endpoints under `/api/v1/users/*` are strictly restricted to users with the **`administrador`** role (`RoleChecker(allowed_roles=["administrador"])`) and are automatically scoped to the administrator's `tenant_id` extracted from the JWT token claims. Calls by `supervisor` or `auditor` return `403 Forbidden`.
+
+---
+
+#### `GET /api/v1/users`
+Retrieves all organization users belonging to the authenticated administrator's tenant, with optional inclusion of inactive accounts.
+
+- **Authentication**: Bearer Token (`administrador` required)
+- **Status Code**: `200 OK`
+- **Query Parameters**:
+
+| Parameter | Type | Required | Default | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `include_inactive` | boolean | No | `true` | Whether to include deactivated user accounts (`is_active: false`) in the result list |
+
+##### Example `curl` Request
+```bash
+curl -X GET "http://localhost:8000/api/v1/users?include_inactive=true" \
+  -H "Authorization: Bearer <your_jwt_access_token>" \
+  -H "Accept: application/json"
+```
+
+##### Response `200 OK` (`List[UserResponse]`)
+```json
+[
+  {
+    "user_id": 1,
+    "tenant_id": 1,
+    "first_name": "Carlos",
+    "last_name": "Gómez",
+    "email": "admin@farmaciadelsol.com",
+    "branch_id": 1,
+    "is_active": true,
+    "roles": ["administrador"]
+  },
+  {
+    "user_id": 2,
+    "tenant_id": 1,
+    "first_name": "Lucía",
+    "last_name": "Fernández",
+    "email": "auditor@farmaciadelsol.com",
+    "branch_id": 1,
+    "is_active": true,
+    "roles": ["auditor"]
+  }
+]
+```
+
+##### Status Codes & Error Responses
+- `200 OK`: Returns array of `UserResponse` objects for the administrator's tenant.
+- `401 Unauthorized`: Missing or invalid JWT Bearer token.
+- `403 Forbidden`: User does not hold the `administrador` role.
+- `422 Unprocessable Entity`: Invalid boolean query parameter.
+
+---
+
+#### `PATCH /api/v1/users/{user_id}/status`
+Activates or deactivates a user account within the administrator's tenant. Enforces anti-self-deactivation protection at the domain service layer so an administrator cannot lock themselves out. Deactivated users (`is_active: false`) are immediately blocked from authenticating via `POST /api/v1/auth/login`.
+
+- **Authentication**: Bearer Token (`administrador` required)
+- **Status Code**: `200 OK`
+- **Path Parameters**:
+  - `user_id` (integer, required): Target user identifier within the tenant.
+
+##### Request Body (`UserStatusUpdate`)
+| Field | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `is_active` | boolean | **Yes** | Target activation state (`true` = active, `false` = inactive) |
+
+```json
+{
+  "is_active": false
+}
+```
+
+##### Example `curl` Request
+```bash
+curl -X PATCH "http://localhost:8000/api/v1/users/2/status" \
+  -H "Authorization: Bearer <your_jwt_access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"is_active": false}'
+```
+
+##### Response `200 OK` (`UserResponse`)
+```json
+{
+  "user_id": 2,
+  "tenant_id": 1,
+  "first_name": "Lucía",
+  "last_name": "Fernández",
+  "email": "auditor@farmaciadelsol.com",
+  "branch_id": 1,
+  "is_active": false,
+  "roles": ["auditor"]
+}
+```
+
+##### Error Responses & Domain Protections
+- `400 Bad Request` (**Anti-Self-Deactivation Protection** — `BusinessRuleViolationException` / domain validation error when `user_id == claims.user_id` and `is_active == false`):
+  ```json
+  {
+    "detail": "Administrators cannot deactivate their own account",
+    "error_type": "BusinessRuleViolation"
+  }
+  ```
+- `404 Not Found` (`EntityNotFoundException` when target `user_id` does not exist in the administrator's tenant):
+  ```json
+  {
+    "detail": "User 999 not found in this tenant",
+    "error_type": "EntityNotFound"
+  }
+  ```
+- `401 Unauthorized` / `403 Forbidden`: Missing token or non-admin role.
+- `422 Unprocessable Entity`: Invalid payload schema.
+
+---
+
+#### `PUT /api/v1/users/{user_id}/roles`
+Assigns operational roles to a user within the administrator's tenant. Enforces a strict **single-role constraint** (exactly one role from `["administrador", "supervisor", "auditor"]`) and **anti-self-demotion protection** so an administrator cannot strip their own `administrador` role.
+
+- **Authentication**: Bearer Token (`administrador` required)
+- **Status Code**: `200 OK`
+- **Path Parameters**:
+  - `user_id` (integer, required): Target user identifier within the tenant.
+
+##### Request Body (`UserRoleAssignment`)
+| Field | Type | Required | Allowed Values | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `roles` | `List[UserRole]` | **Yes** | `"administrador"`, `"supervisor"`, `"auditor"` | Must contain **exactly 1** valid `UserRole` value |
+
+```json
+{
+  "roles": ["supervisor"]
+}
+```
+
+##### Example `curl` Request
+```bash
+curl -X PUT "http://localhost:8000/api/v1/users/2/roles" \
+  -H "Authorization: Bearer <your_jwt_access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"roles": ["supervisor"]}'
+```
+
+##### Response `200 OK` (`UserResponse`)
+```json
+{
+  "user_id": 2,
+  "tenant_id": 1,
+  "first_name": "Lucía",
+  "last_name": "Fernández",
+  "email": "auditor@farmaciadelsol.com",
+  "branch_id": 1,
+  "is_active": true,
+  "roles": ["supervisor"]
+}
+```
+
+##### Error Responses & Domain Protections
+- `400 Bad Request` (**Single-Role Constraint** — `BusinessRuleViolationException` when `roles` is empty or contains more than 1 role):
+  ```json
+  {
+    "detail": "A user must have at least one role assigned",
+    "error_type": "BusinessRuleViolation"
+  }
+  ```
+  or
+  ```json
+  {
+    "detail": "A user can only have one role at a time",
+    "error_type": "BusinessRuleViolation"
+  }
+  ```
+- `400 Bad Request` (**Anti-Self-Demotion Protection** — `BusinessRuleViolationException` when `user_id == claims.user_id` and `"administrador"` is not in `roles`):
+  ```json
+  {
+    "detail": "Administrators cannot remove the administrator role from themselves",
+    "error_type": "BusinessRuleViolation"
+  }
+  ```
+- `404 Not Found` (`EntityNotFoundException` when target `user_id` does not exist in the administrator's tenant):
+  ```json
+  {
+    "detail": "User 999 not found in this tenant",
+    "error_type": "EntityNotFound"
+  }
+  ```
+- `401 Unauthorized` / `403 Forbidden`: Missing token or non-admin role.
+- `422 Unprocessable Entity`: Invalid role enum value in request body.
 
 ---
 

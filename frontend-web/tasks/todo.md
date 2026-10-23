@@ -1,5 +1,7 @@
 # Tasks: Frontend Web to Backend Live Integration
 
+> **Status: Completed & Verified** — All live backend integration tasks, including `GET /api/v1/stock/kpis` and `/api/v1/users` (`GET`, `PATCH /{user_id}/status`, `PUT /{user_id}/roles`), are implemented and verified by automated unit and component tests.
+
 - [x] Task 1: Environment & CORS Configuration
   - Acceptance: Backend allows requests from `http://localhost:3000` with credentials (configured via root `.env`); frontend has `.env.local` pointing to backend `http://localhost:8000`.
   - Verify: Curl or OPTIONS pre-flight test to `http://localhost:8000/api/v1/health` with `Origin: http://localhost:3000`.
@@ -25,12 +27,17 @@
   - Verify: Unit tests in `ApiDataClient.test.ts` pass; audit mutation updates context state and audit logs.
   - Files: `frontend-web/lib/adapters/ApiDataClient.ts`, `frontend-web/lib/adapters/mappers.ts`.
 
-- [x] Task 6: Reports & Dashboard Financial Integration
-  - Acceptance: `ApiDataClient` fetches live report data from `/api/v1/reports/shrinkage`, `goods-received`, and `inventory-balance`, deriving KPIs for `/dashboard` and `/reportes`.
-  - Verify: Unit tests pass; role protection enforced.
-  - Files: `frontend-web/lib/adapters/ApiDataClient.ts`, `frontend-web/lib/types/api.ts`.
+- [x] Task 6: Dashboard KPIs (`GET /api/v1/stock/kpis`) & Executive Reports (`/api/v1/reports/*`)
+  - Acceptance: `ApiDataClient.getKPIs()` fetches live warehouse KPI aggregations from `GET /api/v1/stock/kpis` (`id_deposito=1`) for `/dashboard`, and `/reports` (`app/reports/page.tsx`) fetches live analytical data from `/api/v1/reports/shrinkage`, `/api/v1/reports/goods-received`, and `/api/v1/reports/inventory-balance`.
+  - Verify: Unit tests pass; role protection and admin-only financial valuation enforced.
+  - Files: `frontend-web/lib/adapters/ApiDataClient.ts`, `frontend-web/app/reports/page.tsx`, `frontend-web/lib/types/api.ts`.
 
 - [x] Task 7: Context Provider Wiring & Build Verification
   - Acceptance: `frontend-web/app/providers.tsx` supplies `ApiDataProvider` by default with `NEXT_PUBLIC_DATA_SOURCE=mock` toggle support. `npm run build` succeeds without type errors.
-  - Verify: `npm run build` succeeds with 0 errors across all routes; 16 unit tests pass cleanly.
+  - Verify: `npm run build` succeeds with 0 errors across all routes; unit tests pass cleanly.
   - Files: `frontend-web/lib/context/ApiDataContext.tsx`, `frontend-web/lib/context/DataContext.tsx`, `frontend-web/app/providers.tsx`, `frontend-web/lib/hooks/useDataClient.ts`.
+
+- [x] Task 8: Administrator User Management & Role Assignment (`/api/v1/users`)
+  - Acceptance: `ApiDataClient` implements `getUsers()` (`GET /api/v1/users`), `updateUserStatus()` (`PATCH /api/v1/users/{user_id}/status`), and `updateUserRole()` (`PUT /api/v1/users/{user_id}/roles`); `MockDataContext` implements stateful parity with anti-lockout and self-demotion invariants; `app/users/page.tsx` renders dynamic KPI counters, status toggles, and single-role selectors with optimistic rollback.
+  - Verify: Unit and component integration tests in `ApiDataClient.test.ts` and `app/users/page.test.tsx` pass.
+  - Files: `frontend-web/lib/ports/DataClientPort.ts`, `frontend-web/lib/adapters/ApiDataClient.ts`, `frontend-web/lib/mocks/MockDataContext.tsx`, `frontend-web/app/users/page.tsx`, `frontend-web/app/users/page.test.tsx`.
