@@ -113,12 +113,13 @@ All commands must be executed from their respective directories or the repositor
 ./scripts/devops/deploy.sh rollback        # Revert staging/production to previous working image tag
 ./scripts/devops/deploy.sh update          # Pull latest GHCR images and restart services
 
-# ─── Backend Service ───
+# ─── Backend Service (`cd backend`, venv at `backend/.venv`) ───
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
 ruff check .                               # Lint Python code
 ruff format --check .                      # Check Python code formatting
+pytest                                     # Full test suite (pytest runs from backend/ via pytest.ini)
 pytest --cov=backend --cov-report=term-missing tests/
 
 # Multi-Database Alembic Migrations
@@ -161,10 +162,10 @@ cd frontend-web && npm audit --audit-level=high
   - *Stage 2 (Runner):* Copies `/opt/venv` from builder, installs minimal runtime libraries (`curl` for healthcheck), creates non-privileged group `appgroup` (GID 10001) and user `appuser` (UID 10001).
 - **Execution:** Runs via `docker-entrypoint.sh` as non-root user.
 - **Entrypoint Behavior (`backend/docker-entrypoint.sh`):**
-  1. Validates that `SECRET_KEY` is not default or weak.
-  2. If `RUN_MIGRATIONS=true` (default in standalone, switchable via env), applies the 3 Alembic migrations sequentially (`alembic.ini`, `alembic_users.ini`, `alembic_analytics.ini`).
-  3. If migrations fail, exits immediately with non-zero code to block container startup.
-  4. Launches Uvicorn: `exec uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-2} --no-access-log` (without `--reload`).
+  1. If `RUN_MIGRATIONS=true` (default in standalone, switchable via env), applies the 3 Alembic migrations sequentially (`alembic.ini`, `alembic_users.ini`, `alembic_analytics.ini`).
+  2. If migrations fail, exits immediately with non-zero code to block container startup.
+  3. Launches Uvicorn: `exec uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-2} --no-access-log` (without `--reload`).
+  *(Note: `SECRET_KEY` validation is not duplicated in shell scripts; it is strictly enforced in Python by FastAPI lifespan in Task T3).*
 - **Container Healthcheck:**
   `HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 CMD curl -f http://127.0.0.1:8000/api/v1/health || exit 1`
 
@@ -197,8 +198,8 @@ cd frontend-web && npm audit --audit-level=high
 ```caddy
 {
     admin off
-    # Global TLS options (optional email for ACME registration)
-    email {$ACME_EMAIL:admin@example.com}
+    # Optional ACME email: omit if unset to avoid dummy domains like admin@example.com
+    {$ACME_EMAIL_OPTION}
 }
 
 {$SERVER_NAME::8080} {
@@ -208,10 +209,8 @@ cd frontend-web && npm audit --audit-level=high
         format json
     }
 
-    # Healthcheck endpoint for Docker & orchestrator probes
-    respond /caddy-health 200 {
-        body "healthy\n"
-    }
+    # Healthcheck endpoint for Docker & orchestrator probes (canonical single-line syntax)
+    respond /caddy-health "healthy" 200
 
     # 1. API routes -> FastAPI Backend
     handle /api/* {
@@ -250,7 +249,7 @@ Images use the standard release reference:
 #### Profile Definitions:
 1. **Default Profile (`proxy`, `backend`, `web`):**
    - For connecting to an **external** database (Client on-premise DB, cloud managed DB, or host MariaDB).
-   - Backend reads `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_SSL_MODE`, `DB_SSL_CA` or direct `DATABASE_URL` variables from `.env`.
+   - Backend runs with `ENVIRONMENT: ${ENVIRONMENT:-production}` (defaulting to production across all containerized targets, requiring explicit `SECRET_KEY`), reading `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_SSL_MODE`, `DB_SSL_CA` or direct `DATABASE_URL` variables from `.env`.
    - Ingress exposes ports `80` and `443` (or `${HTTP_PORT:-8080}` in dev/LAN).
 2. **`with-db` Profile (adds `mariadb`):**
    - Activates containerized MariaDB 10.11 LTS.
@@ -299,16 +298,39 @@ EOSQL
 
 ### 5.4 Module 4: Backend & Database Resilience (`backend-resilience-db`)
 
-#### Database TLS & URL Support in SQLAlchemy Engines & Alembic
-1. **Environment Variables:**
-   - `DB_SSL_MODE`: Options: `disable` (default for localhost/internal docker), `require`, `verify-ca`.
-   - `DB_SSL_CA`: Path to CA certificate bundle (e.g., `/etc/ssl/certs/ca-certificates.crt` or custom client CA).
-2. **Application Engine Implementation (`backend/adapters/database/connection.py`):**
-   - aiomysql connects using `connect_args={"ssl": ssl_context}` when `DB_SSL_MODE` != `disable`.
-   - Standardizes URL building logic across all three databases (`db_articles`, `db_users`, `db_analytics`): prefers full explicit URLs (`ARTICLES_DATABASE_URL`, `USERS_DATABASE_URL`, `ANALYTICS_DATABASE_URL`, `DATABASE_URL`) before falling back to individual parameters (`DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`).
-3. **Alembic `migrations/env.py` Standardization:**
-   - Update `migrations/env.py` to respect full database URLs (`DATABASE_URL`, `USERS_DATABASE_URL`, `ANALYTICS_DATABASE_URL`).
-   - Propagate `connect_args={"ssl": ssl_context}` into `async_engine_from_config` so remote migrations over public IPs execute securely over TLS.
+#### Database TLS & Uniform URL Resolution Contract
+
+##### 1. Deterministic DATABASE_URL Precedence
+Both the application connection provider (`backend/adapters/database/connection.py`) and Alembic migrations runner (`backend/migrations/env.py`) enforce the exact same deterministic precedence order for each target database (`articles`, `users`, `analytics`):
+1. **Specific Database URL:**
+   - `ARTICLES_DATABASE_URL` for `db_articles`
+   - `USERS_DATABASE_URL` for `db_users`
+   - `ANALYTICS_DATABASE_URL` for `db_analytics`
+2. **Base Fallback Database URL:**
+   - `DATABASE_URL` (used directly for `articles`, or with target database name substitution `/db_users` or `/db_analytics` if configured).
+3. **Component Parameters:**
+   - `mysql+aiomysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}`
+   - Defaults:
+     - `DB_USER`: `app_user` (or `root`)
+     - `DB_PASSWORD`: `""`
+     - `DB_HOST`: `localhost`
+     - `DB_PORT`: `3306`
+     - `DB_NAME`: `db_articles` / `db_users` / `db_analytics` (from `DB_NAME_ARTICLES`, `DB_NAME_USERS`, `DB_NAME_ANALYTICS`)
+
+##### 2. Database TLS Configuration
+- Supported modes via `DB_SSL_MODE`: `disable` (default for local dev/internal bridge network), `require`, `verify-ca`.
+- When `DB_SSL_MODE != "disable"`:
+  - `aiomysql` engines and Alembic connect with `connect_args={"ssl": ssl_context}`.
+  - If `DB_SSL_CA` is set, `ssl_context` loads the trusted CA bundle from the specified path.
+
+##### 3. Alembic Percent-Escaping Invariant
+In `backend/migrations/env.py`, when injecting the resolved URL into Alembic:
+```python
+# Escape '%' to '%%' to prevent ConfigParser InterpolationSyntaxError on encoded passwords
+escaped_url = database_url.replace("%", "%%")
+config.set_main_option("sqlalchemy.url", escaped_url)
+```
+Alembic relies on Python's `configparser.ConfigParser` for `.ini` option parsing. If a database password or URL contains `%` characters (e.g., URL-encoded credentials like `%40` or special characters), unescaped `%` triggers an unhandled `InterpolationSyntaxError`. Escaping `%` to `%%` guarantees that complex credentials do not crash migrations.
 
 #### Production Startup Security Validator (`backend/api/main.py`)
 - At application startup (`lifespan` handler):
