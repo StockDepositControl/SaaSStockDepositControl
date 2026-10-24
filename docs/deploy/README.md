@@ -90,7 +90,7 @@ alembic -c backend/migrations/alembic.ini upgrade head
 alembic -c backend/migrations/alembic_users.ini upgrade head
 alembic -c backend/migrations/alembic_analytics.ini upgrade head
 
-# Optional: Seed multi-tenant demo data (default password: password123)
+# Optional: Seed multi-tenant demo data (all users: 123456)
 python -m backend.scripts.seed
 ```
 

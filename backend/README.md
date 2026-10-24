@@ -175,14 +175,12 @@ python -m backend.scripts.seed \
 2. **`db_users` (Tenants, Roles & Demo Users)**:
    - `Enterprise` (`tenant_id=1`, `"Empresa Principal"`) and `Branch` (`id_branch=1`, `"Sucursal Central"`).
    - **3 RBAC Roles (`Role`)**: `administrador`, `supervisor`, and `auditor`.
-   - **12 Demo Users (`User`)** for Tenant 1 (all with default password **`password123`**):
+   - **3 Demo Users (`User`)** for Tenant 1 (all with password **`123456`**):
      | Email | Role | Active Status | Purpose |
      | :--- | :--- | :--- | :--- |
      | `admin@globalmedica.com` | `administrador` | Active (`True`) | Full access, cost visibility (`pcio_com_siva`), reports, user management |
      | `supervisor@globalmedica.com` | `supervisor` | Active (`True`) | Branch supervision and audit operations (masked financial costs) |
      | `auditor@globalmedica.com` | `auditor` | Active (`True`) | Field barcode scanning and stock counting (masked financial costs) |
-     | `inactive_auditor@globalmedica.com` | `auditor` | Inactive (`False`) | Deactivated account for testing login rejection and status toggling |
-     | `user_4@example.com` .. `user_11@example.com` | Mixed roles | 6 Active, 2 Inactive | Additional tenant personnel for user management table testing |
 
 3. **`db_analytics` (Sessions, Audits, Reports & Alerts)**:
    - `RecordTenant` (`tenant_id=1`, `"GlobalMedica Inc."`, `pharmacy_code="FARMA-001"`).

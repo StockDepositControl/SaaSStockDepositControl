@@ -262,7 +262,7 @@ DB_TARGET=analytics alembic -c backend/migrations/alembic.ini upgrade head
 ```
 
 ### 3. Database Seeding
-Populate all three databases (`db_users`, `db_articles`, `db_analytics`) with realistic multi-tenant catalog, FEFO lots, users (`password123`), and work sessions:
+Populate all three databases (`db_users`, `db_articles`, `db_analytics`) with realistic multi-tenant catalog, FEFO lots, 3 users (`123456`), and work sessions:
 ```bash
 python -m backend.scripts.seed
 ```

@@ -69,7 +69,7 @@ async def run_seed(
     provider_users = SQLAlchemyConnectionProvider(database_url=url_users)
     provider_analytics = SQLAlchemyConnectionProvider(database_url=url_analytics)
     hasher = BcryptPasswordHasher()
-    password_hash = hasher.hash("password123")
+    password_hash = hasher.hash("123456")
 
     sucursales_ids = [1]
     depositos = list(range(1, num_deposits + 1))
@@ -272,7 +272,6 @@ async def run_seed(
                 ("Admin", "Global", "admin@globalmedica.com", role_admin, True),
                 ("Supervisor", "Centro", "supervisor@globalmedica.com", role_sup, True),
                 ("Auditor", "Campo", "auditor@globalmedica.com", role_aud, True),
-                ("ExAuditor", "Inactivo", "inactive_auditor@globalmedica.com", role_aud, False),
             ]
             for first, last, email_addr, role_obj, active_flag in deterministic_profiles:
                 u_obj = User(
@@ -287,25 +286,6 @@ async def run_seed(
                 new_users.append(u_obj)
                 # Stash role for association after flush provides user_id
                 u_obj._target_role = role_obj
-
-            # Additional parameterized tenant users (8 users to total 12 for Tenant 1)
-            role_pool = [role_aud, role_sup, role_aud, role_admin, role_aud, role_sup, role_aud, role_sup]
-            for idx in range(4, 12):
-                first, *last = fake.name().split()
-                last_name = " ".join(last) if last else "Doe"
-                # Make 2 out of the 8 random users inactive for realistic turnover (idx 5 and idx 9)
-                is_active = (idx not in (5, 9))
-                u_obj = User(
-                    tenant_id=1,
-                    first_name=first,
-                    last_name=last_name,
-                    email=f"user_{idx}@example.com",
-                    password_hash=password_hash,
-                    branch_id=1,
-                    is_active=is_active
-                )
-                u_obj._target_role = role_pool[idx - 4]
-                new_users.append(u_obj)
 
             s_users.raw_session.add_all(new_users)
             await s_articles.raw_session.flush(); await s_users.raw_session.flush(); await s_analytics.raw_session.flush()
