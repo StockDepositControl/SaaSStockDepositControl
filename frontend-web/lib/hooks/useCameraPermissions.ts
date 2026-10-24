@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 export type CameraPermissionStatus =
   | "idle"
@@ -16,9 +16,53 @@ export interface UseCameraPermissionsResult {
   resetPermission: () => void;
 }
 
+// Time given to the OS / camera HAL (e.g. Samsung Camera2) to release the
+// sensor lock after the probe stream is stopped, before the scanner re-acquires it.
+export const PERMISSION_RELEASE_DELAY_MS = 150;
+
+// Non-destructive permission lookup. Returns null when the Permissions API
+// is unavailable or does not support the "camera" name (e.g. older Firefox/Safari).
+async function queryCameraPermission(): Promise<PermissionState | null> {
+  if (
+    typeof navigator === "undefined" ||
+    !navigator.permissions ||
+    typeof navigator.permissions.query !== "function"
+  ) {
+    return null;
+  }
+
+  try {
+    const result = await navigator.permissions.query({
+      name: "camera" as PermissionName,
+    });
+    return result.state;
+  } catch {
+    return null;
+  }
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function useCameraPermissions(): UseCameraPermissionsResult {
   const [status, setStatus] = useState<CameraPermissionStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Silent check on mount: skip the permission prompt entirely when already granted
+  useEffect(() => {
+    let isCancelled = false;
+
+    queryCameraPermission().then((state) => {
+      if (!isCancelled && state === "granted") {
+        setStatus((prev) => (prev === "idle" ? "granted" : prev));
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const resetPermission = useCallback(() => {
     setStatus("idle");
@@ -58,13 +102,22 @@ export function useCameraPermissions(): UseCameraPermissionsResult {
     setStatus("requesting");
     setErrorMessage(null);
 
+    // 3. Fast path: already granted, no need to touch the camera hardware
+    if ((await queryCameraPermission()) === "granted") {
+      setStatus("granted");
+      return true;
+    }
+
     try {
       const testStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
+        video: { facingMode: { ideal: "environment" } },
       });
 
       // Immediately stop all tracks to avoid leaving hardware open
       testStream.getTracks().forEach((track) => track.stop());
+
+      // Let the driver release the sensor lock before the scanner re-acquires it
+      await wait(PERMISSION_RELEASE_DELAY_MS);
 
       setStatus("granted");
       return true;

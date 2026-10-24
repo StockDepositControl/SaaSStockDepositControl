@@ -21,6 +21,30 @@ export interface UseBarcodeScannerResult {
   switchCamera: () => Promise<void>;
   stopScanning: () => Promise<void>;
   startScanning: () => Promise<void>;
+  retryScanning: () => Promise<void>;
+}
+
+const SCAN_FPS = 10;
+const FALLBACK_QRBOX = { width: 200, height: 150 };
+
+// Guards against zero/NaN viewfinder dimensions while the <video> surface is
+// still mounting, which would otherwise feed invalid sizes into canvas drawing.
+export function computeQrbox(
+  viewfinderWidth: number,
+  viewfinderHeight: number
+): { width: number; height: number } {
+  if (
+    !Number.isFinite(viewfinderWidth) ||
+    !Number.isFinite(viewfinderHeight) ||
+    viewfinderWidth <= 0 ||
+    viewfinderHeight <= 0
+  ) {
+    return FALLBACK_QRBOX;
+  }
+
+  const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+  const edge = Math.floor(minEdge * 0.75);
+  return { width: edge, height: Math.floor(edge * 0.6) };
 }
 
 export function useBarcodeScanner({
@@ -37,117 +61,193 @@ export function useBarcodeScanner({
   const [facingMode, setFacingMode] = useState<"environment" | "user">("environment");
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const isStoppingRef = useRef(false);
+  const isStartingRef = useRef(false);
+  const startPromiseRef = useRef<Promise<void> | null>(null);
+  const stopPromiseRef = useRef<Promise<void> | null>(null);
+  // Incremented to abandon a hung initialization (see retryScanning)
+  const attemptRef = useRef(0);
 
-  // Stop camera tracks explicitly
-  const stopScanning = useCallback(async () => {
-    if (isStoppingRef.current) return;
-    isStoppingRef.current = true;
+  // Keep latest callbacks in refs so inline handlers from the parent do not
+  // change startScanning identity and restart the camera on every render.
+  const onDetectedRef = useRef(onDetected);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onDetectedRef.current = onDetected;
+    onErrorRef.current = onError;
+  }, [onDetected, onError]);
+
+  // Release camera tracks and DOM for the current scanner instance
+  const teardownScanner = useCallback(async () => {
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
+    if (!scanner) return;
 
     try {
-      if (scannerRef.current) {
-        if (scannerRef.current.isScanning) {
-          await scannerRef.current.stop();
-        }
-        await scannerRef.current.clear();
-        scannerRef.current = null;
+      if (scanner.isScanning) {
+        await scanner.stop();
       }
     } catch (err) {
       console.warn("Scanner stop cleanup warning:", err);
-    } finally {
-      setIsScanning(false);
-      setIsInitializing(false);
-      setTorchOn(false);
-      setHasTorch(false);
-      isStoppingRef.current = false;
+    }
+
+    try {
+      await scanner.clear();
+    } catch (err) {
+      console.warn("Scanner clear cleanup warning:", err);
     }
   }, []);
+
+  // Stop camera tracks explicitly. If a start is in flight, wait for it to
+  // settle first so the stream it opens is never orphaned.
+  const stopScanning = useCallback(async () => {
+    if (stopPromiseRef.current) return stopPromiseRef.current;
+
+    const stopPromise = (async () => {
+      try {
+        if (isStartingRef.current && startPromiseRef.current) {
+          await startPromiseRef.current.catch(() => undefined);
+        }
+        await teardownScanner();
+      } finally {
+        setIsScanning(false);
+        setIsInitializing(false);
+        setTorchOn(false);
+        setHasTorch(false);
+        stopPromiseRef.current = null;
+      }
+    })();
+
+    stopPromiseRef.current = stopPromise;
+    return stopPromise;
+  }, [teardownScanner]);
 
   const startScanning = useCallback(async () => {
     if (typeof window === "undefined") return;
     if (!elementId) return;
 
+    // Never run two initializations against the same element
+    if (isStartingRef.current && startPromiseRef.current) {
+      return startPromiseRef.current;
+    }
+
     // Check if element exists in DOM
     const targetEl = document.getElementById(elementId);
     if (!targetEl) return;
 
-    setIsInitializing(true);
-    setError(null);
+    isStartingRef.current = true;
+    const attempt = ++attemptRef.current;
+    const isStale = () => attempt !== attemptRef.current;
+
+    const startPromise = (async () => {
+      setIsInitializing(true);
+      setError(null);
+
+      try {
+        // Let any pending shutdown finish before re-acquiring the camera
+        if (stopPromiseRef.current) {
+          await stopPromiseRef.current;
+        }
+
+        // Clean up any existing scanner instance first
+        await teardownScanner();
+
+        const scanner = new Html5Qrcode(elementId, {
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.EAN_13,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.UPC_A,
+          ],
+          verbose: false,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true,
+          },
+        });
+
+        scannerRef.current = scanner;
+
+        const config = {
+          fps: SCAN_FPS,
+          qrbox: computeQrbox,
+          aspectRatio: 1.0,
+        };
+
+        await scanner.start(
+          { facingMode },
+          config,
+          (decodedText: string) => {
+            // Trigger subtle haptic vibration
+            triggerScanHaptic();
+
+            // Immediately stop scanner to release camera tracks
+            stopScanning().then(() => {
+              onDetectedRef.current(decodedText.trim());
+            });
+          },
+          (errorMessage: string) => {
+            // Transient frame scan failure - normal when reticle has no barcode in view
+            const handleError = onErrorRef.current;
+            if (handleError && !errorMessage.includes("No barcode or QR code detected")) {
+              handleError(errorMessage);
+            }
+          }
+        );
+
+        // A retry abandoned this attempt while the camera was opening: release
+        // its stream only. clear() would wipe the DOM now owned by the new scanner.
+        if (isStale()) {
+          await scanner.stop().catch((err: unknown) => {
+            console.warn("Stale scanner stop cleanup warning:", err);
+          });
+          return;
+        }
+
+        setIsScanning(true);
+
+        // Check for torch capability through the documented camera capabilities API
+        try {
+          if (typeof scanner.getRunningTrackCameraCapabilities === "function") {
+            const torch = scanner.getRunningTrackCameraCapabilities().torchFeature();
+            setHasTorch(torch.isSupported());
+          }
+        } catch {
+          // Torch capability check is non-fatal
+        }
+      } catch (err: unknown) {
+        if (isStale()) return;
+        const errObj = err as { message?: string };
+        const msg = errObj?.message || "Error al iniciar la cámara para escaneo.";
+        setError(msg);
+        setIsScanning(false);
+      } finally {
+        if (!isStale()) {
+          setIsInitializing(false);
+        }
+      }
+    })();
+
+    startPromiseRef.current = startPromise;
 
     try {
-      // Clean up any existing scanner instance first
-      if (scannerRef.current) {
-        await stopScanning();
-      }
-
-      const scanner = new Html5Qrcode(elementId, {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.QR_CODE,
-        ],
-        verbose: false,
-      });
-
-      scannerRef.current = scanner;
-
-      const config = {
-        fps: 15,
-        qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const edge = Math.floor(minEdge * 0.75);
-          return { width: edge, height: Math.floor(edge * 0.6) };
-        },
-        aspectRatio: 1.0,
-      };
-
-      await scanner.start(
-        { facingMode },
-        config,
-        (decodedText: string) => {
-          // Trigger subtle haptic vibration
-          triggerScanHaptic();
-
-          // Immediately stop scanner to release camera tracks
-          stopScanning().then(() => {
-            onDetected(decodedText.trim());
-          });
-        },
-        (errorMessage: string) => {
-          // Transient frame scan failure - normal when reticle has no barcode in view
-          if (onError && !errorMessage.includes("No barcode or QR code detected")) {
-            onError(errorMessage);
-          }
-        }
-      );
-
-      setIsScanning(true);
-
-      // Check for torch capability if supported by running track
-      try {
-        const videoTrack = (scanner as unknown as { getRunningTrack?: () => MediaStreamTrack | null }).getRunningTrack?.();
-        if (videoTrack && typeof videoTrack.getCapabilities === "function") {
-          const capabilities = videoTrack.getCapabilities() as unknown as Record<string, unknown>;
-          if (capabilities && Boolean(capabilities["torch"])) {
-            setHasTorch(true);
-          }
-        }
-      } catch {
-        // Torch capability check is non-fatal
-      }
-    } catch (err: unknown) {
-      const errObj = err as { message?: string };
-      const msg = errObj?.message || "Error al iniciar la cámara para escaneo.";
-      setError(msg);
-      setIsScanning(false);
+      await startPromise;
     } finally {
-      setIsInitializing(false);
+      if (startPromiseRef.current === startPromise) {
+        isStartingRef.current = false;
+        startPromiseRef.current = null;
+      }
     }
-  }, [elementId, facingMode, onDetected, onError, stopScanning]);
+  }, [elementId, facingMode, stopScanning, teardownScanner]);
+
+  // Restart the scan sequence even when the current start() never settles
+  // (e.g. camera held by another app). The hung attempt is abandoned and
+  // releases its own stream if it ever resolves.
+  const retryScanning = useCallback(async () => {
+    attemptRef.current += 1;
+    isStartingRef.current = false;
+    startPromiseRef.current = null;
+    await teardownScanner();
+    await startScanning();
+  }, [startScanning, teardownScanner]);
 
   // Torch control toggle
   const toggleTorch = useCallback(async () => {
@@ -199,5 +299,6 @@ export function useBarcodeScanner({
     switchCamera,
     stopScanning,
     startScanning,
+    retryScanning,
   };
 }

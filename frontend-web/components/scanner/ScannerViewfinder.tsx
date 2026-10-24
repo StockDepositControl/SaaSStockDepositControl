@@ -1,7 +1,10 @@
 "use client";
 
-import React from "react";
-import { Flashlight, FlipHorizontal, RefreshCw } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { AlertCircle, Flashlight, FlipHorizontal, RefreshCw } from "lucide-react";
+
+// After this long "initializing", the camera is likely held by another app
+export const SLOW_INIT_WARNING_MS = 7000;
 
 export interface ScannerViewfinderProps {
   elementId: string;
@@ -9,8 +12,10 @@ export interface ScannerViewfinderProps {
   isScanning: boolean;
   hasTorch: boolean;
   torchOn: boolean;
+  error?: string | null;
   onToggleTorch: () => void;
   onSwitchCamera: () => void;
+  onRetry: () => void;
 }
 
 export function ScannerViewfinder({
@@ -19,9 +24,23 @@ export function ScannerViewfinder({
   isScanning,
   hasTorch,
   torchOn,
+  error,
   onToggleTorch,
   onSwitchCamera,
+  onRetry,
 }: ScannerViewfinderProps) {
+  const [isSlowInit, setIsSlowInit] = useState(false);
+
+  useEffect(() => {
+    if (!isInitializing) return;
+
+    const timer = setTimeout(() => setIsSlowInit(true), SLOW_INIT_WARNING_MS);
+    return () => {
+      clearTimeout(timer);
+      setIsSlowInit(false);
+    };
+  }, [isInitializing]);
+
   return (
     <div className="relative w-full aspect-square max-h-[70vh] bg-black rounded-2xl overflow-hidden flex items-center justify-center border border-slate-700/80 shadow-2xl">
       {/* HTML5-QRCode Target Element */}
@@ -34,6 +53,49 @@ export function ScannerViewfinder({
           <span className="text-xs font-semibold text-slate-300">
             Iniciando cámara...
           </span>
+
+          {isSlowInit && (
+            <div
+              role="alert"
+              className="mx-6 mt-2 flex flex-col items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-center backdrop-blur-md"
+            >
+              <p className="text-xs font-medium text-amber-200">
+                La cámara está tardando en responder. Asegúrese de que ninguna otra aplicación esté usando la cámara.
+              </p>
+              <button
+                type="button"
+                onClick={onRetry}
+                className="min-h-11 px-4 rounded-xl bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-2 transition cursor-pointer active:scale-95 hover:bg-amber-300"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Reintentar
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Error Overlay */}
+      {error && !isInitializing && !isScanning && (
+        <div
+          role="alert"
+          className="absolute inset-0 bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-20 text-white gap-3"
+        >
+          <div className="w-12 h-12 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div className="flex flex-col gap-1 max-w-xs">
+            <h3 className="text-sm font-bold text-white">Error al iniciar cámara</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">{error}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onRetry}
+            className="min-h-11 px-5 rounded-xl bg-amber-400 text-slate-950 text-xs font-bold flex items-center gap-2 transition cursor-pointer active:scale-95 hover:bg-amber-300 shadow-md mt-1"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Reintentar
+          </button>
         </div>
       )}
 

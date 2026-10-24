@@ -34,9 +34,11 @@ export function BarcodeScannerModal({
     isInitializing,
     torchOn,
     hasTorch,
+    error: scannerError,
     toggleTorch,
     switchCamera,
     stopScanning,
+    retryScanning,
   } = useBarcodeScanner({
     elementId: SCANNER_ELEMENT_ID,
     active: isOpen && isPermissionGranted,
@@ -119,8 +121,10 @@ export function BarcodeScannerModal({
               isScanning={isScanning}
               hasTorch={hasTorch}
               torchOn={torchOn}
+              error={scannerError}
               onToggleTorch={toggleTorch}
               onSwitchCamera={switchCamera}
+              onRetry={retryScanning}
             />
           ) : (
             <ScannerPermissionState
