@@ -1,8 +1,8 @@
 # Specification: Portable Deployment + CI/CD with GitHub Actions
 
-- **Status:** Draft
-- **Approved By:** <pending>
-- **Approval Date:** <pending>
+- **Status:** Approved
+- **Approved By:** fede
+- **Approval Date:** 2026-10-24
 - **Initiative:** `portable-deployment-cicd`
 - **Target Environments:**
   1. Client On-Premise Server (External MariaDB/MySQL 8, optional public IP)
