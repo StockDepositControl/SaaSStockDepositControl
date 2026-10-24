@@ -58,7 +58,7 @@ flowchart TD
   - **Files:** `backend/requirements.txt`, `backend/requirements-dev.txt`
   - **Verify:** `cd backend && python -c "with open('requirements.txt') as f: reqs = f.read(); assert 'pytest' not in reqs, 'pytest should be in requirements-dev.txt'"` && `cd backend && pip install -r requirements.txt && python -c "import fastapi, aiomysql, sqlalchemy, cryptography"`
 
-- [ ] **T2: Update repository governance in `antigravity.yaml`**
+- [x] **T2: Update repository governance in `antigravity.yaml`** *(commit `8ba48f2`)*
   - **S#:** `repo-governance`
   - **Risk Tier:** Low
   - **Description:** Update `antigravity.yaml` `allowed_directories` to include `".github/"`, `"specs/"`, and root configuration files. *(Note: The `.gitignore` half of this task—untracking `/specs`—is already done in commit `c4d5bc3`).*

@@ -42,7 +42,7 @@ Execute the tasks sequentially following the vertical slices defined in `tasks.m
 
 1. **Slice 1 (Security & Core Primitives):**
    - Run `T1` (Split dependencies: `backend/requirements.txt` vs `requirements-dev.txt`).
-   - Run `T2` (Update `antigravity.yaml` `allowed_directories`).
+   - Run `T2` (Update `antigravity.yaml` `allowed_directories`). **Done** — commit `8ba48f2`.
    - Run `T3` (Enforce production `SECRET_KEY` startup check in `backend/api/main.py`).
    - Run `T4` (Database TLS and URL precedence in `backend/adapters/database/connection.py`).
    - Run `T5` (Alembic `migrations/env.py` URL precedence, `%` escape, and TLS).
