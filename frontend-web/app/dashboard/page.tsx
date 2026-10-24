@@ -247,8 +247,8 @@ export default function DashboardPage() {
           </h2>
 
           {isAdmin ? (
-            /* Admin 3 Quick Access Cards */
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            /* Admin 2 Quick Access Cards (admins do not register audits) */
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <Link
                 href="/catalog"
                 className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:-translate-y-1 hover:shadow-md hover:bg-slate-50 hover:border-[#1a56db]/30 transition-all duration-200 relative group"
@@ -259,22 +259,6 @@ export default function DashboardPage() {
                 </h3>
                 <p className="text-sm text-slate-500 leading-relaxed pr-6">
                   Explorar el catálogo completo de inventario con costos y niveles de stock actuales.
-                </p>
-                <div className="absolute bottom-6 right-6 text-slate-400 group-hover:text-[#1a56db] group-hover:translate-x-1 transition-all">
-                  <ArrowRight className="w-5 h-5" />
-                </div>
-              </Link>
-
-              <Link
-                href="/audit"
-                className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:-translate-y-1 hover:shadow-md hover:bg-slate-50 hover:border-[#1a56db]/30 transition-all duration-200 relative group"
-              >
-                <ClipboardList className="w-8 h-8 text-slate-600 mb-4" strokeWidth={1.5} />
-                <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-[#1a56db] transition">
-                  Auditar Artículo
-                </h3>
-                <p className="text-sm text-slate-500 leading-relaxed pr-6">
-                  Iniciar o continuar una sesión de auditoría física para el almacén.
                 </p>
                 <div className="absolute bottom-6 right-6 text-slate-400 group-hover:text-[#1a56db] group-hover:translate-x-1 transition-all">
                   <ArrowRight className="w-5 h-5" />

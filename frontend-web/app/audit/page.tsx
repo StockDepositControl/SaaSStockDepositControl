@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useDataClient } from "@/lib/hooks/useDataClient";
 import { DemoShell } from "@/components/layout/DemoShell";
-import { ArticuloPublicView, ArticuloAdminView } from "@/lib/types/domain";
+import { ArticuloPublicView, ArticuloAdminView, UserRole } from "@/lib/types/domain";
 import { BarcodeScannerModal } from "@/components/scanner/BarcodeScannerModal";
 import {
   Search,
@@ -18,7 +19,14 @@ import {
 } from "lucide-react";
 
 export default function AuditPage() {
-  const { client } = useDataClient();
+  const { client, currentRole } = useDataClient();
+  const router = useRouter();
+  const isAdmin = currentRole === UserRole.ADMINISTRADOR;
+
+  // Administrators cannot register audits (backend returns 403): send them away
+  useEffect(() => {
+    if (isAdmin) router.push("/dashboard");
+  }, [isAdmin, router]);
   const [barcodeQuery, setBarcodeQuery] = useState("");
   const [selectedArticle, setSelectedArticle] = useState<
     ArticuloPublicView | ArticuloAdminView | null
@@ -224,6 +232,8 @@ export default function AuditPage() {
       setFeedback({ type: "error", message: `Error al registrar: ${msg}` });
     }
   };
+
+  if (isAdmin) return null;
 
   return (
     <DemoShell>

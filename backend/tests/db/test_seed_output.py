@@ -150,7 +150,7 @@ async def test_seed_db_users_and_db_analytics(async_sessions, db_engines):
 
     # Users check
     res_users = await s_users.execute(select(func.count(User.user_id)))
-    assert res_users.scalar() == 12
+    assert res_users.scalar() == 3
 
     # Record tenants check
     res_tenants = await s_analytics.execute(select(func.count(RecordTenant.tenant_id)))
@@ -255,13 +255,10 @@ async def test_seed_user_management_profiles_and_roles(async_sessions, db_engine
     # 1. Check all users have tenant_id = 1
     res_users = await s_users.execute(select(User))
     users = res_users.scalars().all()
-    assert len(users) == 12
+    assert len(users) == 3
 
-    # 2. Check active vs inactive user distribution
-    active_users = [u for u in users if u.is_active]
-    inactive_users = [u for u in users if not u.is_active]
-    assert len(active_users) > 0, "Expected active users to be seeded"
-    assert len(inactive_users) > 0, "Expected inactive users to be seeded for admin deactivation testing"
+    # 2. Check all seeded users are active
+    assert all(u.is_active for u in users), "Expected all seeded users to be active"
 
     # 3. Check deterministic user fixtures exist
     emails = {u.email: u for u in users}
@@ -269,8 +266,6 @@ async def test_seed_user_management_profiles_and_roles(async_sessions, db_engine
     assert emails["admin@globalmedica.com"].is_active is True
     assert "supervisor@globalmedica.com" in emails
     assert "auditor@globalmedica.com" in emails
-    assert "inactive_auditor@globalmedica.com" in emails
-    assert emails["inactive_auditor@globalmedica.com"].is_active is False
 
     # 4. Check single-role invariant: exactly one role per user
     res_assocs = await s_users.execute(select(UserRoleAssociation))

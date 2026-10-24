@@ -167,11 +167,11 @@ def test_get_stock_position_alphanumeric_tenant(mock_search_service, mock_audit_
 
 
 def test_post_single_audit_endpoint(mock_audit_service):
-    from backend.api.v1.stock import require_audit_roles
+    from backend.api.v1.stock import require_audit_writer_roles
     from backend.app.movements.schemas import AuditEntryResult
     from backend.app.movements.domain import TipoAccion
 
-    app.dependency_overrides[require_audit_roles] = lambda: {
+    app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
         "tenant_id": "1",
@@ -214,10 +214,10 @@ def test_post_single_audit_endpoint(mock_audit_service):
 
 
 def test_post_single_audit_no_active_session_409(mock_audit_service):
-    from backend.api.v1.stock import require_audit_roles
+    from backend.api.v1.stock import require_audit_writer_roles
     from backend.app.exceptions import NoActiveWorkSessionError
 
-    app.dependency_overrides[require_audit_roles] = lambda: {
+    app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
         "tenant_id": "1",
@@ -248,11 +248,11 @@ def test_post_single_audit_no_active_session_409(mock_audit_service):
 
 
 def test_post_batch_audit_endpoint(mock_audit_service):
-    from backend.api.v1.stock import require_audit_roles
+    from backend.api.v1.stock import require_audit_writer_roles
     from backend.app.movements.schemas import AuditBatchResult, AuditEntryResult
     from backend.app.movements.domain import TipoAccion
 
-    app.dependency_overrides[require_audit_roles] = lambda: {
+    app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
         "tenant_id": "1",
@@ -303,11 +303,11 @@ def test_post_batch_audit_endpoint(mock_audit_service):
 
 
 def test_post_single_audit_defaults_omitted_deposit_and_branch(mock_audit_service):
-    from backend.api.v1.stock import require_audit_roles
+    from backend.api.v1.stock import require_audit_writer_roles
     from backend.app.movements.schemas import AuditEntryResult
     from backend.app.movements.domain import TipoAccion
 
-    app.dependency_overrides[require_audit_roles] = lambda: {
+    app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
         "tenant_id": "1",
@@ -350,11 +350,11 @@ def test_post_single_audit_defaults_omitted_deposit_and_branch(mock_audit_servic
 
 
 def test_post_single_audit_defaults_branch_when_claim_missing(mock_audit_service):
-    from backend.api.v1.stock import require_audit_roles
+    from backend.api.v1.stock import require_audit_writer_roles
     from backend.app.movements.schemas import AuditEntryResult
     from backend.app.movements.domain import TipoAccion
 
-    app.dependency_overrides[require_audit_roles] = lambda: {
+    app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
         "tenant_id": "1",
@@ -395,11 +395,11 @@ def test_post_single_audit_defaults_branch_when_claim_missing(mock_audit_service
 
 
 def test_post_single_audit_preserves_explicit_ids(mock_audit_service):
-    from backend.api.v1.stock import require_audit_roles
+    from backend.api.v1.stock import require_audit_writer_roles
     from backend.app.movements.schemas import AuditEntryResult
     from backend.app.movements.domain import TipoAccion
 
-    app.dependency_overrides[require_audit_roles] = lambda: {
+    app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
         "tenant_id": "1",
@@ -443,11 +443,11 @@ def test_post_single_audit_preserves_explicit_ids(mock_audit_service):
 
 
 def test_post_batch_audit_defaults_omitted_deposit_and_branch(mock_audit_service):
-    from backend.api.v1.stock import require_audit_roles
+    from backend.api.v1.stock import require_audit_writer_roles
     from backend.app.movements.schemas import AuditBatchResult, AuditEntryResult
     from backend.app.movements.domain import TipoAccion
 
-    app.dependency_overrides[require_audit_roles] = lambda: {
+    app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
         "tenant_id": "1",
@@ -521,3 +521,27 @@ def test_post_batch_audit_defaults_omitted_deposit_and_branch(mock_audit_service
 
 
 
+
+
+@pytest.mark.parametrize("path,body", [
+    ("/api/v1/stock/audit", {"id_deposito": 1, "id_articulo": "1042", "stock_fisico_contado": 90}),
+    ("/api/v1/stock/audit/batch", {"items": []}),
+])
+def test_admin_cannot_register_audits(mock_audit_service, path, body):
+    from backend.api.dependencies.auth import get_current_user_claims
+
+    app.dependency_overrides[get_current_user_claims] = lambda: {
+        "sub": "admin@globalmedica.com",
+        "role": "administrador",
+        "tenant_id": "1",
+        "user_id": 1,
+    }
+    app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
+
+    response = TestClient(app).post(path, json=body)
+
+    assert response.status_code == 403
+    mock_audit_service.register_single_audit.assert_not_called()
+    mock_audit_service.register_batch_audit.assert_not_called()
+
+    app.dependency_overrides.clear()

@@ -23,10 +23,13 @@ const mockRegisterAudit = vi.fn().mockResolvedValue({
   delta_stock: 0,
 });
 
+let mockRole: UserRole = UserRole.AUDITOR;
+const mockPush = vi.fn();
+
 vi.mock("@/lib/hooks/useDataClient", () => ({
   useDataClient: () => ({
-    currentUser: { id: "USR-001", name: "Auditor Demo", role: UserRole.AUDITOR },
-    currentRole: UserRole.AUDITOR,
+    currentUser: { id: "USR-001", name: "Auditor Demo", role: mockRole },
+    currentRole: mockRole,
     client: {
       getArticuloByBarcode: mockGetArticuloByBarcode,
       searchArticulos: mockSearchArticulos,
@@ -37,13 +40,22 @@ vi.mock("@/lib/hooks/useDataClient", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: mockPush, replace: mockPush }),
   usePathname: () => "/audit",
 }));
 
 describe("AuditPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRole = UserRole.AUDITOR;
+  });
+
+  it("redirects administrators to the dashboard and hides the audit form", () => {
+    mockRole = UserRole.ADMINISTRADOR;
+    render(<AuditPage />);
+
+    expect(mockPush).toHaveBeenCalledWith("/dashboard");
+    expect(screen.queryByText("Auditoría de Stock")).toBeNull();
   });
 
   it("renders search bar and camera scanner button", () => {

@@ -26,6 +26,7 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   adminOnly?: boolean;
+  hideForAdmin?: boolean;
   badge?: string;
 }
 
@@ -40,6 +41,7 @@ const navItems: NavItem[] = [
     href: "/audit",
     icon: ClipboardCheck,
     badge: "En vivo",
+    hideForAdmin: true,
   },
   {
     label: "Catálogo Artículos",
@@ -166,6 +168,9 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             {navItems.map((item) => {
               if (item.adminOnly && !isAdmin) {
                 return null; // Structurally omit admin-only links
+              }
+              if (item.hideForAdmin && isAdmin) {
+                return null; // Admins do not register audits
               }
 
               const isActive =

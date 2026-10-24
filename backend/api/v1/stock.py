@@ -26,8 +26,11 @@ from backend.api.dependencies.services import (
 
 router = APIRouter()
 
-# Enforce RBAC for audit registration endpoints
+# Read access (stock position, dashboard KPIs) is open to every role
 require_audit_roles = RoleChecker(allowed_roles=["administrador", "supervisor", "auditor"])
+
+# Registering audits is a field operation: administrators are excluded
+require_audit_writer_roles = RoleChecker(allowed_roles=["supervisor", "auditor"])
 
 @router.post(
     "/audit",
@@ -38,7 +41,7 @@ require_audit_roles = RoleChecker(allowed_roles=["administrador", "supervisor", 
 )
 async def register_single_audit(
     entry: AuditEntryRequest,
-    claims: dict = Depends(require_audit_roles),
+    claims: dict = Depends(require_audit_writer_roles),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuditEntryResult:
     tenant_id = str(claims.get("tenant_id", "1"))
@@ -128,7 +131,7 @@ async def get_article_stock_position(
 )
 async def register_batch_audit(
     batch: AuditBatchInput,
-    claims: dict = Depends(require_audit_roles),
+    claims: dict = Depends(require_audit_writer_roles),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuditBatchResult:
     tenant_id = str(claims.get("tenant_id", "1"))

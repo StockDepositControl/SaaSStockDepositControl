@@ -261,4 +261,28 @@ describe("DashboardPage (Integration with decoupled hooks)", () => {
     expect(screen.getByText("FALTANTES REGISTRADOS HOY")).toBeDefined();
     expect(screen.getByText("$ ---")).toBeDefined();
   });
+
+  it.each([
+    [UserRole.ADMINISTRADOR, false],
+    [UserRole.SUPERVISOR, true],
+    [UserRole.AUDITOR, true],
+  ])("quick access audit card for %s visible: %s", (role, visible) => {
+    mockUseDataClient.mockReturnValue({
+      currentUser: { id: "USR-X", name: "Test User", role },
+      currentRole: role,
+      logout: vi.fn(),
+    });
+    mockUseKPIs.mockReturnValue({
+      kpis: { ...baseKPIsFixture },
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    mockUseAuditLogs.mockReturnValue({ auditLogs: [], isLoading: false, error: null, refetch: vi.fn() });
+
+    const { container } = render(<DashboardPage />);
+
+    const auditLinks = container.querySelectorAll('main a[href="/audit"]');
+    expect(auditLinks.length > 0).toBe(visible);
+  });
 });
