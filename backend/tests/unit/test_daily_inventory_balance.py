@@ -1,8 +1,12 @@
 from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
-import pytest
 
+import pytest
+from backend.adapters.repositories.models.analytics import AuditRecord as AuditRecordORM
+from backend.adapters.repositories.report_repository import (
+    SQLAlchemyDailyInventoryBalanceReportRepository,
+)
 from backend.app.reports.domain import DailyInventoryBalanceRecord
 from backend.app.reports.ports import DailyInventoryBalanceReportRepositoryPort
 from backend.app.reports.schemas import (
@@ -10,10 +14,6 @@ from backend.app.reports.schemas import (
     DailyInventoryBalanceResponse,
 )
 from backend.app.reports.services import DailyInventoryBalanceReportService
-from backend.adapters.repositories.report_repository import (
-    SQLAlchemyDailyInventoryBalanceReportRepository,
-)
-from backend.adapters.repositories.models.analytics import AuditRecord as AuditRecordORM
 
 
 @pytest.fixture
@@ -50,7 +50,9 @@ async def test_daily_balance_service_empty_records(balance_service, mock_report_
 
 
 @pytest.mark.asyncio
-async def test_daily_balance_service_net_patrimonial_math(balance_service, mock_report_repo):
+async def test_daily_balance_service_net_patrimonial_math(
+    balance_service, mock_report_repo
+):
     record = DailyInventoryBalanceRecord(
         tenant_id=1,
         branch_id=1,
@@ -92,7 +94,9 @@ async def test_daily_balance_service_net_patrimonial_math(balance_service, mock_
 
 
 @pytest.mark.asyncio
-async def test_daily_balance_service_multi_day_aggregation(balance_service, mock_report_repo):
+async def test_daily_balance_service_multi_day_aggregation(
+    balance_service, mock_report_repo
+):
     records = [
         DailyInventoryBalanceRecord(
             tenant_id=1,
@@ -140,7 +144,9 @@ async def test_daily_balance_service_multi_day_aggregation(balance_service, mock
 
 
 @pytest.mark.asyncio
-async def test_daily_balance_service_branch_filter_passthrough(balance_service, mock_report_repo):
+async def test_daily_balance_service_branch_filter_passthrough(
+    balance_service, mock_report_repo
+):
     mock_report_repo.fetch_daily_balance_records.return_value = []
 
     filters = DailyInventoryBalanceFilters(
@@ -229,7 +235,9 @@ async def test_repository_fallback_aggregation_from_audit_records():
         mock_audit_result,
     ]
 
-    repo = SQLAlchemyDailyInventoryBalanceReportRepository(session_factory=mock_session_factory)
+    repo = SQLAlchemyDailyInventoryBalanceReportRepository(
+        session_factory=mock_session_factory
+    )
     records = await repo.fetch_daily_balance_records(
         tenant_id=1,
         start_date=date(2026, 1, 1),

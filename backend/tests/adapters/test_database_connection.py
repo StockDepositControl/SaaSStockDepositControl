@@ -1,22 +1,29 @@
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
+from backend.adapters.database.connection import (
+    SQLAlchemyConnectionProvider,
+    SQLAlchemyDatabaseSession,
+)
 from backend.app.ports.database import ConnectionProvider, DatabaseSession
-from backend.adapters.database.connection import SQLAlchemyConnectionProvider, SQLAlchemyDatabaseSession
 
 # --- Domain Layer Isolation Test ---
 
+
 class DummyRepository:
     """A dummy domain repository that accepts the database session."""
+
     def __init__(self, session: DatabaseSession):
         self.session = session
 
     async def get_data(self) -> str:
         return "data"
 
+
 class DummyDomainService:
     """A pure domain service that manages transactions via ConnectionProvider."""
+
     def __init__(self, connection_provider: ConnectionProvider):
         self.connection_provider = connection_provider
 
@@ -26,6 +33,7 @@ class DummyDomainService:
             data = await repo.get_data()
             await session.commit()
             return data
+
 
 class MockDatabaseSession(DatabaseSession):
     def __init__(self):
@@ -42,6 +50,7 @@ class MockDatabaseSession(DatabaseSession):
     def raw_session(self) -> str:
         return "mocked_underlying_connection"
 
+
 class MockConnectionProvider(ConnectionProvider):
     def __init__(self, mock_session: MockDatabaseSession):
         self.mock_session = mock_session
@@ -52,6 +61,7 @@ class MockConnectionProvider(ConnectionProvider):
 
     async def check_connectivity(self) -> bool:
         return True
+
 
 @pytest.mark.asyncio
 async def test_domain_layer_isolation():
@@ -71,9 +81,10 @@ async def test_domain_layer_isolation():
 
 # --- Adapter Unit Test (Mocked SQLAlchemy) ---
 
+
 @pytest.mark.asyncio
-@patch('backend.adapters.database.connection.create_async_engine')
-@patch('backend.adapters.database.connection.async_sessionmaker')
+@patch("backend.adapters.database.connection.create_async_engine")
+@patch("backend.adapters.database.connection.async_sessionmaker")
 async def test_sqlalchemy_adapter_lifecycle(mock_sessionmaker, mock_create_engine):
     # Arrange
     mock_session = AsyncMock()
@@ -84,13 +95,16 @@ async def test_sqlalchemy_adapter_lifecycle(mock_sessionmaker, mock_create_engin
     class MockContextManager:
         async def __aenter__(self):
             return mock_session
+
         async def __aexit__(self, exc_type, exc_val, exc_tb):
             pass
 
     mock_sessionmaker.return_value = MagicMock(return_value=MockContextManager())
 
     # Create adapter with fake database URL (mocked engine prevents connection attempt)
-    provider = SQLAlchemyConnectionProvider(database_url="mysql+aiomysql://mock:mock@mock/mock")
+    provider = SQLAlchemyConnectionProvider(
+        database_url="mysql+aiomysql://mock:mock@mock/mock"
+    )
     provider.session_factory = mock_sessionmaker()
 
     # Act
@@ -105,9 +119,11 @@ async def test_sqlalchemy_adapter_lifecycle(mock_sessionmaker, mock_create_engin
 
 
 @pytest.mark.asyncio
-@patch('backend.adapters.database.connection.create_async_engine')
-@patch('backend.adapters.database.connection.async_sessionmaker')
-async def test_sqlalchemy_adapter_rollback_on_exception(mock_sessionmaker, mock_create_engine):
+@patch("backend.adapters.database.connection.create_async_engine")
+@patch("backend.adapters.database.connection.async_sessionmaker")
+async def test_sqlalchemy_adapter_rollback_on_exception(
+    mock_sessionmaker, mock_create_engine
+):
     # Arrange
     mock_session = AsyncMock()
     mock_session.close = AsyncMock()
@@ -117,12 +133,15 @@ async def test_sqlalchemy_adapter_rollback_on_exception(mock_sessionmaker, mock_
     class MockContextManager:
         async def __aenter__(self):
             return mock_session
+
         async def __aexit__(self, exc_type, exc_val, exc_tb):
             pass
 
     mock_sessionmaker.return_value = MagicMock(return_value=MockContextManager())
 
-    provider = SQLAlchemyConnectionProvider(database_url="mysql+aiomysql://mock:mock@mock/mock")
+    provider = SQLAlchemyConnectionProvider(
+        database_url="mysql+aiomysql://mock:mock@mock/mock"
+    )
     provider.session_factory = mock_sessionmaker()
 
     # Act & Assert

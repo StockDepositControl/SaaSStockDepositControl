@@ -1,10 +1,8 @@
 from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock
-import pytest
-from fastapi import status
-from fastapi.testclient import TestClient
 
+import pytest
 from backend.api.dependencies.auth import get_current_user_claims
 from backend.api.dependencies.services import get_goods_received_report_service
 from backend.api.main import app
@@ -18,11 +16,13 @@ from backend.app.reports.schemas import (
     GoodsReceivedReportResponse,
 )
 from backend.app.reports.services import GoodsReceivedReportService
-
+from fastapi import status
+from fastapi.testclient import TestClient
 
 # ============================================================================
 # VatCalculator Unit Tests (Pure Fabrication)
 # ============================================================================
+
 
 def test_vat_calculator_unit_cost_zero_vat():
     cost = Decimal("100.00")
@@ -52,6 +52,7 @@ def test_vat_calculator_capital_injected():
 # GoodsReceivedReportService Unit Tests (Mocked Ports)
 # ============================================================================
 
+
 @pytest.fixture
 def mock_report_repo():
     return AsyncMock(spec=GoodsReceivedReportRepositoryPort)
@@ -79,7 +80,9 @@ async def test_get_goods_received_report_empty(report_service, mock_report_repo)
         end_date=date(2026, 9, 30),
     )
 
-    result = await report_service.get_goods_received_report(tenant_id="1", filters=filters)
+    result = await report_service.get_goods_received_report(
+        tenant_id="1", filters=filters
+    )
 
     assert result.total_items == 0
     assert result.total_added_units == 0
@@ -150,7 +153,9 @@ async def test_get_goods_received_report_with_medication_and_standard_vat(
         default_vat_rate=Decimal("0.21"),
     )
 
-    result = await report_service.get_goods_received_report(tenant_id="1", filters=filters)
+    result = await report_service.get_goods_received_report(
+        tenant_id="1", filters=filters
+    )
 
     assert result.total_items == 2
     assert result.total_added_units == 7
@@ -224,7 +229,9 @@ async def test_get_goods_received_report_consolidates_records_same_article_and_r
         end_date=date(2026, 9, 30),
     )
 
-    result = await report_service.get_goods_received_report(tenant_id="1", filters=filters)
+    result = await report_service.get_goods_received_report(
+        tenant_id="1", filters=filters
+    )
 
     assert result.total_items == 1
     assert result.total_added_units == 10
@@ -262,7 +269,9 @@ async def test_get_goods_received_report_article_not_found_graceful(
         end_date=date(2026, 9, 30),
     )
 
-    result = await report_service.get_goods_received_report(tenant_id="1", filters=filters)
+    result = await report_service.get_goods_received_report(
+        tenant_id="1", filters=filters
+    )
 
     assert result.total_items == 1
     item = result.line_items[0]
@@ -276,6 +285,7 @@ async def test_get_goods_received_report_article_not_found_graceful(
 # ============================================================================
 # FastAPI Endpoint Integration Tests (RBAC & Output Validation)
 # ============================================================================
+
 
 @pytest.fixture(autouse=True)
 def clean_dependency_overrides():
@@ -293,14 +303,18 @@ def client():
     return TestClient(app)
 
 
-def test_goods_received_report_forbidden_for_supervisor(client, mock_goods_received_service):
+def test_goods_received_report_forbidden_for_supervisor(
+    client, mock_goods_received_service
+):
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "supervisor@farmanor.com",
         "role": "supervisor",
         "tenant_id": "1",
         "id_usuario": 2,
     }
-    app.dependency_overrides[get_goods_received_report_service] = lambda: mock_goods_received_service
+    app.dependency_overrides[get_goods_received_report_service] = lambda: (
+        mock_goods_received_service
+    )
 
     response = client.get(
         "/api/v1/reports/goods-received?start_date=2026-09-01&end_date=2026-09-30"
@@ -310,14 +324,18 @@ def test_goods_received_report_forbidden_for_supervisor(client, mock_goods_recei
     assert "not permitted" in response.json()["detail"].lower()
 
 
-def test_goods_received_report_forbidden_for_auditor(client, mock_goods_received_service):
+def test_goods_received_report_forbidden_for_auditor(
+    client, mock_goods_received_service
+):
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "auditor@farmanor.com",
         "role": "auditor",
         "tenant_id": "1",
         "id_usuario": 3,
     }
-    app.dependency_overrides[get_goods_received_report_service] = lambda: mock_goods_received_service
+    app.dependency_overrides[get_goods_received_report_service] = lambda: (
+        mock_goods_received_service
+    )
 
     response = client.get(
         "/api/v1/reports/goods-received?start_date=2026-09-01&end_date=2026-09-30"
@@ -371,7 +389,9 @@ def test_goods_received_report_success_for_admin(client, mock_goods_received_ser
         ],
     )
     mock_goods_received_service.get_goods_received_report.return_value = mock_response
-    app.dependency_overrides[get_goods_received_report_service] = lambda: mock_goods_received_service
+    app.dependency_overrides[get_goods_received_report_service] = lambda: (
+        mock_goods_received_service
+    )
 
     response = client.get(
         "/api/v1/reports/goods-received?start_date=2026-09-01&end_date=2026-09-30"
@@ -407,7 +427,9 @@ def test_goods_received_report_invalid_date_range(client, mock_goods_received_se
         "tenant_id": "1",
         "id_usuario": 1,
     }
-    app.dependency_overrides[get_goods_received_report_service] = lambda: mock_goods_received_service
+    app.dependency_overrides[get_goods_received_report_service] = lambda: (
+        mock_goods_received_service
+    )
 
     # start_date > end_date
     response = client.get(

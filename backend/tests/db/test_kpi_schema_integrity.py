@@ -1,5 +1,3 @@
-from sqlalchemy import BigInteger, Integer
-
 from backend.adapters.repositories.models import (
     Articulo,
     AuditRecord,
@@ -7,10 +5,12 @@ from backend.adapters.repositories.models import (
     StockPorDeposito,
     WorkSession,
 )
+from sqlalchemy import BigInteger, Integer
 
 
 def test_stock_pk_prefix_matches_kpi_filter():
-    """Out-of-stock KPI filters by (id_empresa, id_sucursal, id_deposito): must be the PK prefix."""
+    """Out-of-stock KPI filters by (id_empresa, id_sucursal, id_deposito): must be the
+    PK prefix."""
     pk_cols = [c.name for c in StockPorDeposito.__table__.primary_key.columns]
     assert pk_cols[:3] == ["id_empresa", "id_sucursal", "id_deposito"]
     assert "stock_real" in StockPorDeposito.__table__.columns
@@ -26,7 +26,13 @@ def test_articles_db_immutability_guard():
 
 def test_audit_records_tenant_and_session_non_nullable():
     cols = AuditRecord.__table__.columns
-    for name in ("tenant_id", "session_id", "action_type", "valorized_amount", "article_code"):
+    for name in (
+        "tenant_id",
+        "session_id",
+        "action_type",
+        "valorized_amount",
+        "article_code",
+    ):
         assert cols[name].nullable is False, f"audit_records.{name} must be NOT NULL"
 
 
@@ -47,11 +53,19 @@ def test_audit_records_session_fk_rules():
 
 def test_audit_records_session_index_columns():
     idx = next(
-        (i for i in AuditRecord.__table__.indexes if i.name == "idx_audit_session_article_ts"),
+        (
+            i
+            for i in AuditRecord.__table__.indexes
+            if i.name == "idx_audit_session_article_ts"
+        ),
         None,
     )
     assert idx is not None, "Missing idx_audit_session_article_ts"
-    assert [c.name for c in idx.columns] == ["session_id", "article_code", "scan_timestamp"]
+    assert [c.name for c in idx.columns] == [
+        "session_id",
+        "article_code",
+        "scan_timestamp",
+    ]
 
 
 def test_tenant_leading_indexes_on_analytics_tables():

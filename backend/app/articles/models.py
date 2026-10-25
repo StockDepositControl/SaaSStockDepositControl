@@ -1,15 +1,20 @@
 from decimal import Decimal
 from typing import Optional
+
 from pydantic import BaseModel, ConfigDict
+
 
 class FamiliaBase(BaseModel):
     des_familia: str
 
+
 class FamiliaCreate(FamiliaBase):
     pass
 
+
 class FamiliaUpdate(BaseModel):
     des_familia: Optional[str] = None
+
 
 class Familia(FamiliaBase):
     id_familia: str
@@ -22,11 +27,14 @@ class GrupoBase(BaseModel):
     id_grupo: str
     des_grupo: str
 
+
 class GrupoCreate(GrupoBase):
     pass
 
+
 class GrupoUpdate(BaseModel):
     des_grupo: Optional[str] = None
+
 
 class Grupo(GrupoBase):
     model_config = ConfigDict(from_attributes=True)
@@ -35,11 +43,14 @@ class Grupo(GrupoBase):
 class MarcaBase(BaseModel):
     des_marca: str
 
+
 class MarcaCreate(MarcaBase):
     pass
 
+
 class MarcaUpdate(BaseModel):
     des_marca: Optional[str] = None
+
 
 class Marca(MarcaBase):
     id_marca: int
@@ -61,8 +72,10 @@ class ArticuloBase(BaseModel):
     fue_auditado: bool = False
     stock_real: Optional[int] = None
 
+
 class ArticuloCreate(ArticuloBase):
     pass
+
 
 class ArticuloUpdate(BaseModel):
     presentacion: Optional[str] = None
@@ -74,6 +87,7 @@ class ArticuloUpdate(BaseModel):
     id_grupo: Optional[str] = None
     des_grupo: Optional[str] = None
     pcio_com_siva: Optional[Decimal] = None
+
 
 class Articulo(ArticuloBase):
     model_config = ConfigDict(from_attributes=True)
@@ -97,5 +111,3 @@ class ArticuloPublicOut(BaseModel):
 
 class ArticuloAdminOut(ArticuloPublicOut):
     pcio_com_siva: Decimal
-
-

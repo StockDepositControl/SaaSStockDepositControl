@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 
+
 class TokenProvider(ABC):
     @abstractmethod
     def create_token(self, data: Dict[str, Any], expires_delta: int = None) -> str:
@@ -15,6 +16,7 @@ class TokenProvider(ABC):
         Decode and verify a JWT token. Raises ValueError on failure.
         """
         pass
+
 
 class PasswordHasher(ABC):
     @abstractmethod

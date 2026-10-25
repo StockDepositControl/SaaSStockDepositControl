@@ -1,17 +1,15 @@
 import pytest
-from sqlalchemy import create_engine, inspect, select
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
-from datetime import datetime
-
 from backend.adapters.repositories.models import (
     BaseUsers,
-    Enterprise,
     Branch,
-    User,
+    Enterprise,
     Role,
+    User,
     UserRoleAssociation,
 )
+from sqlalchemy import create_engine, inspect, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 
 @pytest.fixture
@@ -33,6 +31,7 @@ def users_inspector():
 # 1. Table & Column Definitions
 # ---------------------------------------------------------------------------
 
+
 def test_user_management_tables_exist(users_inspector):
     tables = users_inspector.get_table_names()
     for expected in ["enterprises", "branches", "users", "roles", "user_roles"]:
@@ -42,8 +41,16 @@ def test_user_management_tables_exist(users_inspector):
 def test_users_table_columns_and_constraints(users_inspector):
     cols = {c["name"]: c for c in users_inspector.get_columns("users")}
     expected_cols = [
-        "user_id", "tenant_id", "first_name", "last_name", "email",
-        "password_hash", "branch_id", "is_active", "created_at", "updated_at"
+        "user_id",
+        "tenant_id",
+        "first_name",
+        "last_name",
+        "email",
+        "password_hash",
+        "branch_id",
+        "is_active",
+        "created_at",
+        "updated_at",
     ]
     for col in expected_cols:
         assert col in cols, f"Column '{col}' missing from users table"
@@ -73,6 +80,7 @@ def test_user_roles_composite_pk(users_inspector):
 # 2. Indexes and Multi-Tenant Unique Constraints
 # ---------------------------------------------------------------------------
 
+
 def test_users_table_indexes(users_inspector):
     indexes = users_inspector.get_indexes("users")
     index_names = {idx["name"]: idx for idx in indexes}
@@ -82,7 +90,10 @@ def test_users_table_indexes(users_inspector):
 
     assert "idx_users_tenant_email" in index_names
     assert index_names["idx_users_tenant_email"]["unique"] in [1, True]
-    assert index_names["idx_users_tenant_email"]["column_names"] == ["tenant_id", "email"]
+    assert index_names["idx_users_tenant_email"]["column_names"] == [
+        "tenant_id",
+        "email",
+    ]
 
     assert "idx_users_branch_id" in index_names
 
@@ -100,7 +111,7 @@ def test_tenant_email_uniqueness_isolation(db_session: Session):
         last_name="One",
         email="operator@pharmacy.com",
         password_hash="hash1",
-        is_active=True
+        is_active=True,
     )
     u2 = User(
         tenant_id=2,
@@ -108,7 +119,7 @@ def test_tenant_email_uniqueness_isolation(db_session: Session):
         last_name="Two",
         email="operator@pharmacy.com",
         password_hash="hash2",
-        is_active=True
+        is_active=True,
     )
     db_session.add_all([u1, u2])
     db_session.commit()
@@ -123,7 +134,7 @@ def test_tenant_email_uniqueness_isolation(db_session: Session):
         last_name="Duplicate",
         email="operator@pharmacy.com",
         password_hash="hash3",
-        is_active=True
+        is_active=True,
     )
     db_session.add(u3)
     with pytest.raises(IntegrityError):
@@ -134,6 +145,7 @@ def test_tenant_email_uniqueness_isolation(db_session: Session):
 # ---------------------------------------------------------------------------
 # 3. Soft-Deactivation & Lifecycle Integrity
 # ---------------------------------------------------------------------------
+
 
 def test_soft_deactivation_lifecycle(db_session: Session):
     ent = Enterprise(tenant_id=1, description="Tenant 1")
@@ -146,7 +158,7 @@ def test_soft_deactivation_lifecycle(db_session: Session):
         last_name="Staff",
         email="staff@tenant1.com",
         password_hash="secret",
-        is_active=True
+        is_active=True,
     )
     db_session.add(user)
     db_session.commit()
@@ -171,6 +183,7 @@ def test_soft_deactivation_lifecycle(db_session: Session):
 # 4. Foreign Key Cascades & Role Associations
 # ---------------------------------------------------------------------------
 
+
 def test_user_role_cascade_on_user_delete(db_session: Session):
     ent = Enterprise(tenant_id=1, description="Tenant 1")
     role_admin = Role(name="administrador", description="Admin role")
@@ -183,7 +196,7 @@ def test_user_role_cascade_on_user_delete(db_session: Session):
         last_name="Admin",
         email="temp_admin@tenant1.com",
         password_hash="secret",
-        is_active=True
+        is_active=True,
     )
     user.roles.append(role_admin)
     db_session.add(user)
@@ -192,7 +205,7 @@ def test_user_role_cascade_on_user_delete(db_session: Session):
     assoc = db_session.scalar(
         select(UserRoleAssociation).where(
             UserRoleAssociation.user_id == user.user_id,
-            UserRoleAssociation.role_id == role_admin.role_id
+            UserRoleAssociation.role_id == role_admin.role_id,
         )
     )
     assert assoc is not None
@@ -224,7 +237,7 @@ def test_enterprise_cascade_deletes_users_and_branches(db_session: Session):
         last_name="User",
         email="cascaded@tenant99.com",
         password_hash="secret",
-        is_active=True
+        is_active=True,
     )
     db_session.add_all([branch, user])
     db_session.commit()
@@ -236,5 +249,7 @@ def test_enterprise_cascade_deletes_users_and_branches(db_session: Session):
     db_session.delete(ent)
     db_session.commit()
 
-    branches_remaining = db_session.scalars(select(Branch).where(Branch.tenant_id == 99)).all()
+    branches_remaining = db_session.scalars(
+        select(Branch).where(Branch.tenant_id == 99)
+    ).all()
     assert len(branches_remaining) == 0

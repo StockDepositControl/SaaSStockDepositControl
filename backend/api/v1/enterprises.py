@@ -1,11 +1,16 @@
 from typing import List
+
+from backend.api.dependencies.services import get_enterprise_service
+from backend.app.enterprises.models import (
+    Enterprise,
+    EnterpriseCreate,
+    EnterpriseUpdate,
+)
+from backend.app.enterprises.services import EnterpriseService
 from fastapi import APIRouter, Depends, status
 
-from backend.app.enterprises.models import Enterprise, EnterpriseCreate, EnterpriseUpdate
-from backend.app.enterprises.services import EnterpriseService
-from backend.api.dependencies.services import get_enterprise_service
-
 router = APIRouter()
+
 
 @router.get("", response_model=List[Enterprise])
 async def list_enterprises(

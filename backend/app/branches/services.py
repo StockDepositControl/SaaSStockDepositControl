@@ -1,14 +1,16 @@
 from typing import List, Optional
+
 from backend.app.branches.models import Branch, BranchCreate, BranchUpdate
 from backend.app.branches.ports import BranchRepositoryPort
 from backend.app.enterprises.ports import EnterpriseRepositoryPort
 from backend.app.exceptions import EntityNotFoundException
 
+
 class BranchService:
     def __init__(
         self,
         branch_repository: BranchRepositoryPort,
-        enterprise_repository: Optional[EnterpriseRepositoryPort] = None
+        enterprise_repository: Optional[EnterpriseRepositoryPort] = None,
     ):
         self.branch_repository = branch_repository
         self.enterprise_repository = enterprise_repository
@@ -26,7 +28,9 @@ class BranchService:
         if self.enterprise_repository:
             enterprise = await self.enterprise_repository.get_by_id(data.tenant_id)
             if not enterprise:
-                raise EntityNotFoundException(f"Enterprise with tenant_id {data.tenant_id} not found")
+                raise EntityNotFoundException(
+                    f"Enterprise with tenant_id {data.tenant_id} not found"
+                )
         return await self.branch_repository.create(data)
 
     async def update_branch(self, branch_id: int, data: BranchUpdate) -> Branch:

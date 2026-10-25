@@ -1,7 +1,6 @@
 from datetime import date
 from decimal import Decimal
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from backend.api.dependencies.auth import RoleChecker
 from backend.api.dependencies.services import (
@@ -22,7 +21,7 @@ from backend.app.reports.services import (
     GoodsReceivedReportService,
     ShrinkageReportService,
 )
-
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 router = APIRouter()
 
@@ -36,11 +35,14 @@ require_admin = RoleChecker(allowed_roles=["administrador"])
     status_code=status.HTTP_200_OK,
     summary="Generate Shrinkage and Financial Erosion Report",
     description="Retrieves consolidated shrinkage movements (audit removals/bajas), "
-    "applies VAT fiscal classification (0% for medications, parameterized default for others), "
+    "applies VAT fiscal classification (0% for medications, parameterized default for "
+    "others), "
     "and calculates total financial erosion. Restricted to administrator role.",
 )
 async def get_shrinkage_report(
-    start_date: date = Query(..., description="Start date for audit records (inclusive)"),
+    start_date: date = Query(
+        ..., description="Start date for audit records (inclusive)"
+    ),
     end_date: date = Query(..., description="End date for audit records (inclusive)"),
     default_vat_rate: Decimal = Query(
         default=Decimal("0.21"),
@@ -78,12 +80,17 @@ async def get_shrinkage_report(
     response_model=GoodsReceivedReportResponse,
     status_code=status.HTTP_200_OK,
     summary="Generate Goods Received and Injected Capital Report",
-    description="Retrieves consolidated goods received movements (audit additions/altas), "
-    "applies VAT fiscal classification (0% for medications, parameterized default for others), "
-    "and calculates total injected capital. Restricted to administrator role.",
+    description=(
+        "Retrieves consolidated goods received movements (audit additions/altas), "
+        "applies VAT fiscal classification (0% for medications, parameterized "
+        "default for others), "
+        "and calculates total injected capital. Restricted to administrator role."
+    ),
 )
 async def get_goods_received_report(
-    start_date: date = Query(..., description="Start date for audit records (inclusive)"),
+    start_date: date = Query(
+        ..., description="Start date for audit records (inclusive)"
+    ),
     end_date: date = Query(..., description="End date for audit records (inclusive)"),
     default_vat_rate: Decimal = Query(
         default=Decimal("0.21"),
@@ -121,15 +128,25 @@ async def get_goods_received_report(
     response_model=DailyInventoryBalanceResponse,
     status_code=status.HTTP_200_OK,
     summary="Generate Daily Inventory Cost Ledger Report",
-    description="Retrieves consolidated daily inventory balance (Goods Received vs Shrinkage), "
-    "calculates net patrimonial variation (Delta = Altas - Mermas). Exclusive to administrator role.",
+    description=(
+        "Retrieves consolidated daily inventory balance (Goods Received vs "
+        "Shrinkage), "
+        "calculates net patrimonial variation (Delta = Altas - Mermas). Exclusive to "
+        "administrator role."
+    ),
 )
 async def get_daily_inventory_balance_report(
-    start_date: date = Query(..., description="Start date for audit records (inclusive)"),
+    start_date: date = Query(
+        ..., description="Start date for audit records (inclusive)"
+    ),
     end_date: date = Query(..., description="End date for audit records (inclusive)"),
-    branch_id: Optional[int] = Query(default=None, description="Optional branch ID filter", ge=1),
+    branch_id: Optional[int] = Query(
+        default=None, description="Optional branch ID filter", ge=1
+    ),
     claims: dict = Depends(require_admin),
-    service: DailyInventoryBalanceReportService = Depends(get_daily_inventory_balance_report_service),
+    service: DailyInventoryBalanceReportService = Depends(
+        get_daily_inventory_balance_report_service
+    ),
 ) -> DailyInventoryBalanceResponse:
     if start_date > end_date:
         raise HTTPException(
@@ -144,5 +161,6 @@ async def get_daily_inventory_balance_report(
         branch_id=branch_id,
     )
 
-    return await service.get_daily_inventory_balance_report(tenant_id=tenant_id, filters=filters)
-
+    return await service.get_daily_inventory_balance_report(
+        tenant_id=tenant_id, filters=filters
+    )

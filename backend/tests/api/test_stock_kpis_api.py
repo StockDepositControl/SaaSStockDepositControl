@@ -1,15 +1,18 @@
-import pytest
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
-from fastapi.testclient import TestClient
 
+import pytest
+from backend.api.dependencies.services import (
+    get_stock_kpi_service,
+    get_work_session_service,
+)
 from backend.api.main import app
 from backend.api.v1.stock import require_audit_roles
-from backend.api.dependencies.services import get_stock_kpi_service, get_work_session_service
 from backend.app.movements.schemas import DashboardKPIsPublicOut, DashboardKPIsResponse
 from backend.app.movements.services import StockKPIService
 from backend.app.work_sessions.services import WorkSessionService
+from fastapi.testclient import TestClient
 
 BASE = dict(
     total_articulos=200,

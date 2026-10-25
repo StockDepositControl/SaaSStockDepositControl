@@ -1,14 +1,16 @@
 import os
-from backend.app.ports.database import ConnectionProvider
+
 from backend.adapters.database.connection import SQLAlchemyConnectionProvider
-from backend.app.ports.security import TokenProvider, PasswordHasher
 from backend.adapters.security.jwt_provider import PyJWTTokenProvider
 from backend.adapters.security.password_hasher import BcryptPasswordHasher
+from backend.app.ports.database import ConnectionProvider
+from backend.app.ports.security import PasswordHasher, TokenProvider
 
 # Singleton instances
 _connection_provider: ConnectionProvider | None = None
 _token_provider: TokenProvider | None = None
 _password_hasher: PasswordHasher | None = None
+
 
 def get_connection_provider() -> ConnectionProvider:
     """
@@ -20,6 +22,7 @@ def get_connection_provider() -> ConnectionProvider:
         _connection_provider = SQLAlchemyConnectionProvider()
     return _connection_provider
 
+
 def get_token_provider() -> TokenProvider:
     """
     Dependency injection provider returning the TokenProvider port.
@@ -30,6 +33,7 @@ def get_token_provider() -> TokenProvider:
         secret_key = os.getenv("SECRET_KEY", "supersecret-dev-key")
         _token_provider = PyJWTTokenProvider(secret_key=secret_key)
     return _token_provider
+
 
 def get_password_hasher() -> PasswordHasher:
     """

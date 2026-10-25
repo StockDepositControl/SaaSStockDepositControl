@@ -1,9 +1,9 @@
-import pytest
 from decimal import Decimal
 from unittest.mock import AsyncMock
 
+import pytest
 from backend.app.movements.domain import SessionAuditAggregates
-from backend.app.movements.ports import StockRepositoryPort, AuditRepositoryPort
+from backend.app.movements.ports import AuditRepositoryPort, StockRepositoryPort
 from backend.app.movements.schemas import DashboardKPIsPublicOut, DashboardKPIsResponse
 from backend.app.movements.services import KPICalculator, StockKPIService
 

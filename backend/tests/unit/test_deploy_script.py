@@ -1,4 +1,6 @@
-"""Behavioural tests for scripts/devops/deploy.sh using stub docker/curl/sleep binaries."""
+"""
+Behavioural tests for scripts/devops/deploy.sh using stub docker/curl/sleep binaries.
+"""
 
 import gzip
 import os

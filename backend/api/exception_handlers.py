@@ -1,53 +1,51 @@
+from backend.app.exceptions import (
+    BusinessRuleViolationException,
+    DomainException,
+    EntityNotFoundException,
+    NoActiveWorkSessionError,
+)
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from backend.app.exceptions import (
-    EntityNotFoundException,
-    BusinessRuleViolationException,
-    NoActiveWorkSessionError,
-    DomainException,
-)
+
 
 def register_exception_handlers(app: FastAPI) -> None:
     """
     Registers centralized exception handlers to translate pure domain exceptions
     into standardized HTTP JSON responses.
     """
+
     @app.exception_handler(NoActiveWorkSessionError)
-    async def no_active_work_session_handler(request: Request, exc: NoActiveWorkSessionError) -> JSONResponse:
+    async def no_active_work_session_handler(
+        request: Request, exc: NoActiveWorkSessionError
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=409,
-            content={
-                "detail": exc.message,
-                "error_type": "NoActiveWorkSession"
-            }
+            content={"detail": exc.message, "error_type": "NoActiveWorkSession"},
         )
 
     @app.exception_handler(EntityNotFoundException)
-    async def entity_not_found_handler(request: Request, exc: EntityNotFoundException) -> JSONResponse:
+    async def entity_not_found_handler(
+        request: Request, exc: EntityNotFoundException
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=404,
-            content={
-                "detail": exc.message,
-                "error_type": "EntityNotFound"
-            }
+            content={"detail": exc.message, "error_type": "EntityNotFound"},
         )
 
     @app.exception_handler(BusinessRuleViolationException)
-    async def business_rule_violation_handler(request: Request, exc: BusinessRuleViolationException) -> JSONResponse:
+    async def business_rule_violation_handler(
+        request: Request, exc: BusinessRuleViolationException
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=400,
-            content={
-                "detail": exc.message,
-                "error_type": "BusinessRuleViolation"
-            }
+            content={"detail": exc.message, "error_type": "BusinessRuleViolation"},
         )
 
     @app.exception_handler(DomainException)
-    async def domain_exception_handler(request: Request, exc: DomainException) -> JSONResponse:
+    async def domain_exception_handler(
+        request: Request, exc: DomainException
+    ) -> JSONResponse:
         return JSONResponse(
             status_code=500,
-            content={
-                "detail": exc.message,
-                "error_type": "InternalDomainError"
-            }
+            content={"detail": exc.message, "error_type": "InternalDomainError"},
         )

@@ -1,11 +1,13 @@
 from typing import List, Optional
+
+from backend.adapters.database.connection import get_users_session_factory
+from backend.adapters.repositories.models.users import Branch as BranchORM
+from backend.app.branches.models import Branch as BranchDomain
+from backend.app.branches.models import BranchCreate, BranchUpdate
+from backend.app.branches.ports import BranchRepositoryPort
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from backend.app.branches.models import Branch as BranchDomain, BranchCreate, BranchUpdate
-from backend.app.branches.ports import BranchRepositoryPort
-from backend.adapters.repositories.models.users import Branch as BranchORM
-from backend.adapters.database.connection import get_users_session_factory
 
 class SQLAlchemyBranchRepository(BranchRepositoryPort):
     def __init__(self, session_factory: Optional[async_sessionmaker] = None):
@@ -15,7 +17,7 @@ class SQLAlchemyBranchRepository(BranchRepositoryPort):
         return BranchDomain(
             id_branch=orm.id_branch,
             tenant_id=orm.tenant_id,
-            description=orm.description
+            description=orm.description,
         )
 
     async def get_by_id(self, branch_id: int) -> Optional[BranchDomain]:
@@ -34,15 +36,14 @@ class SQLAlchemyBranchRepository(BranchRepositoryPort):
     async def create(self, data: BranchCreate) -> BranchDomain:
         async with self.session_factory() as session:
             async with session.begin():
-                orm = BranchORM(
-                    tenant_id=data.tenant_id,
-                    description=data.description
-                )
+                orm = BranchORM(tenant_id=data.tenant_id, description=data.description)
                 session.add(orm)
             await session.refresh(orm)
             return self._to_domain(orm)
 
-    async def update(self, branch_id: int, data: BranchUpdate) -> Optional[BranchDomain]:
+    async def update(
+        self, branch_id: int, data: BranchUpdate
+    ) -> Optional[BranchDomain]:
         async with self.session_factory() as session:
             async with session.begin():
                 stmt = select(BranchORM).where(BranchORM.id_branch == branch_id)

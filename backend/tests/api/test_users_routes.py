@@ -1,14 +1,17 @@
 from unittest.mock import AsyncMock
-import pytest
-from fastapi import status
-from fastapi.testclient import TestClient
 
+import pytest
 from backend.api.dependencies.auth import get_current_user_claims
 from backend.api.dependencies.services import get_user_service
 from backend.api.main import app
-from backend.app.exceptions import BusinessRuleViolationException, EntityNotFoundException
+from backend.app.exceptions import (
+    BusinessRuleViolationException,
+    EntityNotFoundException,
+)
 from backend.app.users.models import User, UserRole
 from backend.app.users.services import UserService
+from fastapi import status
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)
@@ -103,7 +106,9 @@ def test_list_users_as_admin(client, mock_user_service):
     assert data[1]["is_active"] is False
     assert "password_hash" not in data[0]
 
-    mock_user_service.list_users.assert_called_once_with(tenant_id=1, include_inactive=True)
+    mock_user_service.list_users.assert_called_once_with(
+        tenant_id=1, include_inactive=True
+    )
 
 
 def test_update_user_status_success(client, mock_user_service):
@@ -164,7 +169,9 @@ def test_update_user_status_not_found(client, mock_user_service):
         "id_usuario": 1,
     }
     app.dependency_overrides[get_user_service] = lambda: mock_user_service
-    mock_user_service.update_status.side_effect = EntityNotFoundException("User 999 not found")
+    mock_user_service.update_status.side_effect = EntityNotFoundException(
+        "User 999 not found"
+    )
 
     response = client.patch("/api/v1/users/999/status", json={"is_active": True})
     assert response.status_code == status.HTTP_404_NOT_FOUND
@@ -230,7 +237,9 @@ def test_assign_user_roles_multiple_roles_forbidden(client, mock_user_service):
         "A user can only have one role at a time"
     )
 
-    response = client.put("/api/v1/users/2/roles", json={"roles": ["supervisor", "auditor"]})
+    response = client.put(
+        "/api/v1/users/2/roles", json={"roles": ["supervisor", "auditor"]}
+    )
     assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert "one role at a time" in response.json()["detail"]
 
@@ -249,7 +258,10 @@ def test_assign_user_roles_self_demotion_forbidden(client, mock_user_service):
 
     response = client.put("/api/v1/users/1/roles", json={"roles": ["supervisor"]})
     assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "cannot remove the administrator role from themselves" in response.json()["detail"]
+    assert (
+        "cannot remove the administrator role from themselves"
+        in response.json()["detail"]
+    )
 
 
 def test_assign_user_roles_invalid_role_enum(client):
@@ -260,5 +272,7 @@ def test_assign_user_roles_invalid_role_enum(client):
         "id_usuario": 1,
     }
 
-    response = client.put("/api/v1/users/2/roles", json={"roles": ["super_admin_invalid"]})
+    response = client.put(
+        "/api/v1/users/2/roles", json={"roles": ["super_admin_invalid"]}
+    )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

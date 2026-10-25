@@ -1,34 +1,34 @@
+from backend.adapters.repositories.models.analytics import (
+    ActionType,
+    AuditRecord,
+    BaseAnalytics,
+    CriticalShrinkageAlert,
+    DailyReport,
+    RecordTenant,
+    RiskLevel,
+    SessionStatus,
+    WorkSession,
+)
 from backend.adapters.repositories.models.articles import (
+    Articulo,
     BaseArticles,
+    CodigoBarraArticulo,
+    Deposito,
+    Empresa,
     Familia,
     Grupo,
-    Marca,
-    Articulo,
-    StockPorDeposito,
     LotePorDeposito,
-    CodigoBarraArticulo,
-    Empresa,
+    Marca,
+    StockPorDeposito,
     Sucursal,
-    Deposito,
 )
 from backend.adapters.repositories.models.users import (
     BaseUsers,
-    Enterprise,
     Branch,
-    User,
+    Enterprise,
     Role,
+    User,
     UserRoleAssociation,
-)
-from backend.adapters.repositories.models.analytics import (
-    BaseAnalytics,
-    ActionType,
-    RiskLevel,
-    SessionStatus,
-    RecordTenant,
-    AuditRecord,
-    DailyReport,
-    CriticalShrinkageAlert,
-    WorkSession,
 )
 
 __all__ = [

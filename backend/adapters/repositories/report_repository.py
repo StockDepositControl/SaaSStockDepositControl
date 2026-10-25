@@ -1,13 +1,13 @@
 from collections import defaultdict
 from datetime import date, datetime, time
 from decimal import Decimal
-from typing import Dict, List, Optional, Set
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from typing import Dict, List, Optional
 
 from backend.adapters.database.connection import get_analytics_session_factory
 from backend.adapters.repositories.models.analytics import (
     AuditRecord as AuditRecordORM,
+)
+from backend.adapters.repositories.models.analytics import (
     DailyReport as DailyReportORM,
 )
 from backend.app.reports.domain import (
@@ -20,7 +20,8 @@ from backend.app.reports.ports import (
     GoodsReceivedReportRepositoryPort,
     ShrinkageReportRepositoryPort,
 )
-
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 
 class SQLAlchemyShrinkageReportRepository(ShrinkageReportRepositoryPort):
@@ -74,8 +75,10 @@ class SQLAlchemyShrinkageReportRepository(ShrinkageReportRepositoryPort):
 
 class SQLAlchemyGoodsReceivedReportRepository(GoodsReceivedReportRepositoryPort):
     """
-    SQLAlchemy implementation of GoodsReceivedReportRepositoryPort querying db_analytics.
-    Retrieves goods received and addition audit records filtered by tenant, action_type, and date range.
+    SQLAlchemy implementation of GoodsReceivedReportRepositoryPort querying
+    db_analytics.
+    Retrieves goods received and addition audit records filtered by tenant, action_type,
+    and date range.
     """
 
     def __init__(self, session_factory: Optional[async_sessionmaker] = None):
@@ -122,11 +125,15 @@ class SQLAlchemyGoodsReceivedReportRepository(GoodsReceivedReportRepositoryPort)
             ]
 
 
-class SQLAlchemyDailyInventoryBalanceReportRepository(DailyInventoryBalanceReportRepositoryPort):
+class SQLAlchemyDailyInventoryBalanceReportRepository(
+    DailyInventoryBalanceReportRepositoryPort
+):
     """
-    SQLAlchemy implementation of DailyInventoryBalanceReportRepositoryPort querying db_analytics.
+    SQLAlchemy implementation of DailyInventoryBalanceReportRepositoryPort querying
+    db_analytics.
     Retrieves consolidated daily inventory balance records from DailyReport ORM,
-    with dynamic aggregation fallback from AuditRecordORM if no pre-aggregated records exist.
+    with dynamic aggregation fallback from AuditRecordORM if no pre-aggregated records
+    exist.
     """
 
     def __init__(self, session_factory: Optional[async_sessionmaker] = None):
@@ -149,7 +156,9 @@ class SQLAlchemyDailyInventoryBalanceReportRepository(DailyInventoryBalanceRepor
             if branch_id is not None:
                 stmt = stmt.where(DailyReportORM.branch_id == branch_id)
 
-            stmt = stmt.order_by(DailyReportORM.report_date.asc(), DailyReportORM.branch_id.asc())
+            stmt = stmt.order_by(
+                DailyReportORM.report_date.asc(), DailyReportORM.branch_id.asc()
+            )
             result = await session.execute(stmt)
             rows = result.scalars().all()
 
@@ -219,9 +228,13 @@ class SQLAlchemyDailyInventoryBalanceReportRepository(DailyInventoryBalanceRepor
                     group["total_shrinkage_value"] += Decimal(str(rec.valorized_amount))
 
             records: List[DailyInventoryBalanceRecord] = []
-            for (rec_date, rec_branch) in sorted(grouped_data.keys(), key=lambda k: (k[0], k[1])):
+            for rec_date, rec_branch in sorted(
+                grouped_data.keys(), key=lambda k: (k[0], k[1])
+            ):
                 data = grouped_data[(rec_date, rec_branch)]
-                net_variation = data["total_addition_value"] - data["total_shrinkage_value"]
+                net_variation = (
+                    data["total_addition_value"] - data["total_shrinkage_value"]
+                )
                 records.append(
                     DailyInventoryBalanceRecord(
                         tenant_id=tenant_id,
@@ -238,4 +251,3 @@ class SQLAlchemyDailyInventoryBalanceReportRepository(DailyInventoryBalanceRepor
                 )
 
             return records
-

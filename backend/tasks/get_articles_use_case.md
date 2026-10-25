@@ -67,9 +67,7 @@ No debe ganar ningún método relacionado a auditorías. Este repositorio **no s
 
 ```python
 class AuditoriaRepositoryPort(Protocol):
-    async def get_codigos_auditados(
-        self, codigos_barra: list[str]
-    ) -> set[str]:
+    async def get_codigos_auditados(self, codigos_barra: list[str]) -> set[str]:
         """
         Dado un lote de códigos de barra, devuelve el subconjunto que
         POSEE al menos un registro de auditoría en db_auditorias.
@@ -110,7 +108,9 @@ class ListarArticulosConEstadoAuditoriaUseCase:
         articulos = await self._articulo_repo.get_articulos(filtros, page, page_size)
 
         codigos_barra = [a.codigo_barra for a in articulos]
-        codigos_auditados = await self._auditoria_repo.get_codigos_auditados(codigos_barra)
+        codigos_auditados = await self._auditoria_repo.get_codigos_auditados(
+            codigos_barra
+        )
 
         return [
             ArticuloConEstadoDTO(
@@ -188,7 +188,9 @@ async def listar_articulos(
     filtros: ArticuloFiltros = Depends(),
     page: int = 1,
     page_size: int = 50,
-    use_case: ListarArticulosConEstadoAuditoriaUseCase = Depends(get_listar_articulos_use_case),
+    use_case: ListarArticulosConEstadoAuditoriaUseCase = Depends(
+        get_listar_articulos_use_case
+    ),
 ):
     return await use_case.ejecutar(filtros, page, page_size)
 ```

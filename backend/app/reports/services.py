@@ -23,10 +23,10 @@ from backend.app.reports.schemas import (
 )
 
 
-
 class ShrinkageReportService:
     """
-    Controller service orchestrating shrinkage report generation and financial erosion calculations.
+    Controller service orchestrating shrinkage report generation and financial erosion
+    calculations.
     Coordinates between analytics audit logs and articles catalog.
     """
 
@@ -42,7 +42,8 @@ class ShrinkageReportService:
         self, tenant_id: str, filters: ShrinkageReportFilters
     ) -> ShrinkageReportResponse:
         """
-        Generates the aggregated shrinkage report for the specified tenant, date range, and filters.
+        Generates the aggregated shrinkage report for the specified tenant, date range,
+        and filters.
         """
         try:
             numeric_tenant_id = int(tenant_id)
@@ -120,7 +121,8 @@ class ShrinkageReportService:
 
 class GoodsReceivedReportService:
     """
-    Controller service orchestrating goods received report generation and injected capital valorization.
+    Controller service orchestrating goods received report generation and injected
+    capital valorization.
     Coordinates between analytics audit logs and articles catalog.
     """
 
@@ -136,7 +138,8 @@ class GoodsReceivedReportService:
         self, tenant_id: str, filters: GoodsReceivedReportFilters
     ) -> GoodsReceivedReportResponse:
         """
-        Generates the aggregated goods received report for the specified tenant, date range, and filters.
+        Generates the aggregated goods received report for the specified tenant, date
+        range, and filters.
         """
         try:
             numeric_tenant_id = int(tenant_id)
@@ -153,7 +156,11 @@ class GoodsReceivedReportService:
         # Aggregate addition quantities by (article_code, reason)
         quantities_by_key: Dict[Tuple[str, str], int] = defaultdict(int)
         for record in raw_records:
-            reason = record.observation.strip() if record.observation and record.observation.strip() else "Ingreso / Alta"
+            reason = (
+                record.observation.strip()
+                if record.observation and record.observation.strip()
+                else "Ingreso / Alta"
+            )
             quantities_by_key[(record.article_code, reason)] += record.affected_amount
 
         line_items: List[GoodsReceivedLineItem] = []
@@ -162,7 +169,10 @@ class GoodsReceivedReportService:
 
         for (article_code, reason), total_qty in quantities_by_key.items():
             article = await self.article_repository.get_by_id(article_code)
-            barcode = await self.article_repository.get_barcode_by_article_id(article_code) or ""
+            barcode = (
+                await self.article_repository.get_barcode_by_article_id(article_code)
+                or ""
+            )
 
             if article:
                 des_articulo = article.des_articulo
@@ -219,7 +229,8 @@ class GoodsReceivedReportService:
 class DailyInventoryBalanceReportService:
     """
     Controller service orchestrating daily inventory balance reporting.
-    Calculates consolidated daily balance (Goods Received vs Shrinkage) and net patrimonial variation.
+    Calculates consolidated daily balance (Goods Received vs Shrinkage) and net
+    patrimonial variation.
     """
 
     def __init__(
@@ -232,7 +243,8 @@ class DailyInventoryBalanceReportService:
         self, tenant_id: str, filters: DailyInventoryBalanceFilters
     ) -> DailyInventoryBalanceResponse:
         """
-        Generates consolidated daily inventory balance report for tenant, date range, and optional branch.
+        Generates consolidated daily inventory balance report for tenant, date range,
+        and optional branch.
         """
         try:
             numeric_tenant_id = int(tenant_id)
@@ -280,4 +292,3 @@ class DailyInventoryBalanceReportService:
             net_patrimonial_variation=net_patrimonial_variation,
             daily_summaries=daily_summaries,
         )
-

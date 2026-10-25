@@ -1,11 +1,12 @@
 from typing import List
-from fastapi import APIRouter, Depends, status
 
+from backend.api.dependencies.services import get_branch_service
 from backend.app.branches.models import Branch, BranchCreate, BranchUpdate
 from backend.app.branches.services import BranchService
-from backend.api.dependencies.services import get_branch_service
+from fastapi import APIRouter, Depends, status
 
 router = APIRouter()
+
 
 @router.get("/{branch_id}", response_model=Branch)
 async def get_branch(

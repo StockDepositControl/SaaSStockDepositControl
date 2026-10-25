@@ -1,17 +1,32 @@
 from decimal import Decimal
-from typing import Optional, List
-from pydantic import BaseModel, Field, model_validator
+from typing import List, Optional
 
 from backend.app.movements.domain import TipoAccion
+from pydantic import BaseModel, Field, model_validator
+
 
 class AuditEntryRequest(BaseModel):
-    id_sucursal: Optional[int] = Field(default=None, ge=1, description="Branch/Store ID")
-    id_deposito: Optional[int] = Field(default=None, ge=1, description="Warehouse/Deposit ID")
-    id_articulo: str = Field(..., min_length=1, description="Article identifier (barcode or code)")
-    stock_fisico_contado: Optional[int] = Field(default=None, ge=0, description="Physical count observed")
-    cantidad_afectada: Optional[int] = Field(default=None, ge=0, description="Variance amount (absolute)")
-    tipo_accion: Optional[TipoAccion] = Field(default=None, description="Action type for variance mode")
-    observation: Optional[str] = Field(default=None, max_length=500, description="Operator note")
+    id_sucursal: Optional[int] = Field(
+        default=None, ge=1, description="Branch/Store ID"
+    )
+    id_deposito: Optional[int] = Field(
+        default=None, ge=1, description="Warehouse/Deposit ID"
+    )
+    id_articulo: str = Field(
+        ..., min_length=1, description="Article identifier (barcode or code)"
+    )
+    stock_fisico_contado: Optional[int] = Field(
+        default=None, ge=0, description="Physical count observed"
+    )
+    cantidad_afectada: Optional[int] = Field(
+        default=None, ge=0, description="Variance amount (absolute)"
+    )
+    tipo_accion: Optional[TipoAccion] = Field(
+        default=None, description="Action type for variance mode"
+    )
+    observation: Optional[str] = Field(
+        default=None, max_length=500, description="Operator note"
+    )
 
     @model_validator(mode="after")
     def validate_input_mode(self) -> "AuditEntryRequest":
@@ -21,7 +36,9 @@ class AuditEntryRequest(BaseModel):
         and tipo_accion (variance mode). Providing neither is invalid.
         """
         has_count = self.stock_fisico_contado is not None
-        has_variance = self.cantidad_afectada is not None and self.tipo_accion is not None
+        has_variance = (
+            self.cantidad_afectada is not None and self.tipo_accion is not None
+        )
 
         if not has_count and not has_variance:
             raise ValueError(
@@ -55,7 +72,9 @@ class AuditBatchResult(BaseModel):
 
 
 class DashboardKPIsPublicOut(BaseModel):
-    """Dashboard KPIs for non-admin roles. Contains no financial fields (structural RBAC)."""
+    """Dashboard KPIs for non-admin roles. Contains no financial fields (structural
+    RBAC)."""
+
     total_articulos: int
     auditados: int
     pendientes: int
@@ -68,5 +87,6 @@ class DashboardKPIsPublicOut(BaseModel):
 
 class DashboardKPIsResponse(DashboardKPIsPublicOut):
     """Dashboard KPIs for administrators, including valorized amounts."""
+
     monto_valorizado_baja: Optional[Decimal] = None
     monto_valorizado_alta: Optional[Decimal] = None

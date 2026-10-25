@@ -1,7 +1,8 @@
-import pytest
 from decimal import Decimal
 
-from backend.app.articles.models import Articulo, ArticuloPublicOut, ArticuloAdminOut
+import pytest
+from backend.app.articles.models import Articulo, ArticuloAdminOut, ArticuloPublicOut
+
 
 @pytest.fixture
 def sample_domain_article():
@@ -15,12 +16,14 @@ def sample_domain_article():
         des_familia="Medicamentos",
         id_grupo="02",
         des_grupo="Analgésicos",
-        pcio_com_siva=Decimal("250.75")
+        pcio_com_siva=Decimal("250.75"),
     )
+
 
 def test_public_out_list_serialization_masks_cost(sample_domain_article):
     """
-    Ensure ArticuloPublicOut serialization for search results returned to auditors/supervisors
+    Ensure ArticuloPublicOut serialization for search results returned to
+    auditors/supervisors
     completely excludes the sensitive purchase cost field (pcio_com_siva).
     """
     results = [sample_domain_article]
@@ -36,6 +39,7 @@ def test_public_out_list_serialization_masks_cost(sample_domain_article):
 
     dump = out.model_dump()
     assert "pcio_com_siva" not in dump
+
 
 def test_admin_out_list_serialization_retains_cost(sample_domain_article):
     """

@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import AsyncContextManager, Any
+from typing import Any, AsyncContextManager
+
 
 class DatabaseSession(ABC):
     """
     Abstract interface representing a database transaction session.
     Keeps the domain layer isolated from specific ORM/database client implementations.
     """
+
     @abstractmethod
     async def commit(self) -> None:
         """Commits the current transaction."""
@@ -26,6 +28,7 @@ class DatabaseSession(ABC):
         """
         pass
 
+
 LOGICAL_DATABASES = ("articles", "users", "analytics")
 
 
@@ -34,6 +37,7 @@ class ConnectionProvider(ABC):
     Port defining the database connection provider interface.
     Manages session creation and transaction context lifecycles.
     """
+
     @abstractmethod
     def session(self) -> AsyncContextManager[DatabaseSession]:
         """

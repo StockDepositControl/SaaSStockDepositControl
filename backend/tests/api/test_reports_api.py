@@ -1,10 +1,8 @@
 from datetime import date
 from decimal import Decimal
 from unittest.mock import AsyncMock
-import pytest
-from fastapi import status
-from fastapi.testclient import TestClient
 
+import pytest
 from backend.api.dependencies.auth import get_current_user_claims
 from backend.api.dependencies.services import get_daily_inventory_balance_report_service
 from backend.api.main import app
@@ -13,6 +11,8 @@ from backend.app.reports.schemas import (
     DailyInventoryBalanceSummary,
 )
 from backend.app.reports.services import DailyInventoryBalanceReportService
+from fastapi import status
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)
@@ -45,8 +45,8 @@ def test_inventory_balance_forbidden_for_supervisor(client, mock_balance_service
         "tenant_id": "1",
         "id_usuario": 2,
     }
-    app.dependency_overrides[get_daily_inventory_balance_report_service] = (
-        lambda: mock_balance_service
+    app.dependency_overrides[get_daily_inventory_balance_report_service] = lambda: (
+        mock_balance_service
     )
 
     response = client.get(
@@ -64,8 +64,8 @@ def test_inventory_balance_forbidden_for_auditor(client, mock_balance_service):
         "tenant_id": "1",
         "id_usuario": 3,
     }
-    app.dependency_overrides[get_daily_inventory_balance_report_service] = (
-        lambda: mock_balance_service
+    app.dependency_overrides[get_daily_inventory_balance_report_service] = lambda: (
+        mock_balance_service
     )
 
     response = client.get(
@@ -83,8 +83,8 @@ def test_inventory_balance_invalid_date_range(client, mock_balance_service):
         "tenant_id": "1",
         "id_usuario": 1,
     }
-    app.dependency_overrides[get_daily_inventory_balance_report_service] = (
-        lambda: mock_balance_service
+    app.dependency_overrides[get_daily_inventory_balance_report_service] = lambda: (
+        mock_balance_service
     )
 
     # start_date > end_date
@@ -127,8 +127,8 @@ def test_inventory_balance_success_for_admin(client, mock_balance_service):
         ],
     )
     mock_balance_service.get_daily_inventory_balance_report.return_value = mock_response
-    app.dependency_overrides[get_daily_inventory_balance_report_service] = (
-        lambda: mock_balance_service
+    app.dependency_overrides[get_daily_inventory_balance_report_service] = lambda: (
+        mock_balance_service
     )
 
     response = client.get(

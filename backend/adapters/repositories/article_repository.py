@@ -1,41 +1,56 @@
 from decimal import Decimal
-from typing import List, Optional, Tuple, Set
-from sqlalchemy import select, or_, and_, func
-from sqlalchemy.orm import joinedload
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from typing import List, Optional, Set, Tuple
 
-from backend.app.articles.models import Articulo
-from backend.app.articles.ports import ArticleRepositoryPort
-from backend.adapters.repositories.models.articles import (
-    Articulo as ArticuloORM,
-    CodigoBarraArticulo as CodigoBarraArticuloORM,
-    Marca as MarcaORM,
-    Grupo as GrupoORM,
-    Familia as FamiliaORM,
+from backend.adapters.database.connection import (
+    get_analytics_session_factory,
+    get_articles_session_factory,
 )
 from backend.adapters.repositories.models.analytics import AuditRecord as AuditRecordORM
-from backend.adapters.database.connection import get_articles_session_factory, get_analytics_session_factory
-from backend.adapters.database.multi_tenant import get_tenant_id
+from backend.adapters.repositories.models.articles import (
+    Articulo as ArticuloORM,
+)
+from backend.adapters.repositories.models.articles import (
+    CodigoBarraArticulo as CodigoBarraArticuloORM,
+)
+from backend.adapters.repositories.models.articles import (
+    Grupo as GrupoORM,
+)
+from backend.app.articles.models import Articulo
+from backend.app.articles.ports import ArticleRepositoryPort
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.orm import joinedload
+
 
 class SQLAlchemyArticleRepository(ArticleRepositoryPort):
     """
     SQLAlchemy 2.0 implementation of ArticleRepositoryPort.
-    Queries the articles database tables (`articulos`, `codigos_barra_articulo`, etc.) in db_articles.
+    Queries the articles database tables (`articulos`, `codigos_barra_articulo`, etc.)
+    in db_articles.
     """
+
     def __init__(
         self,
         session_factory: Optional[async_sessionmaker] = None,
         analytics_session_factory: Optional[async_sessionmaker] = None,
     ):
         self.session_factory = session_factory or get_articles_session_factory()
-        self.analytics_session_factory = analytics_session_factory or get_analytics_session_factory()
-    # Filter search results based on whether the article has been audited in the current session.
-    async def _get_audited_article_codes(self, active_session_id: Optional[int]) -> Set[str]:
+        self.analytics_session_factory = (
+            analytics_session_factory or get_analytics_session_factory()
+        )
+
+    # Filter search results based on whether the article has been audited in the current
+    # session.
+    async def _get_audited_article_codes(
+        self, active_session_id: Optional[int]
+    ) -> Set[str]:
         if not active_session_id:
             return set()
         try:
             async with self.analytics_session_factory() as session:
-                stmt = select(AuditRecordORM.article_code).where(AuditRecordORM.session_id == active_session_id)
+                stmt = select(AuditRecordORM.article_code).where(
+                    AuditRecordORM.session_id == active_session_id
+                )
                 result = await session.execute(stmt)
                 return {str(code).strip() for code in result.scalars().all() if code}
         except Exception:
@@ -45,10 +60,18 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
         # Extract eager-loaded descriptions safely
         des_marca = art_orm.marca.des_marca if art_orm.marca else None
         des_grupo = art_orm.grupo.des_grupo if art_orm.grupo else None
-        des_familia = art_orm.grupo.familia.des_familia if (art_orm.grupo and art_orm.grupo.familia) else None
+        des_familia = (
+            art_orm.grupo.familia.des_familia
+            if (art_orm.grupo and art_orm.grupo.familia)
+            else None
+        )
 
         # Convert float pcio_com_siva to Decimal cleanly
-        cost_decimal = Decimal(str(art_orm.pcio_com_siva)) if art_orm.pcio_com_siva is not None else Decimal("0.00")
+        cost_decimal = (
+            Decimal(str(art_orm.pcio_com_siva))
+            if art_orm.pcio_com_siva is not None
+            else Decimal("0.00")
+        )
 
         return Articulo(
             id_articulo=str(art_orm.id_articulo).strip(),
@@ -64,7 +87,9 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
             fue_auditado=fue_auditado,
         )
 
-    async def get_by_id(self, id_articulo: str, active_session_id: Optional[int] = None) -> Optional[Articulo]:
+    async def get_by_id(
+        self, id_articulo: str, active_session_id: Optional[int] = None
+    ) -> Optional[Articulo]:
         audited_codes = await self._get_audited_article_codes(active_session_id)
         async with self.session_factory() as session:
             stmt = (
@@ -82,7 +107,9 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
             is_audited = str(art_orm.id_articulo).strip() in audited_codes
             return self._to_domain(art_orm, fue_auditado=is_audited)
 
-    async def get_by_barcode(self, barcode: str, active_session_id: Optional[int] = None) -> Optional[Articulo]:
+    async def get_by_barcode(
+        self, barcode: str, active_session_id: Optional[int] = None
+    ) -> Optional[Articulo]:
         audited_codes = await self._get_audited_article_codes(active_session_id)
         async with self.session_factory() as session:
             stmt = (
@@ -104,7 +131,9 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
             is_audited = str(art_orm.id_articulo).strip() in audited_codes
             return self._to_domain(art_orm, fue_auditado=is_audited)
 
-    async def search(self, query: str, active_session_id: Optional[int] = None) -> List[Articulo]:
+    async def search(
+        self, query: str, active_session_id: Optional[int] = None
+    ) -> List[Articulo]:
         clean_query = query.strip()
         if not clean_query:
             return []
@@ -113,18 +142,24 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
 
         async with self.session_factory() as session:
             # 1. Try exact match by Article ID
-            art_by_id = await self.get_by_id(clean_query, active_session_id=active_session_id)
+            art_by_id = await self.get_by_id(
+                clean_query, active_session_id=active_session_id
+            )
             if art_by_id:
                 return [art_by_id]
 
             # 2. Try exact match by barcode string
-            art_by_bc = await self.get_by_barcode(clean_query, active_session_id=active_session_id)
+            art_by_bc = await self.get_by_barcode(
+                clean_query, active_session_id=active_session_id
+            )
             if art_by_bc:
                 return [art_by_bc]
 
             # 3. Tokenized description search (partial match on name)
             tokens = clean_query.split()
-            token_conditions = [ArticuloORM.des_articulo.ilike(f"%{token}%") for token in tokens]
+            token_conditions = [
+                ArticuloORM.des_articulo.ilike(f"%{token}%") for token in tokens
+            ]
 
             stmt = (
                 select(ArticuloORM)
@@ -139,7 +174,9 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
             art_orms = result.scalars().unique().all()
 
             return [
-                self._to_domain(art, fue_auditado=str(art.id_articulo).strip() in audited_codes)
+                self._to_domain(
+                    art, fue_auditado=str(art.id_articulo).strip() in audited_codes
+                )
                 for art in art_orms
             ]
 
@@ -151,7 +188,7 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
         id_familia: Optional[str] = None,
         id_grupo: Optional[str] = None,
         fue_auditado: Optional[bool] = None,
-        active_session_id: Optional[int] = None
+        active_session_id: Optional[int] = None,
     ) -> Tuple[List[Articulo], int]:
         audited_codes = await self._get_audited_article_codes(active_session_id)
 
@@ -163,12 +200,11 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
         if search and search.strip():
             clean_search = search.strip()
             tokens = clean_search.split()
-            token_conditions = [ArticuloORM.des_articulo.ilike(f"%{t}%") for t in tokens]
+            token_conditions = [
+                ArticuloORM.des_articulo.ilike(f"%{t}%") for t in tokens
+            ]
             conditions.append(
-                or_(
-                    ArticuloORM.id_articulo == clean_search,
-                    and_(*token_conditions)
-                )
+                or_(ArticuloORM.id_articulo == clean_search, and_(*token_conditions))
             )
         if fue_auditado is True:
             if not audited_codes:
@@ -203,7 +239,9 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
             art_orms = result.scalars().unique().all()
 
             items = [
-                self._to_domain(art, fue_auditado=str(art.id_articulo).strip() in audited_codes)
+                self._to_domain(
+                    art, fue_auditado=str(art.id_articulo).strip() in audited_codes
+                )
                 for art in art_orms
             ]
             return items, total
@@ -218,4 +256,3 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
             result = await session.execute(stmt)
             cod_barra = result.scalars().first()
             return str(cod_barra).strip() if cod_barra else None
-

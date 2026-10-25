@@ -15,7 +15,11 @@ def test_database_url_env_swaps_database_names_for_users_and_analytics(monkeypat
     assert articles == MYSQL_URL
     for url, db_name in ((users, "db_users"), (analytics, "db_analytics")):
         parsed = make_url(url)
-        assert (parsed.username, parsed.password, parsed.host) == ("app", "secret", "dbhost")
+        assert (parsed.username, parsed.password, parsed.host) == (
+            "app",
+            "secret",
+            "dbhost",
+        )
         assert parsed.database == db_name
 
 
@@ -42,7 +46,9 @@ def test_components_with_reserved_characters_round_trip(monkeypatch):
 def test_explicit_per_database_urls_are_used_verbatim(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", MYSQL_URL)
 
-    urls = resolve_seed_urls(url_articles="a://1", url_users="u://2", url_analytics="n://3")
+    urls = resolve_seed_urls(
+        url_articles="a://1", url_users="u://2", url_analytics="n://3"
+    )
 
     assert urls == ("a://1", "u://2", "n://3")
 

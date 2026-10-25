@@ -1,6 +1,8 @@
 from decimal import Decimal
 from typing import Optional
+
 from pydantic import BaseModel
+
 
 class ArticleStockPositionPublicOut(BaseModel):
     des_articulo: str
@@ -11,6 +13,7 @@ class ArticleStockPositionPublicOut(BaseModel):
     id_sucursal: int
     id_deposito: int
     stock_real: int
+
 
 class ArticleStockPositionAdminOut(ArticleStockPositionPublicOut):
     pcio_com_siva: Decimal

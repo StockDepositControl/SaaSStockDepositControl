@@ -1,18 +1,17 @@
-import pytest
-from unittest.mock import AsyncMock
 from decimal import Decimal
+from unittest.mock import AsyncMock
 
+import pytest
 from backend.app.articles.models import Articulo
-from backend.app.articles.services import ArticleSearchService
 from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
-from backend.app.movements.services import StockLookupService
+from backend.app.articles.services import ArticleSearchService
 from backend.app.exceptions import EntityNotFoundException
+from backend.app.movements.services import StockLookupService
 
 
 @pytest.fixture
 def mock_search_service():
     return AsyncMock(spec=ArticleSearchService)
-
 
 
 @pytest.fixture
@@ -104,10 +103,14 @@ async def test_orchestrator_enriches_articles_with_stock(
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_empty_page(orchestrator, mock_search_service, mock_stock_lookup_service):
+async def test_orchestrator_empty_page(
+    orchestrator, mock_search_service, mock_stock_lookup_service
+):
     mock_search_service.list_articles.return_value = ([], 0)
 
-    articles, total = await orchestrator.get_enriched_catalog(page=1, limit=50, deposit_id=1)
+    articles, total = await orchestrator.get_enriched_catalog(
+        page=1, limit=50, deposit_id=1
+    )
 
     assert articles == []
     assert total == 0
@@ -161,7 +164,9 @@ async def test_orchestrator_get_enriched_article_success(
 async def test_orchestrator_get_enriched_article_not_found(
     orchestrator, mock_search_service, mock_stock_lookup_service
 ):
-    mock_search_service.get_article_by_id.side_effect = EntityNotFoundException("Article '9999' not found.")
+    mock_search_service.get_article_by_id.side_effect = EntityNotFoundException(
+        "Article '9999' not found."
+    )
 
     with pytest.raises(EntityNotFoundException, match="Article '9999' not found."):
         await orchestrator.get_enriched_article(
@@ -192,4 +197,3 @@ async def test_orchestrator_get_enriched_article_missing_stock_defaults_to_zero(
 
     assert result.id_articulo == "1042"
     assert result.stock_real == 0
-

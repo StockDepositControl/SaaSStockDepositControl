@@ -1,10 +1,10 @@
 from contextlib import asynccontextmanager
-import pytest
-from fastapi.testclient import TestClient
 
-from backend.api.main import app
+import pytest
 from backend.api.dependencies import get_connection_provider
+from backend.api.main import app
 from backend.app.ports.database import ConnectionProvider
+from fastapi.testclient import TestClient
 
 
 class HealthyMockConnectionProvider(ConnectionProvider):
@@ -18,7 +18,9 @@ class HealthyMockConnectionProvider(ConnectionProvider):
 
 @pytest.fixture(autouse=True)
 def override_db_dependency():
-    app.dependency_overrides[get_connection_provider] = lambda: HealthyMockConnectionProvider()
+    app.dependency_overrides[get_connection_provider] = lambda: (
+        HealthyMockConnectionProvider()
+    )
     yield
     app.dependency_overrides.clear()
 
@@ -66,8 +68,8 @@ def test_cors_preflight_allowed_origins(client: TestClient, origin: str):
         "https://evil-site.org",
         "http://8.8.8.8:8000",
         "http://1.1.1.1:8080",
-        "http://172.15.0.1:8000",   # Below RFC-1918 172.16.0.0/12
-        "http://172.32.0.1:8000",   # Above RFC-1918 172.31.255.255
+        "http://172.15.0.1:8000",  # Below RFC-1918 172.16.0.0/12
+        "http://172.32.0.1:8000",  # Above RFC-1918 172.31.255.255
     ],
 )
 def test_cors_preflight_disallowed_origins(client: TestClient, disallowed_origin: str):

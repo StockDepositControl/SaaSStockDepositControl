@@ -1,13 +1,17 @@
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Tuple
+
 from backend.app.articles.models import Articulo
 from backend.app.articles.services import ArticleSearchService
 from backend.app.movements.services import StockLookupService
 
+
 class ArticleCatalogOrchestrator:
     """
-    Pure Fabrication domain application service that orchestrates article catalog retrieval
+    Pure Fabrication domain application service that orchestrates article catalog
+    retrieval
     with batch stock enrichment across bounded contexts.
     """
+
     def __init__(
         self,
         article_search_service: ArticleSearchService,
@@ -30,8 +34,10 @@ class ArticleCatalogOrchestrator:
         """
         Orchestrates:
         1. Retrieval of paginated articles catalog via ArticleSearchService.
-        2. Batch lookup of effective stock levels (audit priority with stock fallback) via StockLookupService.
-        3. Enrichment of article entities with resolved stock_real without mutating original instances.
+        2. Batch lookup of effective stock levels (audit priority with stock fallback)
+           via StockLookupService.
+        3. Enrichment of article entities with resolved stock_real without mutating
+           original instances.
         Returns a tuple of (enriched_articles, total_count).
         """
         articles, total = await self.article_search_service.list_articles(
@@ -70,9 +76,12 @@ class ArticleCatalogOrchestrator:
     ) -> Articulo:
         """
         Orchestrates:
-        1. Retrieval of single article entity via ArticleSearchService (raises EntityNotFoundException if not found).
-        2. Lookup of effective stock level via StockLookupService.get_effective_stocks_batch.
-        3. Enrichment of article entity with resolved stock_real without mutating original instance.
+        1. Retrieval of single article entity via ArticleSearchService (raises
+           EntityNotFoundException if not found).
+        2. Lookup of effective stock level via
+           StockLookupService.get_effective_stocks_batch.
+        3. Enrichment of article entity with resolved stock_real without mutating
+           original instance.
         Returns the enriched Articulo domain entity.
         """
         article = await self.article_search_service.get_article_by_id(
@@ -86,7 +95,4 @@ class ArticleCatalogOrchestrator:
             active_session_id=active_session_id,
         )
 
-        return article.model_copy(
-            update={"stock_real": stock_map.get(id_articulo, 0)}
-        )
-
+        return article.model_copy(update={"stock_real": stock_map.get(id_articulo, 0)})
