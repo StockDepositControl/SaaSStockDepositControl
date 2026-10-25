@@ -1,0 +1,6 @@
+[allowlist]
+description = "Global allowlists for test fixtures and documentation"
+paths = [
+  '''backend/tests/.*''',
+  '''docs/.*'''
+]
