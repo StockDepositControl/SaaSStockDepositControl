@@ -59,7 +59,7 @@ app = FastAPI(
 )
 
 # CORS configuration
-origins_str = os.getenv("CORS_ORIGINS", "*")
+origins_str = os.getenv("CORS_ORIGINS", "")
 origins = [origin.strip() for origin in origins_str.split(",") if origin.strip()]
 
 # Regex to permit local development over private LANs (192.168.x.x, 10.x.x.x, 172.16-31.x.x, localhost)
