@@ -28,6 +28,7 @@ BACKUP_DIR="${PROJECT_ROOT}/backups"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-60}"
 HEALTH_INTERVAL="${HEALTH_INTERVAL:-5}"
 
+# Keep in sync with docker/mariadb/01-init-dbs.sh and the Alembic configs in docker-entrypoint.sh.
 DATABASES=(db_articles db_users db_analytics)
 SERVICES_TO_PULL=(backend web)
 
@@ -83,6 +84,11 @@ env_get() {
 
 env_set() {
     local key="$1" value="$2"
+    # The value is interpolated into a sed replacement: reject what would corrupt it.
+    if [[ "${value}" == *[\|\&\\]* ]]; then
+        log_error "Refusing to write unsafe value for ${key}."
+        exit 1
+    fi
     if grep -qE "^${key}=" "${ENV_FILE}"; then
         sed -i "s|^${key}=.*|${key}=${value}|" "${ENV_FILE}"
     else
@@ -265,10 +271,21 @@ action_logs() {
 }
 
 # --- Release Lifecycle: pull / update / rollback ---
+# Pulls with the tag only in this command's environment, so .env is untouched.
+pull_images() {
+    local tag="$1"
+    log_info "Pulling images for IMAGE_TAG=${tag}..."
+    IMAGE_TAG="${tag}" compose pull "${SERVICES_TO_PULL[@]}"
+}
+
+# Applies the current .env and succeeds only if the stack becomes healthy.
+redeploy() {
+    compose up -d --remove-orphans && wait_for_api_health
+}
+
 action_pull() {
     check_prerequisites
-    log_info "Pulling images for IMAGE_TAG=$(current_tag)..."
-    compose pull "${SERVICES_TO_PULL[@]}"
+    pull_images "$(current_tag)"
 }
 
 # Switches IMAGE_TAG to the tag recorded in .previous_tag and verifies health.
@@ -284,8 +301,7 @@ perform_rollback() {
 
     log_warn "Rolling back to IMAGE_TAG=${previous}..."
     env_set IMAGE_TAG "${previous}"
-    compose up -d --remove-orphans
-    wait_for_api_health
+    redeploy
 }
 
 action_rollback() {
@@ -304,8 +320,7 @@ action_update() {
 
     # Pull first, with the new tag only in this command's environment: a failed
     # pull aborts before .env or .previous_tag change, so nothing is half-applied.
-    log_info "Pulling images for IMAGE_TAG=${new_tag}..."
-    IMAGE_TAG="${new_tag}" compose pull "${SERVICES_TO_PULL[@]}"
+    pull_images "${new_tag}"
 
     # Never overwrite the rollback target with the tag being re-deployed.
     if [ "${new_tag}" != "${current}" ]; then
@@ -313,7 +328,7 @@ action_update() {
     fi
     env_set IMAGE_TAG "${new_tag}"
 
-    if compose up -d --remove-orphans && wait_for_api_health; then
+    if redeploy; then
         log_info "Update to ${new_tag} completed successfully."
         return 0
     fi
@@ -348,25 +363,29 @@ dump_databases() {
         dump_bin="mysqldump"
         extra+=(--no-tablespaces)
     else
-        log_error "Bundled MariaDB is not running and neither mariadb-dump nor mysqldump is installed." >&2
+        log_error "Bundled MariaDB is not running and neither mariadb-dump nor mysqldump is installed."
         return 1
     fi
 
-    case "$(env_get DB_SSL_MODE)" in
-        require)
+    local host port user ssl_mode ssl_ca
+    host="$(env_get DB_HOST)"
+    port="$(env_get DB_PORT)"
+    user="$(env_get DB_USER)"
+    ssl_mode="$(env_get DB_SSL_MODE)"
+    ssl_ca="$(env_get DB_SSL_CA)"
+
+    case "${ssl_mode}" in
+        require|verify-ca)
             extra+=(--ssl)
-            ;;
-        verify-ca)
-            extra+=(--ssl)
-            if [ -n "$(env_get DB_SSL_CA)" ]; then
-                extra+=("--ssl-ca=$(env_get DB_SSL_CA)")
-            fi
             ;;
     esac
+    if [ "${ssl_mode}" = "verify-ca" ] && [ -n "${ssl_ca}" ]; then
+        extra+=("--ssl-ca=${ssl_ca}")
+    fi
 
-    log_info "Dumping from external database $(env_get DB_HOST):$(env_get DB_PORT)..." >&2
+    log_info "Dumping from external database ${host}:${port}..." >&2
     MYSQL_PWD="$(env_get DB_PASSWORD)" "${dump_bin}" \
-        -h "$(env_get DB_HOST)" -P "$(env_get DB_PORT)" -u "$(env_get DB_USER)" \
+        -h "${host}" -P "${port}" -u "${user}" \
         --single-transaction ${extra[@]+"${extra[@]}"} --databases "${DATABASES[@]}"
 }
 
