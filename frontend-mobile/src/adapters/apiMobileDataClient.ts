@@ -4,7 +4,8 @@ import { ActiveTenantSession, LoginCredentials, AuthTokenResponse } from '../typ
 import { ArticuloAuditorView, ArticleStockPositionView, CatalogFilterParams, CatalogResult } from '../types/article';
 import { AuditEntryRequest, AuditEntryResult, AuditDailyProgress } from '../types/audit';
 import { decodeJwtClaims, extractInitials, extractFirstName } from '../utils/jwtDecoder';
-import { API_CONFIG, STORAGE_KEYS } from '../utils/constants';
+import { STORAGE_KEYS } from '../utils/constants';
+import { getServerUrl } from '../utils/serverUrl';
 
 function parseErrorMessage(body: any, defaultMessage: string): string {
   if (!body) return defaultMessage;
@@ -20,11 +21,13 @@ function parseErrorMessage(body: any, defaultMessage: string): string {
 }
 
 export class ApiMobileDataClient implements MobileDataClientPort {
-  private readonly baseUrl: string;
   private currentSession: ActiveTenantSession | null = null;
 
-  constructor(baseUrl: string = API_CONFIG.BASE_URL) {
-    this.baseUrl = baseUrl.replace(/\/+$/, '');
+  /** Fixed base URL for tests; when omitted the user-configured server URL is resolved per call. */
+  constructor(private readonly baseUrlOverride?: string) {}
+
+  private async getBaseUrl(): Promise<string> {
+    return this.baseUrlOverride?.replace(/\/+$/, '') ?? (await getServerUrl());
   }
 
   /**
@@ -60,7 +63,7 @@ export class ApiMobileDataClient implements MobileDataClientPort {
   }
 
   async login(credentials: LoginCredentials): Promise<ActiveTenantSession> {
-    const response = await fetch(`${this.baseUrl}/api/v1/auth/login`, {
+    const response = await fetch(`${await this.getBaseUrl()}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
@@ -151,7 +154,7 @@ export class ApiMobileDataClient implements MobileDataClientPort {
 
     try {
       // 1. Fetch total count
-      const totalRes = await fetch(`${this.baseUrl}/api/v1/articles?limit=1&id_deposito=${depositId}`, {
+      const totalRes = await fetch(`${await this.getBaseUrl()}/api/v1/articles?limit=1&id_deposito=${depositId}`, {
         headers,
       });
       const totalData = totalRes.ok ? await totalRes.json() : { total: 0 };
@@ -159,7 +162,7 @@ export class ApiMobileDataClient implements MobileDataClientPort {
 
       // 2. Fetch audited count
       const auditedRes = await fetch(
-        `${this.baseUrl}/api/v1/articles?limit=1&id_deposito=${depositId}&fue_auditado=true`,
+        `${await this.getBaseUrl()}/api/v1/articles?limit=1&id_deposito=${depositId}&fue_auditado=true`,
         { headers }
       );
       const auditedData = auditedRes.ok ? await auditedRes.json() : { total: 0 };
@@ -187,7 +190,7 @@ export class ApiMobileDataClient implements MobileDataClientPort {
   async searchArticles(query: string): Promise<ArticuloAuditorView[]> {
     const headers = await this.getAuthHeaders();
     const encoded = encodeURIComponent(query.trim());
-    const res = await fetch(`${this.baseUrl}/api/v1/articles/search?query=${encoded}`, {
+    const res = await fetch(`${await this.getBaseUrl()}/api/v1/articles/search?query=${encoded}`, {
       headers,
     });
 
@@ -234,7 +237,7 @@ export class ApiMobileDataClient implements MobileDataClientPort {
       queryParts.push(`id_familia=${encodeURIComponent(params.familyId)}`);
     }
 
-    const url = `${this.baseUrl}/api/v1/articles?${queryParts.join('&')}`;
+    const url = `${await this.getBaseUrl()}/api/v1/articles?${queryParts.join('&')}`;
     const res = await fetch(url, { headers });
 
     if (!res.ok) {
@@ -279,7 +282,7 @@ export class ApiMobileDataClient implements MobileDataClientPort {
     const resolvedBranch = this.currentSession?.branchId || 1;
 
     const res = await fetch(
-      `${this.baseUrl}/api/v1/stock/position?id_articulo=${encodeURIComponent(articleId)}&id_sucursal=${resolvedBranch}&id_deposito=${resolvedDep}`,
+      `${await this.getBaseUrl()}/api/v1/stock/position?id_articulo=${encodeURIComponent(articleId)}&id_sucursal=${resolvedBranch}&id_deposito=${resolvedDep}`,
       { headers }
     );
 
@@ -324,7 +327,7 @@ export class ApiMobileDataClient implements MobileDataClientPort {
       observation: request.observation,
     };
 
-    const res = await fetch(`${this.baseUrl}/api/v1/stock/audit`, {
+    const res = await fetch(`${await this.getBaseUrl()}/api/v1/stock/audit`, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),

@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { Icon } from '../components/ui/Icon';
 import { colors } from '../utils/designTokens';
+import { ServerSettingsModal } from '../components/ServerSettingsModal';
 
 export const LoginScreen: React.FC = () => {
   const { login, isLoading, loginError, clearError } = useAuth();
@@ -20,6 +21,7 @@ export const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [showServerSettings, setShowServerSettings] = useState(false);
 
   const handleLogin = async () => {
     setValidationError(null);
@@ -151,7 +153,20 @@ export const LoginScreen: React.FC = () => {
             </Text>
           </View>
         </View>
+
+        <Pressable
+          onPress={() => setShowServerSettings(true)}
+          style={styles.serverLink}
+          hitSlop={8}
+        >
+          <Text style={styles.serverLinkText}>Configuración del Servidor</Text>
+        </Pressable>
       </ScrollView>
+
+      <ServerSettingsModal
+        visible={showServerSettings}
+        onClose={() => setShowServerSettings(false)}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -298,6 +313,18 @@ const styles = StyleSheet.create({
     borderTopColor: '#F1F5F9',
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  serverLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 20,
+  },
+  serverLinkText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text.muted,
   },
   cardFooterText: {
     fontSize: 11,
