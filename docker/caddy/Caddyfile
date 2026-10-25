@@ -1,0 +1,41 @@
+{
+    admin off
+    # Optional ACME contact, e.g. ACME_EMAIL_OPTION="email ops@your-domain.tld".
+    # Left unset it expands to nothing: no placeholder address is registered.
+    {$ACME_EMAIL_OPTION}
+}
+
+# Plain HTTP on :8080 by default (dev/LAN/tunnel). A public hostname enables automatic HTTPS.
+{$SERVER_NAME::8080} {
+    log {
+        output stdout
+        format json
+    }
+
+    # `route` keeps declaration order; without it `handle` blocks run before `respond`
+    # and the catch-all would proxy the health probe to the web upstream.
+    route {
+        respond /caddy-health "healthy" 200
+
+        handle /api/* {
+            reverse_proxy backend:8000 {
+                header_up Host {host}
+                header_up X-Real-IP {remote_host}
+                header_up X-Forwarded-For {remote_host}
+                header_up X-Forwarded-Proto {scheme}
+                transport http {
+                    response_header_timeout 120s
+                }
+            }
+        }
+
+        handle {
+            reverse_proxy web:3000 {
+                header_up Host {host}
+                header_up X-Real-IP {remote_host}
+                header_up X-Forwarded-For {remote_host}
+                header_up X-Forwarded-Proto {scheme}
+            }
+        }
+    }
+}

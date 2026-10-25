@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.env*
+!.env.example
+*.pem
+*.key
+coverage
+*.test.ts
+*.test.tsx
+Dockerfile
+.dockerignore
+npm-debug.log*

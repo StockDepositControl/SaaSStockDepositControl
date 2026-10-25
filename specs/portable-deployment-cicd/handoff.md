@@ -48,10 +48,10 @@ Execute the tasks sequentially following the vertical slices defined in `tasks.m
    - Run `T5` (Alembic `migrations/env.py` URL precedence, `%` escape, and TLS). **Done** — commit `5de4820`.
    - Run `T6` (Multi-database `/api/v1/health` connectivity probe). **Done** — see §8.
 2. **Slice 2 (Containerization & Ingress):**
-   - Run `T7` (`backend/Dockerfile` and `docker-entrypoint.sh` without duplicate secret check).
-   - Run `T8` (`frontend-web/next.config.ts` standalone + relative URLs).
-   - Run `T9` (`frontend-web/Dockerfile`).
-   - Run `T10` (`docker/caddy/Caddyfile` with clean syntax & no fake email).
+   - Run `T7` (`backend/Dockerfile` and `docker-entrypoint.sh` without duplicate secret check). **Done** — commit `0696d93` (hardening `d714627`).
+   - Run `T8` (`frontend-web/next.config.ts` standalone + relative URLs). **Done** — commit `cdeb636`.
+   - Run `T9` (`frontend-web/Dockerfile`). **Done** — commit `6d0185a`.
+   - Run `T10` (`docker/caddy/Caddyfile` with clean syntax & no fake email). **Done** — commit `ab51f1a`.
 3. **Slice 3 (Compose & DevOps Scripts):**
    - Run `T11` (`docker/mariadb/01-init-dbs.sh` variable fix).
    - Run `T12` (`docker-compose.yml` multi-profile with `ENVIRONMENT: production` default).
@@ -127,3 +127,60 @@ Raised by `/code-review medium` and `/simplify` after Slice 1; the first item is
 - **TLS:** `verify-ca` does not check the hostname; a `verify-full` mode would close that gap.
 - **Docs:** `AGENTS.md` Install / Setup should also install `requirements-dev.txt` for the test environment.
 - **Outside the diff:** `backend/scripts/seed.py` builds its URLs from `DB_*` and ignores `DATABASE_URL` / `*_DATABASE_URL`; `api/dependencies/__init__.py:30` reads `SECRET_KEY` with its own dev default.
+
+## 11. T7 Notes & Outcome
+
+- Files (`0696d93`): `backend/Dockerfile`, `backend/docker-entrypoint.sh`, `backend/.dockerignore`. Deviation from `tasks.md` T7: the ignore file is `backend/.dockerignore`, not repo-root `.dockerignore`, because Docker only reads the ignore file inside the build context (`backend/`).
+- Image layout: code at `/app/backend`, `WORKDIR /app`, `PYTHONPATH=/app`, so `backend.api.main` and `backend/migrations/*.ini` resolve. `tests/`, `pytest.ini` and `requirements-dev.txt` are excluded from the image.
+- Entrypoint: `CMD ["uvicorn"]` is the default; any other command (e.g. `python -c ...`) is exec'd as-is without migrations. Default path runs the 3 Alembic configs when `RUN_MIGRATIONS` is `true` (default), aborts on failure, then `exec uvicorn ... --workers ${UVICORN_WORKERS:-2} --no-access-log`. No `SECRET_KEY` check in shell (T3 owns it).
+- Verified: build OK; `import fastapi` OK; `id -u` = 10001; `pytest` absent; `import backend.api.main` OK; `ENVIRONMENT=production SECRET_KEY=changeme` is refused by the T3 lifespan check inside the container; a failing migration (runtime image has no `aiosqlite`, by design) stops startup with a non-zero exit.
+- Not verified: `hadolint` is not installed locally (CI T17 covers it); a full migration run against MariaDB is deferred to the T12/T17 compose and smoke-test slices; the healthcheck was not observed live.
+- Risk: item 5 (delivery/installers).
+
+## 12. T7 Review Follow-up
+
+RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational findings only. Resolution:
+
+- **Fixed (`fix: harden backend image context and make entrypoint dispatch explicit`):** `.dockerignore` now excludes nested `.env*`, `*.pem`, `*.key`, `__pycache__`, `.git` (verified with a scratch build context: no secret files in the image). The entrypoint default is the explicit `serve` keyword (`CMD ["serve"]`), so `docker run <image> uvicorn other:app` is exec'd as-is instead of being swallowed. Port 8000 and `--no-access-log` are documented in the entrypoint and Dockerfile.
+- **Deferred to T12:** migrations race with multiple replicas (`RUN_MIGRATIONS` per service or a one-shot migrate step); `HEALTHCHECK` `start-period` vs first-boot migrations; live healthcheck observation. Recorded under T12 in `tasks.md`.
+- **Deferred to T17:** automated smoke test of the entrypoint branches. Recorded under T17 in `tasks.md`.
+- **Not changed:** digest-pinning the base image and pinning `curl`. Spec §5.1 mandates `python:3.12-slim`, Dependabot docker updates arrive in T17, and a pinned `curl` version breaks when Debian drops it.
+- Risk: item 5 (delivery/installers).
+
+## 13. T8 Notes & Outcome
+
+- Files (`cdeb636`): `frontend-web/next.config.ts` (`output: "standalone"`, `rewrites()` removed, `192.168.1.x` hosts dropped from `allowedDevOrigins`) and new `frontend-web/next.config.test.ts` (3 behavioural assertions, RED then GREEN). Deviation from `tasks.md` T8: the test file is an extra file.
+- `lib/adapters/httpClient.ts` unchanged: it already defaults to `NEXT_PUBLIC_API_URL ?? ""` and `httpClient.test.ts` already covers relative URLs with and without params.
+- Verified: `npm test` 128 passed; `npm run build` succeeds and `.next/standalone/server.js` exists.
+- Known baseline, not caused by T8: `npx tsc --noEmit` fails on `lib/hooks/useBarcodeScanner.test.ts:385` (confirmed identical with T8 stashed); `npm run lint` reports 1 error in `app/users/page.tsx:35` (setState in effect) plus 10 warnings. Both gates need a fix before T17 can enforce `tsc` and `lint` in CI.
+- Behaviour change: `npm run dev` no longer proxies `/api/v1/*` to `127.0.0.1:8000`. The proxy is Caddy (T10) or the dev compose override (T13); until then, local dev needs an external proxy or `NEXT_PUBLIC_API_URL` set.
+- Risk: item 3 (shared public contract / dev workflow).
+
+## 14. T9 Notes & Outcome
+
+- Files (`6d0185a`): `frontend-web/Dockerfile` (3 stages `deps` / `builder` / `runner` on `node:20-alpine`) and `frontend-web/.dockerignore`. Deviation from `tasks.md` T9: none in file list.
+- Runner sets `HOSTNAME=0.0.0.0` and `PORT=3000`. Next standalone binds to `$HOSTNAME`, which Docker sets to the container id, so without it the `127.0.0.1` healthcheck and Caddy's `web:3000` upstream (T10) would not reach the server.
+- Build context is `frontend-web/`. `tsconfig.json` and `vite.config.ts` alias `@shared` to `../shared`, but no source file imports it, so the narrow context is safe. If code starts importing `@shared`, the context must widen.
+- `.dockerignore` excludes `*.test.ts(x)`, `.env*` (keeps `.env.example`), `*.pem`, `*.key`, `.git`, `node_modules`, `.next`.
+- Verified: build OK; container runs as UID 1001; healthcheck reaches `healthy`; `GET /` returns 307 to `/login`, which returns 200 `text/html`; `npm test` 128 passed. The `tasks.md` verify command was adapted (named container, port 3100 because host port 3000 was already in use, cleanup with `docker rm -f`).
+- Not verified: `hadolint` is not installed locally (CI T17 covers it); `tsc --noEmit` and `npm run lint` still carry the baseline failures recorded in §13.
+- Risk: item 5 (delivery/installers).
+
+## 15. T10 Notes & Outcome
+
+- Files: `docker/caddy/Caddyfile` and `docker/caddy/Dockerfile` (`FROM caddy:2-alpine` + `COPY Caddyfile`).
+- Deviation from `spec.md` §5.2 (spec-challenge finding): Caddy orders `handle` before `respond`, so with the spec layout the catch-all `handle {}` proxied `/caddy-health` to `web:3000` (observed RED: 502 with no upstream). The site body is wrapped in `route { ... }`, which preserves declaration order; the single-line `respond /caddy-health "healthy" 200` is kept verbatim and now answers 200 `healthy`.
+- No ACME default: `{$ACME_EMAIL_OPTION}` expands to nothing when unset. T12/T14 must pass it as a full directive (`ACME_EMAIL_OPTION="email ops@domain"`) or leave it unset.
+- Verified: `caddy validate` OK; live run on `:8080` returns 200 `healthy` on `/caddy-health`, and `/api/*` and `/` reach the `backend`/`web` upstreams (502 here only because no upstreams exist); `caddy adapt` with the default shows `listen :8080` and no TLS/automatic-HTTPS config (S5); `docker build docker/caddy` OK.
+- Not verified: real ACME issuance (S4) needs a public domain and ports 80/443, deferred to staging; end-to-end proxying to live `backend`/`web` is covered once T12 composes them.
+- Risk: item 5 (delivery/installers).
+
+## 16. Slice 2 Closure
+
+- Slice 2 commits: T7 `0696d93` (hardening `d714627`), T8 `cdeb636`, T9 `6d0185a`, T10 `ab51f1a`.
+- Closing verification: backend `pytest` 344 passed (341 baseline from §8 plus 3 tests added since); `frontend-web` `npm test` 128 passed and `npm run build` produces `.next/standalone/server.js`; `bash -n backend/docker-entrypoint.sh` OK; `caddy validate` reports a valid configuration; `docker build` succeeds for `backend/`, `frontend-web/` and `docker/caddy`.
+- Known baseline, unchanged: `npx tsc --noEmit` fails on `lib/hooks/useBarcodeScanner.test.ts:385`; `npm run lint` reports 1 error and 10 warnings (§13).
+- Not run locally: `hadolint`, `ruff` and `gitleaks` are not installed (CI T17 covers them).
+- Branch audit: one Conventional Commit per task, each followed by a `docs:` commit; no AI attribution in any commit message; working tree clean before this closure.
+- Open carry-overs: T12 (migrations race, backend `start-period`, live healthcheck), T17 (entrypoint smoke test, enforce `tsc`/`lint` baseline).
+- Risk: none (docs only).

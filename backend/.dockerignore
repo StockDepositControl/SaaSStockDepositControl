@@ -1,0 +1,16 @@
+.git
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+.coverage
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+tests
+requirements-dev.txt
+pytest.ini
+Dockerfile
+.dockerignore
