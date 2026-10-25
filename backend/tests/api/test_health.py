@@ -80,7 +80,8 @@ def test_health_returns_503_when_probe_raises(client):
     assert body["status"] == "unhealthy"
     assert body["database"] == "disconnected"
     assert body["databases"] == {name: "disconnected" for name in DATABASES}
-    assert "Connection refused" in body["detail"]
+    assert body["detail"] == "Database connectivity probe failed"
+    assert "Connection refused" not in response.text
 
 
 def test_legacy_provider_without_check_databases_still_reports_healthy(client):

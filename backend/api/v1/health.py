@@ -1,9 +1,14 @@
+import logging
+
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
 from backend.app.ports.database import LOGICAL_DATABASES, ConnectionProvider
 from backend.api.dependencies import get_connection_provider
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+_PROBE_FAILED_DETAIL = "Database connectivity probe failed"
 
 
 def _label(is_connected: bool) -> str:
@@ -24,7 +29,8 @@ async def health_check(
     version = request.app.version
     try:
         results = await connection_provider.check_databases()
-    except Exception as e:
+    except Exception:
+        logger.exception("Health probe raised an unexpected error")
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
@@ -32,7 +38,7 @@ async def health_check(
                 "database": "disconnected",
                 "databases": {name: "disconnected" for name in LOGICAL_DATABASES},
                 "version": version,
-                "detail": str(e),
+                "detail": _PROBE_FAILED_DETAIL,
             },
         )
 
@@ -46,7 +52,7 @@ async def health_check(
         "version": version,
     }
     if not all_connected:
-        content["detail"] = "Database connectivity probe failed"
+        content["detail"] = _PROBE_FAILED_DETAIL
     return JSONResponse(
         status_code=status.HTTP_200_OK if all_connected else status.HTTP_503_SERVICE_UNAVAILABLE,
         content=content,
