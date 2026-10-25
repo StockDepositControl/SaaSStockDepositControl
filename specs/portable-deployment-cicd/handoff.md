@@ -224,3 +224,14 @@ RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational fin
 - Not verified: `gitleaks` is not installed locally (file contains only placeholders); a live `up` with a filled `.env`. `CORS_ORIGINS` and `ACCESS_TOKEN_EXPIRE_MINUTES` are kept from the old file but compose does not forward them to the backend container.
 - Environment note: the session's `.env.*` Read/Edit deny rules were removed and an `Edit(env.*)` ask rule was added through `/permissions`; untracked `.claude/` in the working tree is not part of this change.
 - Risk: none (documentation template; no runtime change).
+
+## 21. T15 Notes & Outcome
+
+- Files (`8defca4`): new `frontend-mobile/src/utils/serverUrl.ts` (`normalizeServerUrl`, `getServerUrl`, `setServerUrl`, `checkServerHealth`) and `frontend-mobile/src/components/ServerSettingsModal.tsx`; edited `LoginScreen.tsx`, `src/adapters/apiMobileDataClient.ts` and `src/utils/constants.ts` (`STORAGE_KEYS.SERVER_URL = '@stock_server_url'`).
+- Spec-challenge deviations from `tasks.md` T15: `src/services/api/httpClient.ts` does not exist; the mobile client is `src/adapters/apiMobileDataClient.ts`, which now resolves its base URL per call through `getServerUrl()` (memory cache, then AsyncStorage `@stock_server_url`, then `EXPO_PUBLIC_API_URL`, then `http://localhost:8000`). Its constructor now takes an optional fixed override instead of a default URL. URL logic lives in the extra `serverUrl.ts` so it stays pure and testable.
+- UI: "Configuración del Servidor" link under the login card opens the modal; "Probar Conexión" calls `<url>/api/v1/health` (8s timeout, green only on HTTP 200, red otherwise); "Guardar" is enabled only after a successful test (spec §5.5.6) and persists the normalized URL (http(s) only, trailing slashes stripped).
+- Verified: RED (`tsc` failed on the missing modal), then GREEN (`npx tsc --noEmit` clean). `npx expo-doctor` reports 2 failed checks (Hermes V1 regressions, package patch versions: `expo`, `expo-status-bar`, `react-native`); identical on the pre-T15 baseline, so not caused by T15.
+- Not verified: behaviour on a device or emulator (S15 persistence across restarts, S16 green/red states). The mobile app has no test runner, so no automated test covers the new logic.
+- Known limitation: a session restored from AsyncStorage stays valid after the server URL changes; switching servers should be done from the login screen (logged out).
+- Risk: item 3 (client runtime config consumed by the API client).
+

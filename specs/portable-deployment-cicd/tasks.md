@@ -162,7 +162,7 @@ flowchart TD
 
 ## Phase 4: Mobile Client Runtime Portability (Dedicated Slice)
 
-- [ ] **T15: Implement dynamic server URL configuration on Mobile Login**
+- [x] **T15: Implement dynamic server URL configuration on Mobile Login** *(commit `8defca4`)*
   - **S#:** `S15`, `S16`
   - **Risk Tier:** Medium
   - **Description:** Add Server Settings modal in `frontend-mobile/src/screens/LoginScreen.tsx` with AsyncStorage storage (`@stock_server_url`) and an inline "Probar Conexión" health check button calling `/api/v1/health`. Update mobile API client to resolve base URL dynamically.
