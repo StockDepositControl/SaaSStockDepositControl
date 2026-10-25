@@ -192,7 +192,7 @@ flowchart TD
   - **Files:** `.github/workflows/ci.yml`, `.github/dependabot.yml`
   - **Verify:** `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); yaml.safe_load(open('.github/dependabot.yml')); print('CI YAML schema parsed cleanly')"` && `hadolint backend/Dockerfile frontend-web/Dockerfile && docker compose config -q`
 
-- [x] **T18: Author CD workflow and Release Engineering** *(see handoff §26; judgment-day APPROVED with info ledger JD-1..JD-8)*
+- [x] **T18: Author CD workflow and Release Engineering** *(commit `a14b5bf`; see handoff §26, judgment-day APPROVED, JD-1/4/5 fixed)*
   - **S#:** `S22`, `S23`, `S24`
   - **Risk Tier:** High
   - **Description:** Author `.github/workflows/cd.yml` supporting multi-arch (`linux/amd64`, `linux/arm64`) publishing to GHCR on `main` push, SSH staging deployment to Oracle VM with auto-rollback on `/health` failure, GitHub Release packaging on `v*.*.*` tags with attached deployment bundle tarball, and manual production confirmation gate. Add optional `.github/workflows/mobile-release.yml` for EAS build.
