@@ -1,19 +1,24 @@
-import pytest
-from unittest.mock import AsyncMock
 from decimal import Decimal
+from unittest.mock import AsyncMock
+
+import pytest
+from backend.api.dependencies.services import (
+    get_article_search_service,
+    get_audit_service,
+)
+from backend.api.main import app
+from backend.app.articles.models import Articulo
+from backend.app.articles.services import ArticleSearchService
+from backend.app.exceptions import EntityNotFoundException
+from backend.app.movements.domain import StockLookupResult
+from backend.app.movements.services import AuditService
 from fastapi.testclient import TestClient
 
-from backend.api.main import app
-from backend.api.dependencies.services import get_article_search_service, get_audit_service
-from backend.app.articles.models import Articulo
-from backend.app.movements.domain import StockPorDeposito, StockLookupResult
-from backend.app.articles.services import ArticleSearchService
-from backend.app.movements.services import AuditService
-from backend.app.exceptions import EntityNotFoundException
 
 @pytest.fixture
 def mock_search_service():
     return AsyncMock(spec=ArticleSearchService)
+
 
 @pytest.fixture
 def mock_audit_service():
@@ -23,14 +28,17 @@ def mock_audit_service():
     service.stock_lookup_service = AsyncMock()
     return service
 
-def test_get_stock_position_admin_includes_cost(mock_search_service, mock_audit_service):
+
+def test_get_stock_position_admin_includes_cost(
+    mock_search_service, mock_audit_service
+):
     from backend.api.v1.stock import require_audit_roles
 
     app.dependency_overrides[require_audit_roles] = lambda: {
         "sub": "admin@example.com",
         "role": "administrador",
         "tenant_id": "1",
-        "id_usuario": 1
+        "id_usuario": 1,
     }
 
     mock_article = Articulo(
@@ -43,16 +51,18 @@ def test_get_stock_position_admin_includes_cost(mock_search_service, mock_audit_
         des_familia="Medicamentos",
         id_grupo="02",
         des_grupo="Analgésicos",
-        pcio_com_siva=Decimal("150.00")
+        pcio_com_siva=Decimal("150.00"),
     )
     mock_search_service.get_article_by_id.return_value = mock_article
-    
+
     mock_stock_pos = StockLookupResult(
         id_articulo="1042",
         stock_real=95,
         source="db_articles",
     )
-    mock_audit_service.stock_lookup_service.get_effective_stock.return_value = mock_stock_pos
+    mock_audit_service.stock_lookup_service.get_effective_stock.return_value = (
+        mock_stock_pos
+    )
 
     app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
     app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
@@ -72,6 +82,7 @@ def test_get_stock_position_admin_includes_cost(mock_search_service, mock_audit_
 
     app.dependency_overrides.clear()
 
+
 def test_get_stock_position_auditor_hides_cost(mock_search_service, mock_audit_service):
     from backend.api.v1.stock import require_audit_roles
 
@@ -79,28 +90,32 @@ def test_get_stock_position_auditor_hides_cost(mock_search_service, mock_audit_s
         "sub": "auditor@example.com",
         "role": "auditor",
         "tenant_id": "1",
-        "id_usuario": 2
+        "id_usuario": 2,
     }
 
     mock_article = Articulo(
         id_articulo="1042",
         des_articulo="Ibuprofeno 400mg",
-        pcio_com_siva=Decimal("150.00")
+        pcio_com_siva=Decimal("150.00"),
     )
     mock_search_service.get_article_by_id.return_value = mock_article
-    
+
     mock_stock_pos = StockLookupResult(
         id_articulo="1042",
         stock_real=95,
         source="db_articles",
     )
-    mock_audit_service.stock_lookup_service.get_effective_stock.return_value = mock_stock_pos
+    mock_audit_service.stock_lookup_service.get_effective_stock.return_value = (
+        mock_stock_pos
+    )
 
     app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
     app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
 
     client = TestClient(app)
-    response = client.get("/api/v1/stock/position?id_articulo=1042&id_sucursal=1&id_deposito=1")
+    response = client.get(
+        "/api/v1/stock/position?id_articulo=1042&id_sucursal=1&id_deposito=1"
+    )
 
     assert response.status_code == 200
     data = response.json()
@@ -109,6 +124,7 @@ def test_get_stock_position_auditor_hides_cost(mock_search_service, mock_audit_s
 
     app.dependency_overrides.clear()
 
+
 def test_get_stock_position_not_found(mock_search_service, mock_audit_service):
     from backend.api.v1.stock import require_audit_roles
 
@@ -116,46 +132,53 @@ def test_get_stock_position_not_found(mock_search_service, mock_audit_service):
         "sub": "admin@example.com",
         "role": "administrador",
         "tenant_id": "1",
-        "id_usuario": 1
+        "id_usuario": 1,
     }
 
-    mock_search_service.get_article_by_id.side_effect = EntityNotFoundException("Article not found")
+    mock_search_service.get_article_by_id.side_effect = EntityNotFoundException(
+        "Article not found"
+    )
 
     app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
     app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
 
     client = TestClient(app)
-    response = client.get("/api/v1/stock/position?id_articulo=nonexistent999&id_sucursal=1&id_deposito=1")
+    response = client.get(
+        "/api/v1/stock/position?id_articulo=nonexistent999&id_sucursal=1&id_deposito=1"
+    )
 
     assert response.status_code == 404
     app.dependency_overrides.clear()
 
 
-def test_get_stock_position_alphanumeric_tenant(mock_search_service, mock_audit_service):
+def test_get_stock_position_alphanumeric_tenant(
+    mock_search_service, mock_audit_service
+):
     from backend.api.v1.stock import require_audit_roles
 
     app.dependency_overrides[require_audit_roles] = lambda: {
         "sub": "admin@example.com",
         "role": "administrador",
         "tenant_id": "tenant-uuid-xyz-123",
-        "id_usuario": 1
+        "id_usuario": 1,
     }
 
     mock_article = Articulo(
         id_articulo="1042",
         des_articulo="Ibuprofeno 400mg",
-        pcio_com_siva=Decimal("150.00")
+        pcio_com_siva=Decimal("150.00"),
     )
     mock_search_service.get_article_by_id.return_value = mock_article
-    mock_audit_service.stock_lookup_service.get_effective_stock.return_value = StockLookupResult(
-        id_articulo="1042", stock_real=95, source="db_articles"
+    mock_audit_service.stock_lookup_service.get_effective_stock.return_value = (
+        StockLookupResult(id_articulo="1042", stock_real=95, source="db_articles")
     )
 
     app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
     app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
 
     client = TestClient(app)
-    # Query without branch/deposito parameters, testing that string tenant_id does not throw ValueError
+    # Query without branch/deposito parameters, testing that string tenant_id does not
+    # throw ValueError
     response = client.get("/api/v1/stock/position?id_articulo=1042")
 
     assert response.status_code == 200
@@ -168,8 +191,8 @@ def test_get_stock_position_alphanumeric_tenant(mock_search_service, mock_audit_
 
 def test_post_single_audit_endpoint(mock_audit_service):
     from backend.api.v1.stock import require_audit_writer_roles
-    from backend.app.movements.schemas import AuditEntryResult
     from backend.app.movements.domain import TipoAccion
+    from backend.app.movements.schemas import AuditEntryResult
 
     app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
@@ -225,7 +248,9 @@ def test_post_single_audit_no_active_session_409(mock_audit_service):
         "id_usuario": 5,
     }
 
-    mock_audit_service.register_single_audit.side_effect = NoActiveWorkSessionError("No active work session found for branch '1'.")
+    mock_audit_service.register_single_audit.side_effect = NoActiveWorkSessionError(
+        "No active work session found for branch '1'."
+    )
     app.dependency_overrides[get_audit_service] = lambda: mock_audit_service
 
     client = TestClient(app)
@@ -249,8 +274,8 @@ def test_post_single_audit_no_active_session_409(mock_audit_service):
 
 def test_post_batch_audit_endpoint(mock_audit_service):
     from backend.api.v1.stock import require_audit_writer_roles
-    from backend.app.movements.schemas import AuditBatchResult, AuditEntryResult
     from backend.app.movements.domain import TipoAccion
+    from backend.app.movements.schemas import AuditBatchResult, AuditEntryResult
 
     app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
@@ -304,8 +329,8 @@ def test_post_batch_audit_endpoint(mock_audit_service):
 
 def test_post_single_audit_defaults_omitted_deposit_and_branch(mock_audit_service):
     from backend.api.v1.stock import require_audit_writer_roles
-    from backend.app.movements.schemas import AuditEntryResult
     from backend.app.movements.domain import TipoAccion
+    from backend.app.movements.schemas import AuditEntryResult
 
     app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
@@ -351,8 +376,8 @@ def test_post_single_audit_defaults_omitted_deposit_and_branch(mock_audit_servic
 
 def test_post_single_audit_defaults_branch_when_claim_missing(mock_audit_service):
     from backend.api.v1.stock import require_audit_writer_roles
-    from backend.app.movements.schemas import AuditEntryResult
     from backend.app.movements.domain import TipoAccion
+    from backend.app.movements.schemas import AuditEntryResult
 
     app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
@@ -396,8 +421,8 @@ def test_post_single_audit_defaults_branch_when_claim_missing(mock_audit_service
 
 def test_post_single_audit_preserves_explicit_ids(mock_audit_service):
     from backend.api.v1.stock import require_audit_writer_roles
-    from backend.app.movements.schemas import AuditEntryResult
     from backend.app.movements.domain import TipoAccion
+    from backend.app.movements.schemas import AuditEntryResult
 
     app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
@@ -444,8 +469,8 @@ def test_post_single_audit_preserves_explicit_ids(mock_audit_service):
 
 def test_post_batch_audit_defaults_omitted_deposit_and_branch(mock_audit_service):
     from backend.api.v1.stock import require_audit_writer_roles
-    from backend.app.movements.schemas import AuditBatchResult, AuditEntryResult
     from backend.app.movements.domain import TipoAccion
+    from backend.app.movements.schemas import AuditBatchResult, AuditEntryResult
 
     app.dependency_overrides[require_audit_writer_roles] = lambda: {
         "sub": "auditor@example.com",
@@ -519,14 +544,16 @@ def test_post_batch_audit_defaults_omitted_deposit_and_branch(mock_audit_service
     app.dependency_overrides.clear()
 
 
-
-
-
-
-@pytest.mark.parametrize("path,body", [
-    ("/api/v1/stock/audit", {"id_deposito": 1, "id_articulo": "1042", "stock_fisico_contado": 90}),
-    ("/api/v1/stock/audit/batch", {"items": []}),
-])
+@pytest.mark.parametrize(
+    "path,body",
+    [
+        (
+            "/api/v1/stock/audit",
+            {"id_deposito": 1, "id_articulo": "1042", "stock_fisico_contado": 90},
+        ),
+        ("/api/v1/stock/audit/batch", {"items": []}),
+    ],
+)
 def test_admin_cannot_register_audits(mock_audit_service, path, body):
     from backend.api.dependencies.auth import get_current_user_claims
 

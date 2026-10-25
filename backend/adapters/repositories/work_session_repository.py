@@ -1,12 +1,13 @@
 from datetime import datetime
 from typing import Optional
+
+from backend.adapters.database.connection import get_analytics_session_factory
+from backend.adapters.repositories.models.analytics import WorkSession as WorkSessionORM
+from backend.app.work_sessions.models import WorkSession, WorkSessionCreate
+from backend.app.work_sessions.ports import WorkSessionRepositoryPort
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from backend.app.work_sessions.models import WorkSession, WorkSessionCreate
-from backend.app.work_sessions.ports import WorkSessionRepositoryPort
-from backend.adapters.repositories.models.analytics import WorkSession as WorkSessionORM
-from backend.adapters.database.connection import get_analytics_session_factory
 
 class SQLAlchemyWorkSessionRepository(WorkSessionRepositoryPort):
     def __init__(self, session_factory: Optional[async_sessionmaker] = None):
@@ -23,7 +24,9 @@ class SQLAlchemyWorkSessionRepository(WorkSessionRepositoryPort):
             created_at=orm_model.created_at,
         )
 
-    async def get_active_session(self, tenant_id: str, branch_id: int, target_date: datetime) -> Optional[WorkSession]:
+    async def get_active_session(
+        self, tenant_id: str, branch_id: int, target_date: datetime
+    ) -> Optional[WorkSession]:
         async with self.session_factory() as session:
             stmt = (
                 select(WorkSessionORM)
@@ -32,7 +35,7 @@ class SQLAlchemyWorkSessionRepository(WorkSessionRepositoryPort):
                     WorkSessionORM.branch_id == branch_id,
                     WorkSessionORM.opened_at <= target_date,
                     WorkSessionORM.closed_at >= target_date,
-                    WorkSessionORM.status == "OPEN"
+                    WorkSessionORM.status == "OPEN",
                 )
                 .order_by(WorkSessionORM.opened_at.desc())
                 .limit(1)
@@ -49,7 +52,7 @@ class SQLAlchemyWorkSessionRepository(WorkSessionRepositoryPort):
                 select(WorkSessionORM.session_id)
                 .where(
                     WorkSessionORM.branch_id == branch_id,
-                    WorkSessionORM.status == "OPEN"
+                    WorkSessionORM.status == "OPEN",
                 )
                 .order_by(WorkSessionORM.opened_at.desc())
                 .limit(1)

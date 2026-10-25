@@ -1,23 +1,27 @@
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
+
 from backend.app.movements.domain import (
-    StockPorDeposito,
-    AuditRecordCreate,
     AuditRecord,
+    AuditRecordCreate,
     SessionAuditAggregates,
+    StockPorDeposito,
 )
+
 
 class StockRepositoryPort(ABC):
     """
     Abstract port for reading stock position data.
     Decoupled from specific database implementations.
     """
+
     @abstractmethod
     async def get_stock_position(
         self, tenant_id: int, id_sucursal: int, id_deposito: int, id_articulo: str
     ) -> Optional[StockPorDeposito]:
         """
-        Retrieves current stock position (stock_real) for a specific deposit and article.
+        Retrieves current stock position (stock_real) for a specific deposit and
+        article.
         """
         pass
 
@@ -26,7 +30,8 @@ class StockRepositoryPort(ABC):
         self, deposit_id: int, article_ids: List[str]
     ) -> Dict[str, int]:
         """
-        Retrieves current stock positions (stock_real) for multiple articles in a specific deposit.
+        Retrieves current stock positions (stock_real) for multiple articles in a
+        specific deposit.
         Automatically filters by ContextVar(tenant_id, branch_id).
         Returns a mapping of {id_articulo: stock_real}.
         """
@@ -55,21 +60,19 @@ class AuditRepositoryPort(ABC):
     Abstract port for persisting audit logs and managing audit idempotency.
     Decoupled from specific database implementations.
     """
+
     @abstractmethod
-    async def create_audit_record(
-        self, record: AuditRecordCreate
-    ) -> AuditRecord:
+    async def create_audit_record(self, record: AuditRecordCreate) -> AuditRecord:
         """
         Persists a new audit movement record in db_analytics.
         """
         pass
 
     @abstractmethod
-    async def exists_by_client_uuid(
-        self, client_uuid: str
-    ) -> bool:
+    async def exists_by_client_uuid(self, client_uuid: str) -> bool:
         """
-        Checks whether an audit record with the given client_uuid already exists for idempotency.
+        Checks whether an audit record with the given client_uuid already exists for
+        idempotency.
         """
         pass
 
@@ -87,7 +90,8 @@ class AuditRepositoryPort(ABC):
         self, session_id: int, article_ids: List[str]
     ) -> Dict[str, int]:
         """
-        Retrieves the latest audit quantity for multiple articles within a specific session.
+        Retrieves the latest audit quantity for multiple articles within a specific
+        session.
         Returns a mapping of {id_articulo: audit_quantity}.
         """
         pass
@@ -101,4 +105,3 @@ class AuditRepositoryPort(ABC):
         valorized amounts) for a work session, aggregated in the database.
         """
         pass
-

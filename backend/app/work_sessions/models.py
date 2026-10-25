@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Optional
+
 from pydantic import BaseModel, ConfigDict
+
 
 class WorkSessionBase(BaseModel):
     tenant_id: int
@@ -9,8 +11,10 @@ class WorkSessionBase(BaseModel):
     closed_at: Optional[datetime] = None
     status: str = "OPEN"
 
+
 class WorkSessionCreate(WorkSessionBase):
     pass
+
 
 class WorkSession(WorkSessionBase):
     session_id: int

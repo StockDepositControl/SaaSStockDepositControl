@@ -1,22 +1,25 @@
 from decimal import Decimal
-from typing import Optional, List, Dict
-from sqlalchemy import select, func, case, distinct
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from typing import Dict, List, Optional
 
+from backend.adapters.database.connection import get_analytics_session_factory
+from backend.adapters.repositories.models.analytics import ActionType as ActionTypeORM
+from backend.adapters.repositories.models.analytics import AuditRecord as AuditRecordORM
 from backend.app.movements.domain import (
-    AuditRecordCreate,
     AuditRecord,
-    TipoAccion,
+    AuditRecordCreate,
     SessionAuditAggregates,
+    TipoAccion,
 )
 from backend.app.movements.ports import AuditRepositoryPort
-from backend.adapters.repositories.models.analytics import AuditRecord as AuditRecordORM, ActionType as ActionTypeORM
-from backend.adapters.database.connection import get_analytics_session_factory
+from sqlalchemy import case, distinct, func, select
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
 
 class SQLAlchemyAuditRepository(AuditRepositoryPort):
     """
     SQLAlchemy implementation of AuditRepositoryPort managing db_analytics audit logs.
     """
+
     def __init__(self, session_factory: Optional[async_sessionmaker] = None):
         self.session_factory = session_factory or get_analytics_session_factory()
 
@@ -36,9 +39,7 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
         else:
             return TipoAccion.SIN_ACCION
 
-    async def create_audit_record(
-        self, record: AuditRecordCreate
-    ) -> AuditRecord:
+    async def create_audit_record(self, record: AuditRecordCreate) -> AuditRecord:
         async with self.session_factory() as session:
             try:
                 numeric_tenant_id = int(record.tenant_id)
@@ -85,14 +86,14 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
                 observation=orm_record.observation,
             )
 
-    async def exists_by_client_uuid(
-        self, client_uuid: str
-    ) -> bool:
+    async def exists_by_client_uuid(self, client_uuid: str) -> bool:
         if not client_uuid:
             return False
 
         async with self.session_factory() as session:
-            stmt = select(AuditRecordORM).where(AuditRecordORM.client_uuid == client_uuid)
+            stmt = select(AuditRecordORM).where(
+                AuditRecordORM.client_uuid == client_uuid
+            )
             result = await session.execute(stmt)
             return result.scalar_one_or_none() is not None
 
@@ -145,25 +146,27 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
             return {}
 
         async with self.session_factory() as session:
-            rn = func.row_number().over(
-                partition_by=AuditRecordORM.article_code,
-                order_by=AuditRecordORM.scan_timestamp.desc()
-            ).label("rn")
+            rn = (
+                func.row_number()
+                .over(
+                    partition_by=AuditRecordORM.article_code,
+                    order_by=AuditRecordORM.scan_timestamp.desc(),
+                )
+                .label("rn")
+            )
 
             subq = (
-                select(
-                    AuditRecordORM.article_code,
-                    AuditRecordORM.audit_quantity,
-                    rn
-                )
+                select(AuditRecordORM.article_code, AuditRecordORM.audit_quantity, rn)
                 .where(
                     AuditRecordORM.session_id == session_id,
-                    AuditRecordORM.article_code.in_(article_ids)
+                    AuditRecordORM.article_code.in_(article_ids),
                 )
                 .subquery()
             )
 
-            stmt = select(subq.c.article_code, subq.c.audit_quantity).where(subq.c.rn == 1)
+            stmt = select(subq.c.article_code, subq.c.audit_quantity).where(
+                subq.c.rn == 1
+            )
             result = await session.execute(stmt)
             rows = result.all()
             return {
@@ -178,7 +181,10 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
             return func.count(
                 distinct(
                     case(
-                        (AuditRecordORM.action_type == action.value, AuditRecordORM.article_code),
+                        (
+                            AuditRecordORM.action_type == action.value,
+                            AuditRecordORM.article_code,
+                        ),
                         else_=None,
                     )
                 )
@@ -188,7 +194,10 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
             return func.coalesce(
                 func.sum(
                     case(
-                        (AuditRecordORM.action_type == action.value, AuditRecordORM.valorized_amount),
+                        (
+                            AuditRecordORM.action_type == action.value,
+                            AuditRecordORM.valorized_amount,
+                        ),
                         else_=0,
                     )
                 ),

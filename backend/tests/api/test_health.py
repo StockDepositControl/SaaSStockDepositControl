@@ -1,11 +1,11 @@
 from contextlib import asynccontextmanager
 
 import pytest
-from fastapi.testclient import TestClient
-
-from backend.api.main import app
 from backend.api.dependencies import get_connection_provider
-from backend.app.ports.database import LOGICAL_DATABASES as DATABASES, ConnectionProvider
+from backend.api.main import app
+from backend.app.ports.database import LOGICAL_DATABASES as DATABASES
+from backend.app.ports.database import ConnectionProvider
+from fastapi.testclient import TestClient
 
 
 class FakeMultiDbProvider(ConnectionProvider):
@@ -65,13 +65,17 @@ def test_health_returns_503_when_any_database_is_down(client, down):
     body = response.json()
     assert body["status"] == "unhealthy"
     assert body["database"] == "disconnected"
-    expected = {name: ("disconnected" if name == down else "connected") for name in DATABASES}
+    expected = {
+        name: ("disconnected" if name == down else "connected") for name in DATABASES
+    }
     assert body["databases"] == expected
     assert body["version"] == "1.0.0"
 
 
 def test_health_returns_503_when_probe_raises(client):
-    _use(FakeMultiDbProvider(error=ConnectionRefusedError("Connection refused by host")))
+    _use(
+        FakeMultiDbProvider(error=ConnectionRefusedError("Connection refused by host"))
+    )
 
     response = client.get("/api/v1/health")
 

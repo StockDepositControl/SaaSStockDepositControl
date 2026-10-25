@@ -1,0 +1,357 @@
+# CI pipeline (spec portable-deployment-cicd §5.7, task T17).
+# `ci-success` is the single required status check for branch protection on main.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Cancel superseded PR runs; every push to main runs to completion.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # paths-filter lists PR files through the API
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
+      mobile: ${{ steps.filter.outputs.mobile }}
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # On push, paths-filter diffs locally, so full history avoids a credentialed fetch.
+          fetch-depth: 0
+          persist-credentials: false
+      - id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'docker/mariadb/**'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'frontend-web/**'
+              - 'shared/**'
+              - '.github/workflows/ci.yml'
+            mobile:
+              - 'frontend-mobile/**'
+              - 'shared/**'
+              - '.github/workflows/ci.yml'
+            # backend/** and frontend-web/** are the image build contexts (S19).
+            docker:
+              - 'docker/**'
+              - 'backend/**'
+              - 'frontend-web/**'
+              - 'docker-compose*.yml'
+              - '.github/workflows/ci.yml'
+
+  backend:
+    name: Backend (ruff + pytest)
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format
+        run: ruff format --check .
+      - name: Pytest
+        run: pytest --cov=backend --cov-report=term-missing --cov-report=xml:coverage.xml tests/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          if-no-files-found: ignore
+
+  migrations-smoke:
+    name: Migrations smoke (MariaDB 10.11)
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          # Throwaway credentials for the ephemeral CI service container only.
+          MARIADB_ROOT_PASSWORD: rootpassword
+          MARIADB_APP_PASSWORD: apppassword
+          MARIADB_DATABASE: db_articles
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mariadb-admin ping -h 127.0.0.1 --silent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+      ENVIRONMENT: development
+      SECRET_KEY: ci-only-not-a-secret-ci-only-not-a-secret
+      DB_HOST: 127.0.0.1
+      DB_PORT: "3306"
+      DB_USER: app_user
+      DB_PASSWORD: apppassword
+      DB_SSL_MODE: disable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r backend/requirements.txt
+      # The runner has no mariadb client; run the init script inside the service container.
+      - name: Initialize databases (01-init-dbs.sh)
+        env:
+          MARIADB_CONTAINER: ${{ job.services.mariadb.id }}
+        run: docker exec -i -e DB_USER="$DB_USER" "$MARIADB_CONTAINER" bash < docker/mariadb/01-init-dbs.sh
+      - name: Alembic upgrade head (3 databases)
+        run: |
+          alembic -c backend/migrations/alembic.ini upgrade head
+          alembic -c backend/migrations/alembic_users.ini upgrade head
+          alembic -c backend/migrations/alembic_analytics.ini upgrade head
+      # Runs before Seed because the head downgrades are not data-safe (see handoff).
+      - name: Downgrade one step / upgrade head (reversibility, before seed)
+        run: |
+          for ini in alembic.ini alembic_users.ini alembic_analytics.ini; do
+            cfg="backend/migrations/$ini"
+            # First parent of head; `-1` is ambiguous on a merge head ("Merges: a, b").
+            parent=$(alembic -c "$cfg" show head | sed -nE 's/^(Parent|Merges): ([^, ]+).*/\2/p' | head -n 1)
+            if [ -z "$parent" ]; then
+              echo "::error::cannot resolve the parent of head for $cfg"
+              exit 1
+            fi
+            alembic -c "$cfg" downgrade "$parent"
+            alembic -c "$cfg" upgrade head
+          done
+      - name: Seed
+        run: python -m backend.scripts.seed
+      - name: Probe /api/v1/health
+        run: |
+          uvicorn backend.api.main:app --host 127.0.0.1 --port 8000 > uvicorn.log 2>&1 &
+          for _ in $(seq 1 30); do
+            if body=$(curl -fsS -m 5 http://127.0.0.1:8000/api/v1/health); then
+              echo "$body"
+              echo "$body" | jq -e '.status == "healthy"
+                and .databases.articles == "connected"
+                and .databases.users == "connected"
+                and .databases.analytics == "connected"' > /dev/null && exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::/api/v1/health did not report all 3 databases connected"
+          cat uvicorn.log
+          exit 1
+
+  web:
+    name: Frontend web
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend-web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend-web/package-lock.json
+      - run: npm ci
+      # TODO(handoff §13): pre-existing lint and tsc baseline failures; make blocking once cleared.
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true
+      - name: Typecheck
+        run: npx tsc --noEmit
+        continue-on-error: true
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build
+
+  mobile:
+    name: Frontend mobile
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend-mobile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend-mobile/package-lock.json
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Expo doctor
+        run: npx expo-doctor
+        continue-on-error: true
+
+  docker:
+    name: Docker (hadolint, compose, multi-arch build)
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # DL3025: the shell-form `HEALTHCHECK CMD ... || exit 1` is mandated by spec §5.1.
+      # DL3066 (info, named USER) stays visible but does not fail the job.
+      - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: backend/Dockerfile
+          failure-threshold: warning
+          ignore: DL3025
+      - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: frontend-web/Dockerfile
+          failure-threshold: warning
+          ignore: DL3025
+      - name: Compose config (all profiles)
+        run: |
+          docker compose config -q
+          for profile in with-db demo tunnel; do
+            docker compose --profile "$profile" config -q
+          done
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build backend (amd64 + arm64, no push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - name: Build web (amd64 + arm64, no push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: frontend-web
+          platforms: linux/amd64,linux/arm64
+          push: false
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  security:
+    name: Security (gitleaks, audits, trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks scans the full history
+          persist-credentials: false
+      # CLI instead of gitleaks-action, which needs a paid license on organization repos.
+      - name: Gitleaks
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" detect --source . -v --redact
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: pip-audit
+        run: |
+          pip install "pip-audit>=2.7.0"
+          pip-audit -r backend/requirements.txt
+      # Production dependencies only: dev tooling never ships in the image (Trivy scans that).
+      # TODO: drop --omit=dev once vitest@5 clears the tinypool advisory.
+      - name: npm audit
+        working-directory: frontend-web
+        run: npm audit --omit=dev --audit-level=high
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build backend image for scan
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          load: true
+          tags: ci-scan/backend:${{ github.sha }}
+          cache-from: type=gha,scope=backend
+      - name: Build web image for scan
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: frontend-web
+          load: true
+          tags: ci-scan/web:${{ github.sha }}
+          cache-from: type=gha,scope=web
+      - name: Trivy backend image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          image-ref: ci-scan/backend:${{ github.sha }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Trivy web image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          image-ref: ci-scan/web:${{ github.sha }}
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+
+  ci-success:
+    name: ci-success
+    needs: [changes, backend, migrations-smoke, web, mobile, docker, security]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Skipped jobs (path filters) count as success; failed or cancelled ones block the merge.
+      - name: Fail if any required job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
+      - run: echo "All required jobs passed or were skipped."

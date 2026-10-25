@@ -1,7 +1,9 @@
-import jwt
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
+
+import jwt
 from backend.app.ports.security import TokenProvider
+
 
 class PyJWTTokenProvider(TokenProvider):
     def __init__(self, secret_key: str, algorithm: str = "HS256"):

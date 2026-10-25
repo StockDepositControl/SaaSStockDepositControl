@@ -24,7 +24,8 @@ class ShrinkageReportRepositoryPort(ABC):
         branch_id: Optional[int] = None,
     ) -> List[ShrinkageRawRecord]:
         """
-        Retrieves all REMOVAL audit records within the given date range for a tenant and optional branch.
+        Retrieves all REMOVAL audit records within the given date range for a tenant and
+        optional branch.
         """
         pass
 
@@ -44,7 +45,8 @@ class GoodsReceivedReportRepositoryPort(ABC):
         branch_id: Optional[int] = None,
     ) -> List[GoodsReceivedRawRecord]:
         """
-        Retrieves all ADDITION audit records within the given date range for a tenant and optional branch.
+        Retrieves all ADDITION audit records within the given date range for a tenant
+        and optional branch.
         """
         pass
 
@@ -64,7 +66,7 @@ class DailyInventoryBalanceReportRepositoryPort(ABC):
         branch_id: Optional[int] = None,
     ) -> List[DailyInventoryBalanceRecord]:
         """
-        Retrieves consolidated daily inventory balance records filtered by tenant, date range, and branch.
+        Retrieves consolidated daily inventory balance records filtered by tenant, date
+        range, and branch.
         """
         pass
-

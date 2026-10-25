@@ -1,0 +1,263 @@
+# CD pipeline (spec portable-deployment-cicd §5.8, task T18).
+# - main: after CI succeeds on a push, publish multi-arch images (edge, sha-<short>)
+#   and deploy them to staging.
+# - v*.*.* tags: publish release images (vX.Y.Z, vX.Y, vX, latest) and a GitHub
+#   Release with the deployment bundle.
+# - workflow_dispatch: manual production deploy of an existing release tag.
+# Rollback and health checks are owned by scripts/devops/deploy.sh (T16).
+name: CD
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      target_version:
+        description: Release tag to deploy to production (e.g. v1.2.0)
+        required: true
+        type: string
+      confirm_text:
+        description: Type DEPLOY-PRODUCTION to confirm
+        required: true
+        type: string
+
+concurrency:
+  # Deployments of the same ref never overlap; the newest pending run wins.
+  # The CI conclusion is part of the key so a failed CI run (whose CD run skips
+  # every job) cannot cancel a pending run for a green commit.
+  group: cd-${{ github.event_name }}-${{ github.ref }}-${{ github.event.workflow_run.conclusion }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: saas-stock
+  # Self-contained bundle for target hosts. The proxy is built on the host from
+  # docker/caddy, and the with-db profile needs the MariaDB init script.
+  DEPLOY_FILES: >-
+    docker-compose.yml docker/caddy/Caddyfile docker/caddy/Dockerfile
+    docker/mariadb/01-init-dbs.sh .env.example scripts/devops/deploy.sh
+    docs/deploy/README.md
+
+jobs:
+  build:
+    name: Publish ${{ matrix.service }} image
+    # Only CI runs for pushes to main of this repository (never fork PRs), or release tags.
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: backend
+            context: backend
+          - service: web
+            context: frontend-web
+    steps:
+      - name: Resolve commit and owner
+        id: vars
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          {
+            echo "sha=${HEAD_SHA}"
+            echo "short_sha=${HEAD_SHA::7}"
+            echo "owner=${OWNER,,}"
+          } >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.vars.outputs.sha }}
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.vars.outputs.owner }}/${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          # workflow_run events carry the default-branch sha in github.sha, so the
+          # sha tag and revision label come from the CI run's head commit instead.
+          tags: |
+            type=raw,value=edge,enable=${{ github.event_name == 'workflow_run' }}
+            type=raw,value=sha-${{ steps.vars.outputs.short_sha }},enable=${{ github.event_name == 'workflow_run' }}
+            type=semver,pattern=v{{version}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.vars.outputs.sha }}
+          flavor: latest=auto
+      - name: Build and push (amd64 + arm64)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy-staging:
+    name: Deploy to staging
+    needs: build
+    # Opt-in: staging deploys only once the STAGING_DOMAIN variable is configured.
+    if: github.event_name == 'workflow_run' && vars.STAGING_DOMAIN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    env:
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      DOMAIN: ${{ vars.STAGING_DOMAIN }}
+      DEPLOY_DIR: ${{ vars.STAGING_DEPLOY_DIR || '/opt/saas-stock-deposit' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.STAGING_SSH_KNOWN_HOSTS }}
+        run: |
+          : "${SSH_KEY:?STAGING_SSH_KEY is not set}"
+          : "${SSH_KNOWN_HOSTS:?STAGING_SSH_KNOWN_HOSTS is not set}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Sync bundle and run deploy.sh update
+        env:
+          SSH_HOST: ${{ secrets.STAGING_SSH_HOST }}
+          SSH_USER: ${{ secrets.STAGING_SSH_USER }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "::error::STAGING_DOMAIN is not a hostname"; exit 1; }
+          [[ "$DEPLOY_DIR" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "::error::STAGING_DEPLOY_DIR is not an absolute path"; exit 1; }
+          tag="sha-${HEAD_SHA::7}"
+          read -ra files <<< "$DEPLOY_FILES"
+          ssh_cmd=(ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes
+                   -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4
+                   -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "${SSH_USER}@${SSH_HOST}")
+
+          # Overwrites only bundle files; .env, .previous_tag and backups/ stay untouched.
+          tar -czf - "${files[@]}" | "${ssh_cmd[@]}" "$(printf 'mkdir -p %q && tar -xzf - -C %q' "$DEPLOY_DIR" "$DEPLOY_DIR")"
+          # Short-lived registry login: GITHUB_TOKEN expires when this job ends.
+          printf '%s' "$REGISTRY_TOKEN" | "${ssh_cmd[@]}" "$(printf 'docker login %q -u %q --password-stdin' "$REGISTRY" "$REGISTRY_USER")"
+
+          # 12 probes x 5s (~60s) before deploy.sh rolls back to .previous_tag.
+          status=0
+          "${ssh_cmd[@]}" "$(printf 'cd %q && HEALTH_URL=%q HEALTH_TIMEOUT=55 HEALTH_INTERVAL=5 ./scripts/devops/deploy.sh update %q' \
+            "$DEPLOY_DIR" "https://${DOMAIN}/api/v1/health" "$tag")" || status=$?
+          "${ssh_cmd[@]}" "$(printf 'docker logout %q' "$REGISTRY")" || true
+          exit "$status"
+
+  release:
+    name: GitHub Release
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Package bundle and create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          read -ra files <<< "$DEPLOY_FILES"
+          bundle="saas-stock-deployment-${TAG}.tar.gz"
+          tar -czvf "$bundle" "${files[@]}"
+          gh release create "$TAG" "$bundle" --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG" --generate-notes --verify-tag
+
+  deploy-production:
+    name: Deploy to production
+    # Manual gate. Dispatches from other branches could run a modified workflow, so main only.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Set PROD_ENVIRONMENT=production to add required reviewers on Team/Enterprise plans.
+    environment: ${{ vars.PROD_ENVIRONMENT }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      TARGET_VERSION: ${{ inputs.target_version }}
+      DOMAIN: ${{ vars.PROD_DOMAIN }}
+      DEPLOY_DIR: ${{ vars.PROD_DEPLOY_DIR || '/opt/saas-stock-deposit' }}
+    steps:
+      - name: Validate confirmation
+        env:
+          CONFIRM_TEXT: ${{ inputs.confirm_text }}
+        run: |
+          [[ "$CONFIRM_TEXT" == "DEPLOY-PRODUCTION" ]] || { echo "::error::confirm_text must be DEPLOY-PRODUCTION"; exit 1; }
+          [[ "$TARGET_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::target_version must look like v1.2.3"; exit 1; }
+          [[ "$DOMAIN" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "::error::PROD_DOMAIN is not a hostname"; exit 1; }
+          [[ "$DEPLOY_DIR" =~ ^/[A-Za-z0-9._/-]+$ ]] || { echo "::error::PROD_DEPLOY_DIR is not an absolute path"; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.target_version }}
+          persist-credentials: false
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+        run: |
+          : "${SSH_KEY:?PROD_SSH_KEY is not set}"
+          : "${SSH_KNOWN_HOSTS:?PROD_SSH_KNOWN_HOSTS is not set}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Sync bundle, back up and run deploy.sh update
+        env:
+          SSH_HOST: ${{ secrets.PROD_SSH_HOST }}
+          SSH_USER: ${{ secrets.PROD_SSH_USER }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          read -ra files <<< "$DEPLOY_FILES"
+          ssh_cmd=(ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes
+                   -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=4
+                   -o UserKnownHostsFile="$HOME/.ssh/known_hosts" "${SSH_USER}@${SSH_HOST}")
+
+          tar -czf - "${files[@]}" | "${ssh_cmd[@]}" "$(printf 'mkdir -p %q && tar -xzf - -C %q' "$DEPLOY_DIR" "$DEPLOY_DIR")"
+          printf '%s' "$REGISTRY_TOKEN" | "${ssh_cmd[@]}" "$(printf 'docker login %q -u %q --password-stdin' "$REGISTRY" "$REGISTRY_USER")"
+
+          # Never migrate production without a fresh backup (spec §9).
+          status=0
+          "${ssh_cmd[@]}" "$(printf 'cd %q && ./scripts/devops/deploy.sh backup && HEALTH_URL=%q HEALTH_TIMEOUT=55 HEALTH_INTERVAL=5 ./scripts/devops/deploy.sh update %q' \
+            "$DEPLOY_DIR" "https://${DOMAIN}/api/v1/health" "$TARGET_VERSION")" || status=$?
+          "${ssh_cmd[@]}" "$(printf 'docker logout %q' "$REGISTRY")" || true
+          exit "$status"

@@ -1,34 +1,39 @@
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Tuple, List, Optional, Dict
-from backend.app.movements.domain import (
-    TipoAccion,
-    AuditRecordCreate,
-    StockLookupResult,
-    VatClassifier,
-    DeltaCalculator,
-    DeltaResult,
+from typing import Dict, List, Optional, Tuple
+
+from backend.app.articles.ports import ArticleRepositoryPort
+from backend.app.exceptions import (
+    BusinessRuleViolationException,
+    EntityNotFoundException,
+    NoActiveWorkSessionError,
 )
+from backend.app.movements.domain import (
+    AuditRecordCreate,
+    DeltaCalculator,
+    StockLookupResult,
+    TipoAccion,
+    VatClassifier,
+)
+from backend.app.movements.ports import AuditRepositoryPort, StockRepositoryPort
 from backend.app.movements.schemas import (
-    AuditEntryRequest,
-    AuditEntryResult,
     AuditBatchInput,
     AuditBatchResult,
+    AuditEntryRequest,
+    AuditEntryResult,
     DashboardKPIsPublicOut,
     DashboardKPIsResponse,
 )
-from backend.app.movements.ports import StockRepositoryPort, AuditRepositoryPort
-from backend.app.articles.ports import ArticleRepositoryPort
-from backend.app.exceptions import (
-    EntityNotFoundException,
-    BusinessRuleViolationException,
-    NoActiveWorkSessionError,
-)
 from backend.app.work_sessions.services import WorkSessionService
 
+
 class StockLookupService:
-    def __init__(self, stock_repository: StockRepositoryPort, audit_repository: AuditRepositoryPort):
+    def __init__(
+        self,
+        stock_repository: StockRepositoryPort,
+        audit_repository: AuditRepositoryPort,
+    ):
         self.stock_repository = stock_repository
         self.audit_repository = audit_repository
 
@@ -42,7 +47,7 @@ class StockLookupService:
             return StockLookupResult(
                 id_articulo=id_articulo,
                 stock_real=latest_audit.audit_quantity,
-                source="db_analytics"
+                source="db_analytics",
             )
 
         stock_pos = await self.stock_repository.get_stock_position(
@@ -50,17 +55,21 @@ class StockLookupService:
         )
         if not stock_pos:
             raise EntityNotFoundException(
-                f"Stock position not found for article '{id_articulo}' in deposit '{id_deposito}'."
+                f"Stock position not found for article '{id_articulo}' in deposit "
+                f"'{id_deposito}'."
             )
-        
+
         return StockLookupResult(
             id_articulo=id_articulo,
             stock_real=stock_pos.stock_real,
-            source="db_articles"
+            source="db_articles",
         )
 
     async def get_effective_stocks_batch(
-        self, article_ids: List[str], deposit_id: int, active_session_id: Optional[int] = None
+        self,
+        article_ids: List[str],
+        deposit_id: int,
+        active_session_id: Optional[int] = None,
     ) -> Dict[str, int]:
         """
         Resolves effective stock positions in batch for a list of articles in a deposit.
@@ -74,8 +83,7 @@ class StockLookupService:
         audit_map: Dict[str, int] = {}
         if active_session_id:
             audit_map = await self.audit_repository.get_latest_audits_for_articles(
-                session_id=active_session_id,
-                article_ids=article_ids
+                session_id=active_session_id, article_ids=article_ids
             )
 
         remaining_ids = [aid for aid in article_ids if aid not in audit_map]
@@ -83,8 +91,7 @@ class StockLookupService:
         stock_map: Dict[str, int] = {}
         if remaining_ids:
             stock_map = await self.stock_repository.get_stock_positions_batch(
-                deposit_id=deposit_id,
-                article_ids=remaining_ids
+                deposit_id=deposit_id, article_ids=remaining_ids
             )
 
         return {**stock_map, **audit_map}
@@ -95,6 +102,7 @@ class AuditService:
     Pure domain service orchestrating audit registration, discrepancy calculations,
     and financial valorization rules.
     """
+
     def __init__(
         self,
         article_repository: ArticleRepositoryPort,
@@ -110,7 +118,9 @@ class AuditService:
         self.default_vat_rate = default_vat_rate
 
     @staticmethod
-    def compute_delta(stock_real_previo: int, stock_fisico_contado: int) -> Tuple[int, TipoAccion]:
+    def compute_delta(
+        stock_real_previo: int, stock_fisico_contado: int
+    ) -> Tuple[int, TipoAccion]:
         """
         Computes stock discrepancy delta:
         delta = stock_fisico_contado - stock_real_previo
@@ -131,7 +141,8 @@ class AuditService:
         default_vat_rate: Decimal = Decimal("0.21"),
     ) -> Decimal:
         """
-        Calculates valorized amount based on purchase cost and family VAT classification.
+        Calculates valorized amount based on purchase cost and family VAT
+        classification.
         Delegates tax classification to VatClassifier.
         """
         vat_rate = VatClassifier.classify(des_familia, default_vat_rate)
@@ -142,7 +153,8 @@ class AuditService:
         self, tenant_id: str, id_usuario: int, entry: AuditEntryRequest
     ) -> AuditEntryResult:
         """
-        Registers a single physical count entry, computes discrepancy and financial impact,
+        Registers a single physical count entry, computes discrepancy and financial
+        impact,
         updates physical stock, and persists movement audit log.
         Auto-generates backend timestamp and client_uuid.
         """
@@ -176,8 +188,9 @@ class AuditService:
             raise EntityNotFoundException(f"Article '{entry.id_articulo}' not found.")
         pcio_com_siva = article.pcio_com_siva
         des_familia = article.des_familia
- 
-        # 3. Compute discrepancy, final audit_quantity, and action type via DeltaCalculator
+
+        # 3. Compute discrepancy, final audit_quantity, and action type via
+        # DeltaCalculator
         if entry.stock_fisico_contado is not None:
             delta_result = DeltaCalculator.from_physical_count(
                 stock_real_previo=stock_lookup.stock_real,
@@ -193,7 +206,8 @@ class AuditService:
             stock_fisico_contado_val = delta_result.audit_quantity
         else:
             raise BusinessRuleViolationException(
-                "Either stock_fisico_contado or (cantidad_afectada and tipo_accion) must be provided."
+                "Either stock_fisico_contado or (cantidad_afectada and tipo_accion) "
+                "must be provided."
             )
 
         delta_stock = delta_result.delta_stock
@@ -212,7 +226,9 @@ class AuditService:
         )
 
         # 5. Retrieve active work session ID or raise domain exception
-        active_session_id = await self.work_session_service.get_active_session_id(id_sucursal)
+        active_session_id = await self.work_session_service.get_active_session_id(
+            id_sucursal
+        )
         if active_session_id is None:
             raise NoActiveWorkSessionError(
                 f"No active work session found for branch '{id_sucursal}'."
@@ -280,6 +296,7 @@ class KPICalculator:
     """
     Pure Fabrication: stateless dashboard progress math, testable without any Port.
     """
+
     @staticmethod
     def pendientes(total_articulos: int, auditados: int) -> int:
         return max(0, total_articulos - auditados)
@@ -293,10 +310,16 @@ class KPICalculator:
 
 class StockKPIService:
     """
-    Read-only use case (CQS): orchestrates stock and audit ports to build dashboard KPIs.
+    Read-only use case (CQS): orchestrates stock and audit ports to build dashboard
+    KPIs.
     Financial amounts are returned only to administrators.
     """
-    def __init__(self, stock_repository: StockRepositoryPort, audit_repository: AuditRepositoryPort):
+
+    def __init__(
+        self,
+        stock_repository: StockRepositoryPort,
+        audit_repository: AuditRepositoryPort,
+    ):
         self.stock_repository = stock_repository
         self.audit_repository = audit_repository
 
@@ -325,7 +348,9 @@ class StockKPIService:
             "total_articulos": total,
             "auditados": agg.audited_count,
             "pendientes": KPICalculator.pendientes(total, agg.audited_count),
-            "porcentaje_avance": KPICalculator.porcentaje_avance(total, agg.audited_count),
+            "porcentaje_avance": KPICalculator.porcentaje_avance(
+                total, agg.audited_count
+            ),
             "discrepancias_alta": agg.alta_count,
             "discrepancias_baja": agg.baja_count,
             "sin_accion": agg.sin_accion_count,

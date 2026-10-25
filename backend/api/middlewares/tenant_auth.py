@@ -1,14 +1,12 @@
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-from backend.api.dependencies import get_token_provider
 from backend.adapters.database.multi_tenant import (
-    tenant_id_context,
-    sucursal_id_context,
-    user_id_context,
-    set_tenant_id,
     set_sucursal_id,
+    set_tenant_id,
     set_user_id,
 )
+from backend.api.dependencies import get_token_provider
+from fastapi import Request, Response
+from starlette.middleware.base import BaseHTTPMiddleware
+
 
 class TenantAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
@@ -40,7 +38,8 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
                 if user_id is not None:
                     set_user_id(int(user_id))
             except ValueError:
-                # Invalid or expired token; downstream authentication dependencies will reject it
+                # Invalid or expired token; downstream authentication dependencies will
+                # reject it
                 pass
 
         response = await call_next(request)

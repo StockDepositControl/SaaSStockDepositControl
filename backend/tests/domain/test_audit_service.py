@@ -1,39 +1,43 @@
-import pytest
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock
 
-from backend.app.movements.domain import (
-    TipoAccion,
-    StockPorDeposito,
-    AuditRecord,
-    VatClassifier,
-    DeltaCalculator,
-)
+import pytest
 from backend.app.articles.models import Articulo
-from backend.app.movements.schemas import (
-    AuditEntryRequest,
-    AuditBatchInput,
-)
-from backend.app.movements.services import AuditService, StockLookupService
 from backend.app.exceptions import (
-    EntityNotFoundException,
     BusinessRuleViolationException,
+    EntityNotFoundException,
     NoActiveWorkSessionError,
 )
+from backend.app.movements.domain import (
+    AuditRecord,
+    DeltaCalculator,
+    StockPorDeposito,
+    TipoAccion,
+    VatClassifier,
+)
+from backend.app.movements.schemas import (
+    AuditBatchInput,
+    AuditEntryRequest,
+)
+from backend.app.movements.services import AuditService, StockLookupService
+
 
 @pytest.fixture
 def mock_stock_repo():
     return AsyncMock()
 
+
 @pytest.fixture
 def mock_article_repo():
     return AsyncMock()
+
 
 @pytest.fixture
 def mock_audit_repo():
     repo = AsyncMock()
     return repo
+
 
 @pytest.fixture
 def mock_work_session_service():
@@ -41,12 +45,18 @@ def mock_work_session_service():
     svc.get_active_session_id.return_value = 1
     return svc
 
-@pytest.fixture
-def mock_lookup_service(mock_stock_repo, mock_audit_repo):
-    return StockLookupService(stock_repository=mock_stock_repo, audit_repository=mock_audit_repo)
 
 @pytest.fixture
-def audit_service(mock_article_repo, mock_audit_repo, mock_lookup_service, mock_work_session_service):
+def mock_lookup_service(mock_stock_repo, mock_audit_repo):
+    return StockLookupService(
+        stock_repository=mock_stock_repo, audit_repository=mock_audit_repo
+    )
+
+
+@pytest.fixture
+def audit_service(
+    mock_article_repo, mock_audit_repo, mock_lookup_service, mock_work_session_service
+):
     return AuditService(
         article_repository=mock_article_repo,
         audit_repository=mock_audit_repo,
@@ -55,55 +65,76 @@ def audit_service(mock_article_repo, mock_audit_repo, mock_lookup_service, mock_
         default_vat_rate=Decimal("0.21"),
     )
 
+
 def test_delta_calculator_from_physical_count():
-    res_add = DeltaCalculator.from_physical_count(stock_real_previo=100, stock_fisico_contado=120)
+    res_add = DeltaCalculator.from_physical_count(
+        stock_real_previo=100, stock_fisico_contado=120
+    )
     assert res_add.delta_stock == 20
     assert res_add.tipo_accion == TipoAccion.ALTA
     assert res_add.cantidad_afectada == 20
     assert res_add.audit_quantity == 120
 
-    res_def = DeltaCalculator.from_physical_count(stock_real_previo=100, stock_fisico_contado=85)
+    res_def = DeltaCalculator.from_physical_count(
+        stock_real_previo=100, stock_fisico_contado=85
+    )
     assert res_def.delta_stock == -15
     assert res_def.tipo_accion == TipoAccion.BAJA
     assert res_def.cantidad_afectada == 15
     assert res_def.audit_quantity == 85
 
-    res_eq = DeltaCalculator.from_physical_count(stock_real_previo=100, stock_fisico_contado=100)
+    res_eq = DeltaCalculator.from_physical_count(
+        stock_real_previo=100, stock_fisico_contado=100
+    )
     assert res_eq.delta_stock == 0
     assert res_eq.tipo_accion == TipoAccion.SIN_ACCION
     assert res_eq.cantidad_afectada == 0
     assert res_eq.audit_quantity == 100
 
+
 def test_delta_calculator_from_variance():
-    res_baja = DeltaCalculator.from_variance(stock_real_previo=100, cantidad_afectada=10, tipo_accion=TipoAccion.BAJA)
+    res_baja = DeltaCalculator.from_variance(
+        stock_real_previo=100, cantidad_afectada=10, tipo_accion=TipoAccion.BAJA
+    )
     assert res_baja.delta_stock == -10
     assert res_baja.tipo_accion == TipoAccion.BAJA
     assert res_baja.cantidad_afectada == 10
     assert res_baja.audit_quantity == 90
 
-    res_alta = DeltaCalculator.from_variance(stock_real_previo=100, cantidad_afectada=15, tipo_accion=TipoAccion.ALTA)
+    res_alta = DeltaCalculator.from_variance(
+        stock_real_previo=100, cantidad_afectada=15, tipo_accion=TipoAccion.ALTA
+    )
     assert res_alta.delta_stock == 15
     assert res_alta.tipo_accion == TipoAccion.ALTA
     assert res_alta.cantidad_afectada == 15
     assert res_alta.audit_quantity == 115
 
-    res_none = DeltaCalculator.from_variance(stock_real_previo=100, cantidad_afectada=0, tipo_accion=TipoAccion.SIN_ACCION)
+    res_none = DeltaCalculator.from_variance(
+        stock_real_previo=100, cantidad_afectada=0, tipo_accion=TipoAccion.SIN_ACCION
+    )
     assert res_none.delta_stock == 0
     assert res_none.tipo_accion == TipoAccion.SIN_ACCION
     assert res_none.cantidad_afectada == 0
     assert res_none.audit_quantity == 100
 
+
 def test_compute_delta_delegation():
-    delta, action = AuditService.compute_delta(stock_real_previo=100, stock_fisico_contado=120)
+    delta, action = AuditService.compute_delta(
+        stock_real_previo=100, stock_fisico_contado=120
+    )
     assert delta == 20
     assert action == TipoAccion.ALTA
+
 
 def test_vat_classifier():
     assert VatClassifier.classify("Medicamentos") == Decimal("0.00")
     assert VatClassifier.classify(" MEDICAMENTOS ") == Decimal("0.00")
     assert VatClassifier.classify("Perfumeria") == Decimal("0.21")
-    assert VatClassifier.classify("Higiene", default_vat_rate=Decimal("0.105")) == Decimal("0.105")
+    assert VatClassifier.classify(
+        "Higiene", default_vat_rate=Decimal("0.105")
+    ) == Decimal("0.105")
     assert VatClassifier.classify(None) == Decimal("0.21")
+
 
 def test_valorized_amount_medicamentos_0_vat():
     cost = Decimal("150.5000")
@@ -113,6 +144,7 @@ def test_valorized_amount_medicamentos_0_vat():
         cantidad=10,
     )
     assert amount == Decimal("1505.0000")
+
 
 def test_valorized_amount_other_21_vat():
     cost = Decimal("100.0000")
@@ -124,8 +156,11 @@ def test_valorized_amount_other_21_vat():
     )
     assert amount == Decimal("605.0000")
 
+
 @pytest.mark.asyncio
-async def test_register_single_audit_happy_path(audit_service, mock_stock_repo, mock_article_repo, mock_audit_repo):
+async def test_register_single_audit_happy_path(
+    audit_service, mock_stock_repo, mock_article_repo, mock_audit_repo
+):
     mock_audit_repo.exists_by_client_uuid.return_value = False
     mock_audit_repo.get_latest_audit_record.return_value = None
     mock_stock_repo.get_stock_position.return_value = StockPorDeposito(
@@ -182,8 +217,11 @@ async def test_register_single_audit_happy_path(audit_service, mock_stock_repo, 
     assert res.monto_valorizado == Decimal("500.0000")
     assert res.audit_id == 99
 
+
 @pytest.mark.asyncio
-async def test_register_single_audit_variance_decrease(audit_service, mock_stock_repo, mock_article_repo, mock_audit_repo):
+async def test_register_single_audit_variance_decrease(
+    audit_service, mock_stock_repo, mock_article_repo, mock_audit_repo
+):
     mock_audit_repo.exists_by_client_uuid.return_value = False
     mock_audit_repo.get_latest_audit_record.return_value = None
     mock_stock_repo.get_stock_position.return_value = StockPorDeposito(
@@ -235,9 +273,14 @@ async def test_register_single_audit_variance_decrease(audit_service, mock_stock
     assert res.cantidad_afectada == 5
     assert res.audit_quantity == 95
 
+
 @pytest.mark.asyncio
 async def test_register_single_audit_no_active_session_raises(
-    audit_service, mock_stock_repo, mock_article_repo, mock_audit_repo, mock_work_session_service
+    audit_service,
+    mock_stock_repo,
+    mock_article_repo,
+    mock_audit_repo,
+    mock_work_session_service,
 ):
     mock_work_session_service.get_active_session_id.return_value = None
     mock_audit_repo.get_latest_audit_record.return_value = None
@@ -269,6 +312,7 @@ async def test_register_single_audit_no_active_session_raises(
 
     assert "No active work session found" in str(exc_info.value)
 
+
 @pytest.mark.asyncio
 async def test_register_single_audit_invalid_tenant_raises(audit_service):
     entry = AuditEntryRequest(
@@ -285,6 +329,7 @@ async def test_register_single_audit_invalid_tenant_raises(audit_service):
 
     assert "Invalid tenant_id" in str(exc_info.value)
 
+
 @pytest.mark.asyncio
 async def test_register_single_audit_missing_branch_or_deposit_raises(audit_service):
     entry_no_branch = AuditEntryRequest(
@@ -299,10 +344,15 @@ async def test_register_single_audit_missing_branch_or_deposit_raises(audit_serv
             tenant_id="1", id_usuario=5, entry=entry_no_branch
         )
 
-    assert "Branch ID (id_sucursal) and Deposit ID (id_deposito) are required" in str(exc_info.value)
+    assert "Branch ID (id_sucursal) and Deposit ID (id_deposito) are required" in str(
+        exc_info.value
+    )
+
 
 @pytest.mark.asyncio
-async def test_register_single_audit_stock_position_not_found(audit_service, mock_stock_repo, mock_audit_repo):
+async def test_register_single_audit_stock_position_not_found(
+    audit_service, mock_stock_repo, mock_audit_repo
+):
     mock_audit_repo.exists_by_client_uuid.return_value = False
     mock_audit_repo.get_latest_audit_record.return_value = None
     mock_stock_repo.get_stock_position.return_value = None
@@ -319,8 +369,11 @@ async def test_register_single_audit_stock_position_not_found(audit_service, moc
             tenant_id="1", id_usuario=5, entry=entry
         )
 
+
 @pytest.mark.asyncio
-async def test_register_single_audit_master_article_not_found(audit_service, mock_stock_repo, mock_article_repo, mock_audit_repo):
+async def test_register_single_audit_master_article_not_found(
+    audit_service, mock_stock_repo, mock_article_repo, mock_audit_repo
+):
     mock_audit_repo.exists_by_client_uuid.return_value = False
     mock_audit_repo.get_latest_audit_record.return_value = None
     mock_stock_repo.get_stock_position.return_value = StockPorDeposito(
@@ -345,8 +398,11 @@ async def test_register_single_audit_master_article_not_found(audit_service, moc
         )
     assert "Article 'ART-001' not found." in str(exc_info.value)
 
+
 @pytest.mark.asyncio
-async def test_register_batch_audit(audit_service, mock_stock_repo, mock_article_repo, mock_audit_repo):
+async def test_register_batch_audit(
+    audit_service, mock_stock_repo, mock_article_repo, mock_audit_repo
+):
     mock_audit_repo.get_latest_audit_record.return_value = None
     mock_stock_repo.get_stock_position.return_value = StockPorDeposito(
         id_empresa=1,
@@ -398,5 +454,3 @@ async def test_register_batch_audit(audit_service, mock_stock_repo, mock_article
     assert res.duplicates_skipped == 0
     assert len(res.results) == 1
     assert res.results[0].id_articulo == "ART-002"
-
-

@@ -2,14 +2,15 @@ import asyncio
 import logging
 import os
 import ssl
-from urllib.parse import quote
 from contextlib import asynccontextmanager
-from typing import AsyncIterator, Any
+from typing import AsyncIterator
+from urllib.parse import quote
+
+from backend.app.ports.database import ConnectionProvider, DatabaseSession
 from dotenv import load_dotenv
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from backend.app.ports.database import ConnectionProvider, DatabaseSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Ensure environment is loaded
 load_dotenv()
@@ -51,7 +52,11 @@ def resolve_database_url(target: str) -> str:
     if base_url:
         if target == "articles":
             return base_url
-        return make_url(base_url).set(database=db_name).render_as_string(hide_password=False)
+        return (
+            make_url(base_url)
+            .set(database=db_name)
+            .render_as_string(hide_password=False)
+        )
 
     # quote (not quote_plus): SQLAlchemy decodes with unquote, so a space must stay %20.
     db_user = quote(os.getenv("DB_USER", "root"), safe="")
@@ -98,8 +103,11 @@ def _create_engine(database_url: str):
         kwargs["connect_args"] = connect_args
     return create_async_engine(database_url, **kwargs)
 
+
 async def _probe(get_factory) -> bool:
-    """Runs SELECT 1 through a session factory; any failure (config or I/O) is a miss."""
+    """
+    Runs SELECT 1 through a session factory; any failure (config or I/O) is a miss.
+    """
     try:
         async with get_factory()() as raw_session:
             await raw_session.execute(text("SELECT 1"))
@@ -113,6 +121,7 @@ class SQLAlchemyDatabaseSession(DatabaseSession):
     """
     SQLAlchemy-specific concrete implementation of the DatabaseSession port.
     """
+
     def __init__(self, session: AsyncSession):
         self._session = session
 
@@ -132,15 +141,14 @@ class SQLAlchemyConnectionProvider(ConnectionProvider):
     SQLAlchemy-specific concrete implementation of the ConnectionProvider port.
     Configured for multi-database layout (db_articles, db_users, db_analytics).
     """
+
     def __init__(self, database_url: str = None):
         if not database_url:
             database_url = resolve_database_url("articles")
 
         self.engine = _create_engine(database_url)
         self.session_factory = async_sessionmaker(
-            bind=self.engine,
-            expire_on_commit=False,
-            class_=AsyncSession
+            bind=self.engine, expire_on_commit=False, class_=AsyncSession
         )
 
     @asynccontextmanager
@@ -167,7 +175,9 @@ class SQLAlchemyConnectionProvider(ConnectionProvider):
             "users": get_users_session_factory,
             "analytics": get_analytics_session_factory,
         }
-        results = await asyncio.gather(*(_probe(factory) for factory in factories.values()))
+        results = await asyncio.gather(
+            *(_probe(factory) for factory in factories.values())
+        )
         return dict(zip(factories, results))
 
     async def dispose(self) -> None:
@@ -198,9 +208,7 @@ def get_articles_session_factory() -> async_sessionmaker:
     if _articles_session_factory is None:
         _articles_engine = _create_engine(resolve_database_url("articles"))
         _articles_session_factory = async_sessionmaker(
-            bind=_articles_engine,
-            expire_on_commit=False,
-            class_=AsyncSession
+            bind=_articles_engine, expire_on_commit=False, class_=AsyncSession
         )
     return _articles_session_factory
 
@@ -211,9 +219,7 @@ def get_users_session_factory() -> async_sessionmaker:
     if _users_session_factory is None:
         _users_engine = _create_engine(resolve_database_url("users"))
         _users_session_factory = async_sessionmaker(
-            bind=_users_engine,
-            expire_on_commit=False,
-            class_=AsyncSession
+            bind=_users_engine, expire_on_commit=False, class_=AsyncSession
         )
     return _users_session_factory
 
@@ -224,8 +230,6 @@ def get_analytics_session_factory() -> async_sessionmaker:
     if _analytics_session_factory is None:
         _analytics_engine = _create_engine(resolve_database_url("analytics"))
         _analytics_session_factory = async_sessionmaker(
-            bind=_analytics_engine,
-            expire_on_commit=False,
-            class_=AsyncSession
+            bind=_analytics_engine, expire_on_commit=False, class_=AsyncSession
         )
     return _analytics_session_factory

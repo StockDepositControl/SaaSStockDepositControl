@@ -272,3 +272,92 @@ Three defects in earlier slices that the T17 `migrations-smoke` job would hit. O
 - Verified: RED (10 of 13 failed against the old script; the 3 passing were negative cases), GREEN 13 passed; `bash -n scripts/devops/deploy.sh docker/mariadb/01-init-dbs.sh` OK; `./scripts/devops/deploy.sh help` exits 0; full backend `pytest` 372 passed (359 + 13); `ruff check` and `ruff format --check` clean on the new test file; `git diff --check` clean.
 - Not verified: a live `update`/`rollback`/`backup` against real Docker and MariaDB (tests use stubs); `docker compose exec ... sh -c` quoting on the real container; `shellcheck` (not installed); the runbooks on Oracle/Cloudflare/on-premise hosts.
 - Risk: item 5 (delivery/deploy script), item 1 (database dump handling).
+
+## 25. T17 Notes & Outcome
+
+- Files: new `.github/workflows/ci.yml` and `.github/dependabot.yml` (commit `UNIT2`). Security prerequisite in `frontend-web` (commit `UNIT1`): `next` and `eslint-config-next` raised to `^16.4.3` (human-approved; deviates from the spec §2 pin `16.2.10`), the runner stage of `frontend-web/Dockerfile` drops the bundled npm/npx, and `useBarcodeScanner.test.ts:385` gets a type annotation because the 16.4 build type-checks it.
+- Jobs: `changes` (dorny/paths-filter), `backend`, `migrations-smoke`, `web`, `mobile`, `docker`, `security`, `ci-success`. The workflow default is `contents: read`, and only `changes` adds `pull-requests: read`. Every checkout uses `persist-credentials: false`, and third-party actions are pinned by commit SHA with a `# vX` comment so Dependabot can bump them. Concurrency cancels superseded PR runs only.
+- Spec-challenge decisions (human):
+  - **Non-blocking gates:** ruff check/format, web lint and web tsc run with `continue-on-error` because of the baselines (§9, §13); `expo-doctor` is non-blocking per spec. Web `tsc` is now clean after the annotation above, so it can be made blocking.
+  - **Blocking security gates:** Trivy (CRITICAL with a fix available) and npm audit. npm audit runs with `--omit=dev` because dev tooling never ships in the image. The dev-only `tinypool` critical (via `vitest`) needs `vitest@5`, a breaking major; a TODO in `ci.yml` tracks it.
+  - **hadolint:** `failure-threshold: warning` with `ignore: DL3025`, because the shell-form `HEALTHCHECK CMD ... || exit 1` is mandated by spec §5.1. DL3066 (named `USER`) stays visible as info.
+- Spec deviations:
+  - **S19:** the `docker` filter also matches `backend/**`, `frontend-web/**` and `ci.yml`, because those are the image build contexts. Without that, a backend-only PR would skip `docker`, which contradicts S19.
+  - **Init script:** `migrations-smoke` runs `01-init-dbs.sh` with `docker exec` inside the service container, since the runner has no `mariadb` client.
+  - **Gitleaks:** runs as the checksum-pinned CLI (8.30.1) instead of `gitleaks-action`, which needs a license on organization repos.
+- Judgment-day round 1:
+  - **JD-1 (CRITICAL, both judges, reproduced on MariaDB 10.11):** `downgrade -1` fails with `Ambiguous walk` on the `db_articles` merge head `3d4bc96d9b91`. After seeding, the head downgrades are not data-safe either: `db_analytics` fails with 1062 on `idx_daily_reports_tenant_date`, and the `db_users` re-upgrade fails its FK. Fix: the reversibility step runs before Seed and downgrades each DB to the first parent of its head, parsed from `alembic show head` (`Parent:` or `Merges:`), then upgrades back to head. Spec §5.7 orders it after Seed; S20 still holds.
+  - **JD-2 (WARNING, both judges):** the `changes` checkout uses `fetch-depth: 0`, so paths-filter can diff a push locally without credentials.
+  - **JD-3/JD-4 (info, not fixed):** the second Trivy step is skipped when the first fails; the concurrency comment overstates push behaviour, since GitHub keeps one pending run per group.
+  - **Not closed:** the scoped re-judgment was not run (tool outage, then declined), so judgment-day has no terminal verdict.
+- `downgrade base` is not viable on any DB. These older downgrades fail on MariaDB:
+  - articles `a941f830d92e`: 1553 (index needed by an FK)
+  - users `a1b2c3d4e5f6`: 1091 (FK `fk_users_branch_id` missing)
+  - analytics `d3e4f5a6b7c8`: 1833 (`tenant_id` used by an FK)
+
+  These are pre-existing migration defects and a candidate follow-up. They are also why the CI check covers only one step.
+- Verified:
+  - **RED:** the tasks.md YAML check failed because `ci.yml` was missing.
+  - **Workflow lint:** actionlint 1.7.12 (with shellcheck) exits 0 on the final `ci.yml`. The tasks.md YAML parse, hadolint on both Dockerfiles, `docker compose config -q` for all four profiles and `git diff --check` all pass.
+  - **Web:** `npm run build`, `npm test` (128 passed), `npx tsc --noEmit` and `npm audit --omit=dev` (0 vulnerabilities) pass.
+  - **Images:** Trivy 0.75.0 reports no fixable CRITICAL issue on either image. The rebuilt web container is healthy, `/login` returns 200, it runs as UID 1001 and npm is absent.
+  - **Throwaway MariaDB 10.11:** the init script, 3 × `upgrade head`, the new reversibility loop and the seed all exit 0.
+  - **Reviews:** `/security-review` found no vulnerabilities. RDD lineage `review-492ece57c7b2eb4a` was approved with 4 lenses.
+- Not verified:
+  - a real GitHub Actions run (S19, S20, S21 need a PR)
+  - the `/api/v1/health` probe after the fix (the earlier session-wide health was observed in §23)
+  - paths-filter behaviour on push
+- **Open blocker, gitleaks:** the `security` job will fail on history. 8 `generic-api-key` hits:
+  - a test-only HS256 key in `backend/tests/api/test_auth_routes.py:32` (and the old `tests/test_auth.py`)
+  - example JWTs in `docs/API_DOCUMENTATION.md:199` and the untracked `summary_project.md:473`
+  - a 40-character `SECRET_KEY` (`super_secret…`) in `summary_project.md:635`, commit `4dae916`. It would pass the T3 production validator, so never reuse it and rotate it if it was ever deployed.
+
+  The human must decide between a `.gitleaksignore` with fingerprints and a history rewrite.
+- Risk: item 5 (CI/CD, dependency upgrade), item 3 (status-check contract `ci-success` for branch protection).
+
+## 26. T18 Notes & Outcome
+
+- Files: new `.github/workflows/cd.yml` and `.github/workflows/mobile-release.yml`. Third-party actions are pinned by SHA, including the new `docker/login-action` v4.7.0 and `docker/metadata-action` v6.2.0. Every checkout uses `persist-credentials: false`.
+- Triggers:
+  - `workflow_run` of CI, accepted only when the conclusion is `success`, the event is `push`, and the head repository is this repository. Fork PRs and fork branches named `main` never reach jobs that hold secrets.
+  - `v*.*.*` tags.
+  - `workflow_dispatch` for production.
+- Jobs:
+  - `build`: backend/web matrix, amd64 + arm64. Main pushes get `edge` and `sha-<7>` from `workflow_run.head_sha`, because `github.sha` is the default-branch tip in a `workflow_run`. Tags get `vX.Y.Z`, `vX.Y`, `vX` and `latest`. Uses the gha cache scopes shared with CI.
+  - `deploy-staging`
+  - `release`: `gh release create --generate-notes --verify-tag`
+  - `deploy-production`
+- Spec-challenge decisions (approved plan):
+  1. **Rollback lives in `deploy.sh update` only.** Staging and production call it with `HEALTH_TIMEOUT=55 HEALTH_INTERVAL=5`, which gives 12 probes × 5s (about 60s) and uses `.previous_tag` only. The spec's inline script is not copied, because it overwrites `.previous_tag` on a re-deploy.
+  2. **Proxy is built on the host.** The bundle adds `docker/caddy/Dockerfile` and `docker/mariadb/01-init-dbs.sh` to the spec §5.8 tar list. CD syncs the bundle to the host on every deploy (`tar | ssh`). This never touches `.env`, `.previous_tag` or `backups/`. This closes the §24 open point.
+  3. **Strict host keys.** New secrets `STAGING_SSH_KNOWN_HOSTS` and `PROD_SSH_KNOWN_HOSTS` enable `StrictHostKeyChecking=yes`, so there is no `ssh-keyscan` TOFU. SSH is native OpenSSH, with no third-party action.
+  4. **Least privilege.** The workflow default is `contents: read`. `build` gets `packages: write`, deploys get `packages: read`, and `release` gets `contents: write`.
+  5. **Inputs go through `env`, never inline `${{ }}` in `run:`.** `STAGING_DOMAIN`, `*_DEPLOY_DIR` and `target_version` are regex-validated, and remote commands are built with `printf %q`.
+- Additions to the spec §5.8 inventory:
+  - Optional `STAGING_DEPLOY_DIR` and `PROD_DEPLOY_DIR` (default `/opt/saas-stock-deposit`)
+  - `PROD_DOMAIN`
+  - `PROD_ENVIRONMENT`: set it to `production` to get required reviewers on Team/Enterprise
+  - Staging is opt-in and skipped while `STAGING_DOMAIN` is unset.
+- Registry login: the host logs in with the job's `GITHUB_TOKEN` (`packages: read`) over stdin. That token expires when the job ends, and `docker logout` runs afterwards. No long-lived PAT is stored on the hosts.
+- Production gate: dispatch only from `main`. `confirm_text` must equal `DEPLOY-PRODUCTION` and `target_version` must match `^v\d+\.\d+\.\d+$`. The checkout uses that tag, and `deploy.sh backup && deploy.sh update <tag>` runs.
+- `mobile-release.yml`: skipped with a notice when `EXPO_TOKEN` or `frontend-mobile/eas.json` is missing. `eas.json` does not exist yet, so the job is inert until someone adds a `preview` profile. It uses pinned `eas-cli@24.12.1` (older than 2 weeks) with `--no-wait`.
+- Verified:
+  - **RED:** the tasks.md YAML check failed because `cd.yml` was missing.
+  - **GREEN:** the tasks.md YAML check passes, `git diff --check` is clean, and `bash -n scripts/devops/deploy.sh` is OK.
+  - **actionlint:** 1.7.12 with shellcheck 0.10.0 exits 0 on `cd.yml`, `mobile-release.yml` and `ci.yml`.
+  - **Bundle:** built locally from `DEPLOY_FILES`. The extracted `deploy.sh` keeps its executable bit and `help` runs.
+- Reviews:
+  - `/security-review`: no findings with confidence ≥ 8.
+  - RDD lineage `review-fae2ef16cca9e6e9`: approved with 4 lenses, then acknowledged.
+  - Judgment-day: **APPROVED**. Neither judge reported a CRITICAL finding, so there was no fix round. The info ledger is below.
+- Judgment-day info ledger. JD-1, JD-4 and JD-5 were applied after the verdict at the human's request; the others are candidate hardening:
+  - **JD-1 (WARNING, B):** the workflow-level concurrency group includes failed-CI `workflow_run` events. A run created by a failed CI run, which skips everything, can cancel a pending run for a green commit, so that commit is never published or deployed. **Fixed:** `workflow_run.conclusion` is part of the group key.
+  - **JD-2 (WARNING, A):** there is no "still tip of main" check. A slower CI run for an older commit can finish later and move `edge` and staging back to that commit.
+  - **JD-3 (WARNING, A):** an empty `environment:` value when `PROD_ENVIRONMENT` is unset is not explicitly documented. It needs a real dispatch run to confirm.
+  - **JD-4 (B WARNING, A SUGGESTION):** `EXPO_TOKEN` is set in job-level env, so `npm ci` lifecycle scripts can see it. **Fixed:** scoped to the gate and EAS steps.
+  - **JD-5 (SUGGESTION, B):** no SSH `ConnectTimeout` or `ServerAliveInterval`. A dead host hangs until the job timeout. **Fixed:** `ConnectTimeout=15`, `ServerAliveInterval=15`, `ServerAliveCountMax=4`.
+  - **JD-6 (SUGGESTION, A):** the `confirm_text` check runs inside the job, so with reviewers configured a wrong text still asks for approval first.
+  - **JD-7 (SUGGESTION, A):** `.env.example` defaults `GHCR_OWNER=stockdeposit`. A first deploy must set it to the lowercased repository owner, and nothing checks that.
+  - **JD-8 (SUGGESTION, A):** tag releases are not gated on CI. Pre-release tags such as `v1.2.3-rc1` publish as normal releases and move `latest`.
+- Not verified: a real GitHub Actions run (S22, S23, S24 need GHCR, an SSH host, a tag push and the secrets); `docker compose up` building the proxy on the host; empty-`environment` behaviour (JD-3).
+- Risk: item 5 (CI/CD delivery), item 2 (SSH keys, registry token), item 3 (new secrets/variables contract).

@@ -1,6 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from backend.app.enterprises.models import Enterprise, EnterpriseCreate, EnterpriseUpdate
+
+from backend.app.enterprises.models import (
+    Enterprise,
+    EnterpriseCreate,
+    EnterpriseUpdate,
+)
+
 
 class EnterpriseRepositoryPort(ABC):
     @abstractmethod
@@ -19,7 +25,9 @@ class EnterpriseRepositoryPort(ABC):
         pass
 
     @abstractmethod
-    async def update(self, tenant_id: int, data: EnterpriseUpdate) -> Optional[Enterprise]:
+    async def update(
+        self, tenant_id: int, data: EnterpriseUpdate
+    ) -> Optional[Enterprise]:
         """Update an existing Enterprise."""
         pass
 

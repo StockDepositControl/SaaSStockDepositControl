@@ -1,21 +1,20 @@
 from typing import List, Optional
+
+from backend.adapters.database.connection import get_users_session_factory
+from backend.adapters.repositories.models.users import Enterprise as EnterpriseORM
+from backend.app.enterprises.models import Enterprise as EnterpriseDomain
+from backend.app.enterprises.models import EnterpriseCreate, EnterpriseUpdate
+from backend.app.enterprises.ports import EnterpriseRepositoryPort
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from backend.app.enterprises.models import Enterprise as EnterpriseDomain, EnterpriseCreate, EnterpriseUpdate
-from backend.app.enterprises.ports import EnterpriseRepositoryPort
-from backend.adapters.repositories.models.users import Enterprise as EnterpriseORM
-from backend.adapters.database.connection import get_users_session_factory
 
 class SQLAlchemyEnterpriseRepository(EnterpriseRepositoryPort):
     def __init__(self, session_factory: Optional[async_sessionmaker] = None):
         self.session_factory = session_factory or get_users_session_factory()
 
     def _to_domain(self, orm: EnterpriseORM) -> EnterpriseDomain:
-        return EnterpriseDomain(
-            tenant_id=orm.tenant_id,
-            description=orm.description
-        )
+        return EnterpriseDomain(tenant_id=orm.tenant_id, description=orm.description)
 
     async def get_by_id(self, tenant_id: int) -> Optional[EnterpriseDomain]:
         async with self.session_factory() as session:
@@ -34,14 +33,15 @@ class SQLAlchemyEnterpriseRepository(EnterpriseRepositoryPort):
         async with self.session_factory() as session:
             async with session.begin():
                 orm = EnterpriseORM(
-                    tenant_id=data.tenant_id,
-                    description=data.description
+                    tenant_id=data.tenant_id, description=data.description
                 )
                 session.add(orm)
             await session.refresh(orm)
             return self._to_domain(orm)
 
-    async def update(self, tenant_id: int, data: EnterpriseUpdate) -> Optional[EnterpriseDomain]:
+    async def update(
+        self, tenant_id: int, data: EnterpriseUpdate
+    ) -> Optional[EnterpriseDomain]:
         async with self.session_factory() as session:
             async with session.begin():
                 stmt = select(EnterpriseORM).where(EnterpriseORM.tenant_id == tenant_id)

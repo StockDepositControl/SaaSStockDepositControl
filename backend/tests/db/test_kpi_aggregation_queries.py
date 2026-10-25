@@ -1,19 +1,19 @@
-import pytest
-import pytest_asyncio
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
+import pytest
+import pytest_asyncio
 from backend.adapters.repositories.audit_repository import SQLAlchemyAuditRepository
-from backend.adapters.repositories.stock_repository import SQLAlchemyStockRepository
 from backend.adapters.repositories.models import (
     Articulo,
     AuditRecord,
-    Marca,
-    StockPorDeposito,
     Familia,
     Grupo,
+    Marca,
+    StockPorDeposito,
 )
+from backend.adapters.repositories.stock_repository import SQLAlchemyStockRepository
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 NOW = datetime(2026, 1, 1, 10, 0, 0)
 
@@ -38,26 +38,32 @@ def _audit(session_id, article, action, amount, tenant=1, branch=1, warehouse=1)
 
 @pytest_asyncio.fixture
 async def analytics_factory(db_engines):
-    return async_sessionmaker(bind=db_engines["analytics"], expire_on_commit=False, class_=AsyncSession)
+    return async_sessionmaker(
+        bind=db_engines["analytics"], expire_on_commit=False, class_=AsyncSession
+    )
 
 
 @pytest_asyncio.fixture
 async def articles_factory(db_engines):
-    return async_sessionmaker(bind=db_engines["articles"], expire_on_commit=False, class_=AsyncSession)
+    return async_sessionmaker(
+        bind=db_engines["articles"], expire_on_commit=False, class_=AsyncSession
+    )
 
 
 @pytest.mark.asyncio
 async def test_audit_aggregates_scoped_to_session(analytics_factory):
     async with analytics_factory() as s:
-        s.add_all([
-            _audit(1, "A", "REMOVAL", "100.50"),
-            _audit(1, "A", "REMOVAL", "10.00"),
-            _audit(1, "B", "ADDITION", "20.00"),
-            _audit(1, "C", "NO_ACTION", "0"),
-            _audit(1, "D", "REMOVAL", "5.00", warehouse=2),
-            _audit(1, "E", "REMOVAL", "7.00", tenant=2),
-            _audit(2, "F", "REMOVAL", "999.00"),
-        ])
+        s.add_all(
+            [
+                _audit(1, "A", "REMOVAL", "100.50"),
+                _audit(1, "A", "REMOVAL", "10.00"),
+                _audit(1, "B", "ADDITION", "20.00"),
+                _audit(1, "C", "NO_ACTION", "0"),
+                _audit(1, "D", "REMOVAL", "5.00", warehouse=2),
+                _audit(1, "E", "REMOVAL", "7.00", tenant=2),
+                _audit(2, "F", "REMOVAL", "999.00"),
+            ]
+        )
         await s.commit()
 
     repo = SQLAlchemyAuditRepository(analytics_factory)
@@ -89,24 +95,52 @@ async def test_audit_aggregates_empty_session_returns_zeros(analytics_factory):
 @pytest.mark.asyncio
 async def test_stock_counts(articles_factory):
     async with articles_factory() as s:
-        s.add_all([
-            Familia(id_familia="01", des_familia="Medicamentos"),
-            Marca(id_marca=1, des_marca="Bayer"),
-        ])
+        s.add_all(
+            [
+                Familia(id_familia="01", des_familia="Medicamentos"),
+                Marca(id_marca=1, des_marca="Bayer"),
+            ]
+        )
         await s.flush()
         s.add(Grupo(id_familia="01", id_grupo="01", des_grupo="Analgesicos"))
         await s.flush()
         for code in ("1", "2", "3"):
-            s.add(Articulo(
-                id_articulo=code, des_articulo=f"Art {code}", id_marca=1,
-                id_familia="01", id_grupo="01", pcio_com_siva=Decimal("1.0000"),
-            ))
+            s.add(
+                Articulo(
+                    id_articulo=code,
+                    des_articulo=f"Art {code}",
+                    id_marca=1,
+                    id_familia="01",
+                    id_grupo="01",
+                    pcio_com_siva=Decimal("1.0000"),
+                )
+            )
         await s.flush()
-        s.add_all([
-            StockPorDeposito(id_empresa=1, id_sucursal=1, id_deposito=1, id_articulo="1", stock_real=0),
-            StockPorDeposito(id_empresa=1, id_sucursal=1, id_deposito=1, id_articulo="2", stock_real=5),
-            StockPorDeposito(id_empresa=1, id_sucursal=1, id_deposito=2, id_articulo="3", stock_real=0),
-        ])
+        s.add_all(
+            [
+                StockPorDeposito(
+                    id_empresa=1,
+                    id_sucursal=1,
+                    id_deposito=1,
+                    id_articulo="1",
+                    stock_real=0,
+                ),
+                StockPorDeposito(
+                    id_empresa=1,
+                    id_sucursal=1,
+                    id_deposito=1,
+                    id_articulo="2",
+                    stock_real=5,
+                ),
+                StockPorDeposito(
+                    id_empresa=1,
+                    id_sucursal=1,
+                    id_deposito=2,
+                    id_articulo="3",
+                    stock_real=0,
+                ),
+            ]
+        )
         await s.commit()
 
     repo = SQLAlchemyStockRepository(articles_factory)

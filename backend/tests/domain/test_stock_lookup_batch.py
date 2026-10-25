@@ -1,7 +1,7 @@
-import pytest
 from unittest.mock import AsyncMock
 
-from backend.app.movements.ports import StockRepositoryPort, AuditRepositoryPort
+import pytest
+from backend.app.movements.ports import AuditRepositoryPort, StockRepositoryPort
 from backend.app.movements.services import StockLookupService
 
 
@@ -24,7 +24,9 @@ def stock_lookup_service(mock_stock_repo, mock_audit_repo):
 
 
 @pytest.mark.asyncio
-async def test_get_effective_stocks_batch_empty(stock_lookup_service, mock_stock_repo, mock_audit_repo):
+async def test_get_effective_stocks_batch_empty(
+    stock_lookup_service, mock_stock_repo, mock_audit_repo
+):
     result = await stock_lookup_service.get_effective_stocks_batch(
         article_ids=[],
         deposit_id=1,
@@ -36,7 +38,9 @@ async def test_get_effective_stocks_batch_empty(stock_lookup_service, mock_stock
 
 
 @pytest.mark.asyncio
-async def test_get_effective_stocks_batch_audit_overrides_stock(stock_lookup_service, mock_stock_repo, mock_audit_repo):
+async def test_get_effective_stocks_batch_audit_overrides_stock(
+    stock_lookup_service, mock_stock_repo, mock_audit_repo
+):
     # Article "A1" has an audit record (audit_qty = 50)
     # Article "A2" has no audit record, but has stock in DB (stock = 25)
     mock_audit_repo.get_latest_audits_for_articles.return_value = {"A1": 50}
@@ -61,7 +65,9 @@ async def test_get_effective_stocks_batch_audit_overrides_stock(stock_lookup_ser
 
 
 @pytest.mark.asyncio
-async def test_get_effective_stocks_batch_all_audited(stock_lookup_service, mock_stock_repo, mock_audit_repo):
+async def test_get_effective_stocks_batch_all_audited(
+    stock_lookup_service, mock_stock_repo, mock_audit_repo
+):
     mock_audit_repo.get_latest_audits_for_articles.return_value = {"A1": 10, "A2": 20}
 
     result = await stock_lookup_service.get_effective_stocks_batch(
@@ -75,7 +81,9 @@ async def test_get_effective_stocks_batch_all_audited(stock_lookup_service, mock
 
 
 @pytest.mark.asyncio
-async def test_get_effective_stocks_batch_no_session(stock_lookup_service, mock_stock_repo, mock_audit_repo):
+async def test_get_effective_stocks_batch_no_session(
+    stock_lookup_service, mock_stock_repo, mock_audit_repo
+):
     mock_stock_repo.get_stock_positions_batch.return_value = {"A1": 100, "A2": 200}
 
     result = await stock_lookup_service.get_effective_stocks_batch(

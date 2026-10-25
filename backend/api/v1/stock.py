@@ -1,43 +1,49 @@
-from fastapi import APIRouter, Depends, Query, status
-from typing import Union, Optional
-from backend.app.movements.schemas import (
-    AuditEntryRequest,
-    AuditEntryResult,
-    AuditBatchInput,
-    AuditBatchResult,
-    DashboardKPIsPublicOut,
-    DashboardKPIsResponse,
-)
-from backend.api.v1.schemas.stock import (
-    ArticleStockPositionPublicOut,
-    ArticleStockPositionAdminOut,
-)
-from backend.app.movements.services import AuditService, StockKPIService
-from backend.app.articles.services import ArticleSearchService
-from backend.app.work_sessions.services import WorkSessionService
-from backend.api.dependencies.auth import get_current_user_claims, RoleChecker
+from typing import Optional, Union
+
+from backend.api.dependencies.auth import RoleChecker
 from backend.api.dependencies.services import (
-    get_audit_service,
     get_article_search_service,
+    get_audit_service,
     get_stock_kpi_service,
     get_work_session_service,
 )
-
+from backend.api.v1.schemas.stock import (
+    ArticleStockPositionAdminOut,
+    ArticleStockPositionPublicOut,
+)
+from backend.app.articles.services import ArticleSearchService
+from backend.app.movements.schemas import (
+    AuditBatchInput,
+    AuditBatchResult,
+    AuditEntryRequest,
+    AuditEntryResult,
+    DashboardKPIsPublicOut,
+    DashboardKPIsResponse,
+)
+from backend.app.movements.services import AuditService, StockKPIService
+from backend.app.work_sessions.services import WorkSessionService
+from fastapi import APIRouter, Depends, Query, status
 
 router = APIRouter()
 
 # Read access (stock position, dashboard KPIs) is open to every role
-require_audit_roles = RoleChecker(allowed_roles=["administrador", "supervisor", "auditor"])
+require_audit_roles = RoleChecker(
+    allowed_roles=["administrador", "supervisor", "auditor"]
+)
 
 # Registering audits is a field operation: administrators are excluded
 require_audit_writer_roles = RoleChecker(allowed_roles=["supervisor", "auditor"])
+
 
 @router.post(
     "/audit",
     response_model=AuditEntryResult,
     status_code=status.HTTP_201_CREATED,
     summary="Register single stock audit entry",
-    description="Registers physical stock audit count or variance, computes theoretical discrepancy (delta), voucher classification, and valorized cost.",
+    description=(
+        "Registers physical stock audit count or variance, computes theoretical "
+        "discrepancy (delta), voucher classification, and valorized cost."
+    ),
 )
 async def register_single_audit(
     entry: AuditEntryRequest,
@@ -63,12 +69,16 @@ async def register_single_audit(
     )
     return result
 
+
 @router.get(
     "/position",
     response_model=Union[ArticleStockPositionAdminOut, ArticleStockPositionPublicOut],
     status_code=status.HTTP_200_OK,
     summary="Fetch Article Stock Position",
-    description="Retrieves article catalog metadata alongside its current stock position scoped to a specific deposit.",
+    description=(
+        "Retrieves article catalog metadata alongside its current stock position "
+        "scoped to a specific deposit."
+    ),
 )
 async def get_article_stock_position(
     id_articulo: str = Query(..., description="Article Identifier"),
@@ -78,12 +88,15 @@ async def get_article_stock_position(
     search_service: ArticleSearchService = Depends(get_article_search_service),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Union[ArticleStockPositionAdminOut, ArticleStockPositionPublicOut]:
-    tenant_id = claims.get("tenant_id", "1")
     branch_id = claims.get("branch_id")
     user_role = claims.get("role", "").lower()
-    is_admin = (user_role == "administrador")
+    is_admin = user_role == "administrador"
 
-    resolved_sucursal = id_sucursal if id_sucursal is not None else (branch_id if branch_id is not None else 1)
+    resolved_sucursal = (
+        id_sucursal
+        if id_sucursal is not None
+        else (branch_id if branch_id is not None else 1)
+    )
     resolved_deposito = id_deposito if id_deposito is not None else 1
 
     # 1. Fetch Article Metadata
@@ -122,12 +135,16 @@ async def get_article_stock_position(
     else:
         return ArticleStockPositionPublicOut(**base_data)
 
+
 @router.post(
     "/audit/batch",
     response_model=AuditBatchResult,
     status_code=status.HTTP_200_OK,
     summary="Register batch stock audit entries (offline sync)",
-    description="Processes queued audit records transmitted during mobile offline reconnection worker flush.",
+    description=(
+        "Processes queued audit records transmitted during mobile offline "
+        "reconnection worker flush."
+    ),
 )
 async def register_batch_audit(
     batch: AuditBatchInput,

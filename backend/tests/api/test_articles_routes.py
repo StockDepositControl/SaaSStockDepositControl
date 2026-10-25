@@ -1,20 +1,24 @@
-import pytest
-from unittest.mock import AsyncMock
+from datetime import datetime, timezone
 from decimal import Decimal
-from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock
 
+import pytest
+from backend.api.dependencies.services import (
+    get_article_search_service,
+    get_work_session_service,
+)
 from backend.api.main import app
-from backend.api.dependencies.services import get_article_search_service, get_work_session_service
 from backend.app.articles.models import Articulo
 from backend.app.articles.services import ArticleSearchService
-from backend.app.work_sessions.services import WorkSessionService
 from backend.app.work_sessions.models import WorkSession
-from datetime import datetime, timezone
+from fastapi.testclient import TestClient
+
 
 @pytest.fixture
 def mock_search_service():
     service = AsyncMock(spec=ArticleSearchService)
     return service
+
 
 @pytest.fixture
 def mock_work_session_service():
@@ -26,18 +30,22 @@ def mock_work_session_service():
                 branch_id=1,
                 opened_at=datetime.now(timezone.utc),
                 created_at=datetime.now(timezone.utc),
-                status="OPEN"
+                status="OPEN",
             )
+
     return MockService()
 
-def test_search_articles_endpoint_as_admin(mock_search_service, mock_work_session_service, monkeypatch):
+
+def test_search_articles_endpoint_as_admin(
+    mock_search_service, mock_work_session_service, monkeypatch
+):
     from backend.api.dependencies.auth import get_current_user_claims
 
     # Mock user claims for Administrator role
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "admin@example.com",
         "role": "administrador",
-        "tenant_id": "tenant-01"
+        "tenant_id": "tenant-01",
     }
 
     mock_article = Articulo(
@@ -50,11 +58,13 @@ def test_search_articles_endpoint_as_admin(mock_search_service, mock_work_sessio
         des_familia="Medicamentos",
         id_grupo="02",
         des_grupo="Analgésicos",
-        pcio_com_siva=Decimal("150.00")
+        pcio_com_siva=Decimal("150.00"),
     )
     mock_search_service.search_articles.return_value = [mock_article]
     app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
-    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
+    app.dependency_overrides[get_work_session_service] = lambda: (
+        mock_work_session_service
+    )
 
     client = TestClient(app)
     response = client.get("/api/v1/articles/search?query=Ibuprofeno")
@@ -71,14 +81,16 @@ def test_search_articles_endpoint_as_admin(mock_search_service, mock_work_sessio
     app.dependency_overrides.clear()
 
 
-def test_search_articles_endpoint_as_auditor(mock_search_service, mock_work_session_service):
+def test_search_articles_endpoint_as_auditor(
+    mock_search_service, mock_work_session_service
+):
     from backend.api.dependencies.auth import get_current_user_claims
 
     # Mock user claims for Auditor role
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
-        "tenant_id": "tenant-01"
+        "tenant_id": "tenant-01",
     }
 
     mock_article = Articulo(
@@ -91,11 +103,13 @@ def test_search_articles_endpoint_as_auditor(mock_search_service, mock_work_sess
         des_familia="Medicamentos",
         id_grupo="02",
         des_grupo="Analgésicos",
-        pcio_com_siva=Decimal("150.00")
+        pcio_com_siva=Decimal("150.00"),
     )
     mock_search_service.search_articles.return_value = [mock_article]
     app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
-    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
+    app.dependency_overrides[get_work_session_service] = lambda: (
+        mock_work_session_service
+    )
 
     client = TestClient(app)
     response = client.get("/api/v1/articles/search?query=Ibuprofeno")
@@ -138,8 +152,12 @@ def test_get_article_by_id_endpoint_as_admin_with_stock(mock_work_session_servic
         stock_real=25,
     )
     mock_orchestrator.get_enriched_article.return_value = mock_article
-    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: mock_orchestrator
-    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
+        mock_orchestrator
+    )
+    app.dependency_overrides[get_work_session_service] = lambda: (
+        mock_work_session_service
+    )
 
     client = TestClient(app)
     response = client.get("/api/v1/articles/1042?id_deposito=2")
@@ -160,7 +178,9 @@ def test_get_article_by_id_endpoint_as_admin_with_stock(mock_work_session_servic
     app.dependency_overrides.clear()
 
 
-def test_get_article_by_id_endpoint_as_auditor_with_stock_masked(mock_work_session_service):
+def test_get_article_by_id_endpoint_as_auditor_with_stock_masked(
+    mock_work_session_service,
+):
     from backend.api.dependencies.auth import get_current_user_claims
     from backend.api.dependencies.services import get_article_catalog_orchestrator
     from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
@@ -188,8 +208,12 @@ def test_get_article_by_id_endpoint_as_auditor_with_stock_masked(mock_work_sessi
         stock_real=25,
     )
     mock_orchestrator.get_enriched_article.return_value = mock_article
-    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: mock_orchestrator
-    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
+        mock_orchestrator
+    )
+    app.dependency_overrides[get_work_session_service] = lambda: (
+        mock_work_session_service
+    )
 
     client = TestClient(app)
     response = client.get("/api/v1/articles/1042?id_deposito=3")
@@ -229,8 +253,12 @@ def test_get_article_by_id_default_deposit(mock_work_session_service):
         stock_real=10,
     )
     mock_orchestrator.get_enriched_article.return_value = mock_article
-    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: mock_orchestrator
-    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
+        mock_orchestrator
+    )
+    app.dependency_overrides[get_work_session_service] = lambda: (
+        mock_work_session_service
+    )
 
     client = TestClient(app)
     response = client.get("/api/v1/articles/1042")
@@ -245,11 +273,16 @@ def test_get_article_by_id_default_deposit(mock_work_session_service):
     app.dependency_overrides.clear()
 
 
-
 def test_instantiate_sqlalchemy_article_repository():
-    from backend.adapters.repositories.article_repository import SQLAlchemyArticleRepository
-    # Verify that the repository class is concrete and can be instantiated without TypeError
-    repo = SQLAlchemyArticleRepository(session_factory=AsyncMock(), analytics_session_factory=AsyncMock())
+    from backend.adapters.repositories.article_repository import (
+        SQLAlchemyArticleRepository,
+    )
+
+    # Verify that the repository class is concrete and can be instantiated without
+    # TypeError
+    repo = SQLAlchemyArticleRepository(
+        session_factory=AsyncMock(), analytics_session_factory=AsyncMock()
+    )
     assert repo is not None
 
 
@@ -281,8 +314,12 @@ def test_list_articles_endpoint_as_admin_with_stock(mock_work_session_service):
         stock_real=42,
     )
     mock_orchestrator.get_enriched_catalog.return_value = ([mock_article], 1)
-    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: mock_orchestrator
-    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
+        mock_orchestrator
+    )
+    app.dependency_overrides[get_work_session_service] = lambda: (
+        mock_work_session_service
+    )
 
     client = TestClient(app)
     response = client.get("/api/v1/articles?page=1&limit=50&id_deposito=1")
@@ -332,8 +369,12 @@ def test_list_articles_endpoint_as_auditor_with_stock_masked(mock_work_session_s
         stock_real=42,
     )
     mock_orchestrator.get_enriched_catalog.return_value = ([mock_article], 1)
-    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: mock_orchestrator
-    app.dependency_overrides[get_work_session_service] = lambda: mock_work_session_service
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
+        mock_orchestrator
+    )
+    app.dependency_overrides[get_work_session_service] = lambda: (
+        mock_work_session_service
+    )
 
     client = TestClient(app)
     response = client.get("/api/v1/articles?page=1&limit=50&id_deposito=1")
@@ -350,4 +391,3 @@ def test_list_articles_endpoint_as_auditor_with_stock_masked(mock_work_session_s
     assert "pcio_com_siva" not in item
 
     app.dependency_overrides.clear()
-

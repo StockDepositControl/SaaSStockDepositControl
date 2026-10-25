@@ -1,13 +1,14 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
 
+from pydantic import BaseModel, ConfigDict
 
 
 class VatCalculator:
     """
-    Pure Fabrication domain service encapsulating VAT fiscal adjustments and valorization math.
+    Pure Fabrication domain service encapsulating VAT fiscal adjustments and
+    valorization math.
     Stateless and free of any infrastructure or database dependencies.
     """
 
@@ -30,8 +31,10 @@ class VatCalculator:
 
 class ShrinkageRawRecord(BaseModel):
     """
-    Pure domain representation of an individual shrinkage movement record from the audit ledger.
+    Pure domain representation of an individual shrinkage movement record from the audit
+    ledger.
     """
+
     audit_id: int
     article_code: str
     affected_amount: int
@@ -46,8 +49,10 @@ class ShrinkageRawRecord(BaseModel):
 
 class GoodsReceivedRawRecord(BaseModel):
     """
-    Pure domain representation of an individual goods received / addition movement record from the audit ledger.
+    Pure domain representation of an individual goods received / addition movement
+    record from the audit ledger.
     """
+
     audit_id: int
     article_code: str
     affected_amount: int
@@ -65,6 +70,7 @@ class DailyInventoryBalanceRecord(BaseModel):
     """
     Pure domain representation of daily consolidated inventory balance data per branch.
     """
+
     tenant_id: int
     branch_id: int
     report_date: date
@@ -77,4 +83,3 @@ class DailyInventoryBalanceRecord(BaseModel):
     net_patrimonial_variation: Decimal
 
     model_config = ConfigDict(from_attributes=True)
-

@@ -184,7 +184,7 @@ flowchart TD
 
 ## Phase 6: CI/CD GitHub Actions & Release Automation
 
-- [ ] **T17: Author CI workflow and Dependabot configuration**
+- [x] **T17: Author CI workflow and Dependabot configuration** *(commits `UNIT1` web security prerequisite, `UNIT2` CI; see handoff §25 — gitleaks history blocker open)*
   - **S#:** `S19`, `S20`, `S21`
   - **Risk Tier:** High
   - **Description:** Author `.github/workflows/ci.yml` featuring path filtering (`dorny/paths-filter`), `backend` (ruff + pytest from `backend/`), `migrations-smoke` with real MariaDB 10.11 container (apply 3 Alembic migrations, seed, probe `/health`, test downgrade/upgrade idempotency), `web` (lint, tsc, vitest, next build), `mobile` (tsc, expo-doctor), `docker` (hadolint, compose config, buildx test), `security` (gitleaks, pip-audit, npm audit, trivy), and `ci-success` aggregator. Author `.github/dependabot.yml`.
@@ -192,7 +192,7 @@ flowchart TD
   - **Files:** `.github/workflows/ci.yml`, `.github/dependabot.yml`
   - **Verify:** `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); yaml.safe_load(open('.github/dependabot.yml')); print('CI YAML schema parsed cleanly')"` && `hadolint backend/Dockerfile frontend-web/Dockerfile && docker compose config -q`
 
-- [ ] **T18: Author CD workflow and Release Engineering**
+- [x] **T18: Author CD workflow and Release Engineering** *(commit `a14b5bf`; see handoff §26, judgment-day APPROVED, JD-1/4/5 fixed)*
   - **S#:** `S22`, `S23`, `S24`
   - **Risk Tier:** High
   - **Description:** Author `.github/workflows/cd.yml` supporting multi-arch (`linux/amd64`, `linux/arm64`) publishing to GHCR on `main` push, SSH staging deployment to Oracle VM with auto-rollback on `/health` failure, GitHub Release packaging on `v*.*.*` tags with attached deployment bundle tarball, and manual production confirmation gate. Add optional `.github/workflows/mobile-release.yml` for EAS build.

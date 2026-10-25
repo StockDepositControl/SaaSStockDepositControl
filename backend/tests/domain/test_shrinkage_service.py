@@ -1,18 +1,18 @@
 from datetime import date, datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock
-import pytest
 
+import pytest
 from backend.app.articles.models import Articulo
 from backend.app.reports.domain import ShrinkageRawRecord, VatCalculator
 from backend.app.reports.ports import ShrinkageReportRepositoryPort
 from backend.app.reports.schemas import ShrinkageReportFilters
 from backend.app.reports.services import ShrinkageReportService
 
-
 # ============================================================================
 # VatCalculator Unit Tests (Pure Fabrication)
 # ============================================================================
+
 
 def test_vat_calculator_unit_cost_zero_vat():
     cost = Decimal("100.00")
@@ -49,6 +49,7 @@ def test_vat_calculator_financial_loss():
 # ============================================================================
 # ShrinkageReportService Unit Tests (Mocked Ports)
 # ============================================================================
+
 
 @pytest.fixture
 def mock_report_repo():

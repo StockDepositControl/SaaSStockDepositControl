@@ -1,28 +1,34 @@
-import pytest
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
-from backend.adapters.repositories.work_session_repository import SQLAlchemyWorkSessionRepository
+import pytest
 from backend.adapters.repositories.models.analytics import (
     BaseAnalytics,
     RecordTenant,
+)
+from backend.adapters.repositories.models.analytics import (
     WorkSession as WorkSessionORM,
 )
-from backend.app.work_sessions.models import WorkSession, WorkSessionCreate
-from backend.app.work_sessions.services import WorkSessionService
+from backend.adapters.repositories.work_session_repository import (
+    SQLAlchemyWorkSessionRepository,
+)
+from backend.app.work_sessions.models import WorkSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
 @pytest.mark.asyncio
 async def test_get_active_session_multiple_open_rows_returns_latest_without_error():
     """
     Regression test for MultipleResultsFound:
-    When multiple OPEN work sessions exist for the same tenant and branch covering target_date,
-    get_active_session must deterministically return the most recent one (.limit(1) & .scalars().first())
+    When multiple OPEN work sessions exist for the same tenant and branch covering
+    target_date,
+    get_active_session must deterministically return the most recent one (.limit(1) &
+    .scalars().first())
     and NEVER raise sqlalchemy.exc.MultipleResultsFound.
     """
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    session_factory = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
+    session_factory = async_sessionmaker(
+        bind=engine, expire_on_commit=False, class_=AsyncSession
+    )
 
     async with engine.begin() as conn:
         await conn.run_sync(BaseAnalytics.metadata.create_all)
@@ -32,7 +38,9 @@ async def test_get_active_session_multiple_open_rows_returns_latest_without_erro
 
     async with session_factory() as session:
         # Create tenant
-        tenant = RecordTenant(tenant_id=1, tenant_name="Test Tenant", pharmacy_code="PHARM_01")
+        tenant = RecordTenant(
+            tenant_id=1, tenant_name="Test Tenant", pharmacy_code="PHARM_01"
+        )
         session.add(tenant)
         await session.flush()
 
@@ -61,7 +69,9 @@ async def test_get_active_session_multiple_open_rows_returns_latest_without_erro
     repo = SQLAlchemyWorkSessionRepository(session_factory=session_factory)
 
     # Act
-    active_session = await repo.get_active_session(tenant_id="1", branch_id=1, target_date=target_date)
+    active_session = await repo.get_active_session(
+        tenant_id="1", branch_id=1, target_date=target_date
+    )
 
     # Assert
     assert active_session is not None
@@ -82,13 +92,17 @@ async def test_get_active_session_returns_none_when_no_active_session():
     Verifies that get_active_session returns None when no matching OPEN session exists.
     """
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    session_factory = async_sessionmaker(bind=engine, expire_on_commit=False, class_=AsyncSession)
+    session_factory = async_sessionmaker(
+        bind=engine, expire_on_commit=False, class_=AsyncSession
+    )
 
     async with engine.begin() as conn:
         await conn.run_sync(BaseAnalytics.metadata.create_all)
 
     repo = SQLAlchemyWorkSessionRepository(session_factory=session_factory)
-    result = await repo.get_active_session(tenant_id="1", branch_id=1, target_date=datetime.utcnow())
+    result = await repo.get_active_session(
+        tenant_id="1", branch_id=1, target_date=datetime.utcnow()
+    )
     assert result is None
 
     active_id = await repo.get_active_session_id(branch_id=1)
@@ -99,7 +113,8 @@ async def test_get_active_session_returns_none_when_no_active_session():
 
 def test_claims_branch_id_fallback_for_admin():
     """
-    Validates safe branch fallback resolution when claims contain None for branch_id (Admin persona).
+    Validates safe branch fallback resolution when claims contain None for branch_id
+    (Admin persona).
     """
     # Admin claims: key 'branch_id' exists but is None
     admin_claims = {

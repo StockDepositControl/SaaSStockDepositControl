@@ -1,10 +1,8 @@
 from datetime import date
 from decimal import Decimal
 from unittest.mock import AsyncMock
-import pytest
-from fastapi import status
-from fastapi.testclient import TestClient
 
+import pytest
 from backend.api.dependencies.auth import get_current_user_claims
 from backend.api.dependencies.services import get_shrinkage_report_service
 from backend.api.main import app
@@ -13,6 +11,8 @@ from backend.app.reports.schemas import (
     ShrinkageReportResponse,
 )
 from backend.app.reports.services import ShrinkageReportService
+from fastapi import status
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +38,9 @@ def test_shrinkage_report_forbidden_for_supervisor(client, mock_shrinkage_servic
         "tenant_id": "1",
         "id_usuario": 2,
     }
-    app.dependency_overrides[get_shrinkage_report_service] = lambda: mock_shrinkage_service
+    app.dependency_overrides[get_shrinkage_report_service] = lambda: (
+        mock_shrinkage_service
+    )
 
     response = client.get(
         "/api/v1/reports/shrinkage?start_date=2026-01-01&end_date=2026-01-31"
@@ -55,7 +57,9 @@ def test_shrinkage_report_forbidden_for_auditor(client, mock_shrinkage_service):
         "tenant_id": "1",
         "id_usuario": 3,
     }
-    app.dependency_overrides[get_shrinkage_report_service] = lambda: mock_shrinkage_service
+    app.dependency_overrides[get_shrinkage_report_service] = lambda: (
+        mock_shrinkage_service
+    )
 
     response = client.get(
         "/api/v1/reports/shrinkage?start_date=2026-01-01&end_date=2026-01-31"
@@ -105,7 +109,9 @@ def test_shrinkage_report_success_for_admin(client, mock_shrinkage_service):
         ],
     )
     mock_shrinkage_service.get_shrinkage_report.return_value = mock_response
-    app.dependency_overrides[get_shrinkage_report_service] = lambda: mock_shrinkage_service
+    app.dependency_overrides[get_shrinkage_report_service] = lambda: (
+        mock_shrinkage_service
+    )
 
     response = client.get(
         "/api/v1/reports/shrinkage?start_date=2026-01-01&end_date=2026-01-31"
@@ -137,7 +143,9 @@ def test_shrinkage_report_invalid_date_range(client, mock_shrinkage_service):
         "tenant_id": "1",
         "id_usuario": 1,
     }
-    app.dependency_overrides[get_shrinkage_report_service] = lambda: mock_shrinkage_service
+    app.dependency_overrides[get_shrinkage_report_service] = lambda: (
+        mock_shrinkage_service
+    )
 
     # start_date > end_date
     response = client.get(

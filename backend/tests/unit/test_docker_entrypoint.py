@@ -1,4 +1,5 @@
-"""Behavioural tests for backend/docker-entrypoint.sh using stub alembic/uvicorn binaries."""
+"""Behavioural tests for backend/docker-entrypoint.sh using stub alembic/uvicorn
+binaries."""
 
 import os
 import subprocess

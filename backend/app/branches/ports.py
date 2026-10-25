@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
+
 from backend.app.branches.models import Branch, BranchCreate, BranchUpdate
+
 
 class BranchRepositoryPort(ABC):
     @abstractmethod

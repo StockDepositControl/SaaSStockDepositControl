@@ -1,11 +1,15 @@
 import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from backend.adapters.repositories.models import BaseArticles, BaseUsers, BaseAnalytics
+from backend.adapters.repositories.models import BaseAnalytics, BaseArticles, BaseUsers
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-URL_ARTICLES = "sqlite+aiosqlite:///file:test_articles?mode=memory&cache=shared&uri=true"
+URL_ARTICLES = (
+    "sqlite+aiosqlite:///file:test_articles?mode=memory&cache=shared&uri=true"
+)
 URL_USERS = "sqlite+aiosqlite:///file:test_users?mode=memory&cache=shared&uri=true"
-URL_ANALYTICS = "sqlite+aiosqlite:///file:test_analytics?mode=memory&cache=shared&uri=true"
+URL_ANALYTICS = (
+    "sqlite+aiosqlite:///file:test_analytics?mode=memory&cache=shared&uri=true"
+)
 
 
 @pytest_asyncio.fixture
@@ -42,11 +46,21 @@ async def async_db_engine(db_engines):
 
 @pytest_asyncio.fixture
 async def async_sessions(db_engines):
-    factory_articles = async_sessionmaker(bind=db_engines["articles"], expire_on_commit=False, class_=AsyncSession)
-    factory_users = async_sessionmaker(bind=db_engines["users"], expire_on_commit=False, class_=AsyncSession)
-    factory_analytics = async_sessionmaker(bind=db_engines["analytics"], expire_on_commit=False, class_=AsyncSession)
+    factory_articles = async_sessionmaker(
+        bind=db_engines["articles"], expire_on_commit=False, class_=AsyncSession
+    )
+    factory_users = async_sessionmaker(
+        bind=db_engines["users"], expire_on_commit=False, class_=AsyncSession
+    )
+    factory_analytics = async_sessionmaker(
+        bind=db_engines["analytics"], expire_on_commit=False, class_=AsyncSession
+    )
 
-    async with factory_articles() as s_articles, factory_users() as s_users, factory_analytics() as s_analytics:
+    async with (
+        factory_articles() as s_articles,
+        factory_users() as s_users,
+        factory_analytics() as s_analytics,
+    ):
         yield {
             "articles": s_articles,
             "users": s_users,
@@ -78,6 +92,7 @@ DB_ENV_VARS = [
 
 @pytest.fixture
 def clean_db_env(monkeypatch):
-    """Removes database-related env vars so URL/TLS resolution tests start from a blank slate."""
+    """Removes database-related env vars so URL/TLS resolution tests start from a blank
+    slate."""
     for name in DB_ENV_VARS:
         monkeypatch.delenv(name, raising=False)
