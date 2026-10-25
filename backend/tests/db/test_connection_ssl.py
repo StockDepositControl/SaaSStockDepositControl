@@ -13,27 +13,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
-ENV_VARS = [
-    "ARTICLES_DATABASE_URL",
-    "USERS_DATABASE_URL",
-    "ANALYTICS_DATABASE_URL",
-    "DATABASE_URL",
-    "DB_USER",
-    "DB_PASSWORD",
-    "DB_HOST",
-    "DB_PORT",
-    "DB_NAME_ARTICLES",
-    "DB_NAME_USERS",
-    "DB_NAME_ANALYTICS",
-    "DB_SSL_MODE",
-    "DB_SSL_CA",
-]
-
-
-@pytest.fixture(autouse=True)
-def clean_env(monkeypatch):
-    for name in ENV_VARS:
-        monkeypatch.delenv(name, raising=False)
+pytestmark = pytest.mark.usefixtures("clean_db_env")
 
 
 @pytest.fixture

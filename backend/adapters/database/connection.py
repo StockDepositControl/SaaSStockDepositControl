@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import os
 import ssl
 from contextlib import asynccontextmanager
@@ -10,6 +12,8 @@ from backend.app.ports.database import ConnectionProvider, DatabaseSession
 
 # Ensure environment is loaded
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 class DatabaseConfigError(ValueError):
@@ -98,7 +102,8 @@ async def _probe(get_factory) -> bool:
         async with get_factory()() as raw_session:
             await raw_session.execute(text("SELECT 1"))
         return True
-    except Exception:
+    except Exception as exc:
+        logger.warning("Database health probe failed: %s", type(exc).__name__)
         return False
 
 
@@ -160,7 +165,8 @@ class SQLAlchemyConnectionProvider(ConnectionProvider):
             "users": get_users_session_factory,
             "analytics": get_analytics_session_factory,
         }
-        return {name: await _probe(factory) for name, factory in factories.items()}
+        results = await asyncio.gather(*(_probe(factory) for factory in factories.values()))
+        return dict(zip(factories, results))
 
     async def dispose(self) -> None:
         """Disposes of connection pool resources across all multi-db pools."""

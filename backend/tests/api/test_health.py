@@ -5,9 +5,7 @@ from fastapi.testclient import TestClient
 
 from backend.api.main import app
 from backend.api.dependencies import get_connection_provider
-from backend.app.ports.database import ConnectionProvider
-
-DATABASES = ("articles", "users", "analytics")
+from backend.app.ports.database import LOGICAL_DATABASES as DATABASES, ConnectionProvider
 
 
 class FakeMultiDbProvider(ConnectionProvider):

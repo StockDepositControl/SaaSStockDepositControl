@@ -9,30 +9,10 @@ from backend.migrations.url_config import (
     resolve_alembic_url,
 )
 
-ENV_VARS = [
-    "ARTICLES_DATABASE_URL",
-    "USERS_DATABASE_URL",
-    "ANALYTICS_DATABASE_URL",
-    "DATABASE_URL",
-    "DB_USER",
-    "DB_PASSWORD",
-    "DB_HOST",
-    "DB_PORT",
-    "DB_NAME_ARTICLES",
-    "DB_NAME_USERS",
-    "DB_NAME_ANALYTICS",
-    "DB_SSL_MODE",
-    "DB_SSL_CA",
-]
+pytestmark = pytest.mark.usefixtures("clean_db_env")
 
 MYSQL_URL = "mysql+aiomysql://u:p@db:3306/db_articles"
 SQLITE_URL = "sqlite+aiosqlite:///tmp/test.db"
-
-
-@pytest.fixture(autouse=True)
-def clean_env(monkeypatch):
-    for name in ENV_VARS:
-        monkeypatch.delenv(name, raising=False)
 
 
 class TestPercentEscaping:

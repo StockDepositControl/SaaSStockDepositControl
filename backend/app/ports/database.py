@@ -26,6 +26,9 @@ class DatabaseSession(ABC):
         """
         pass
 
+LOGICAL_DATABASES = ("articles", "users", "analytics")
+
+
 class ConnectionProvider(ABC):
     """
     Port defining the database connection provider interface.
@@ -54,4 +57,4 @@ class ConnectionProvider(ABC):
         overall connectivity result for every logical database.
         """
         is_connected = await self.check_connectivity()
-        return {name: is_connected for name in ("articles", "users", "analytics")}
+        return {name: is_connected for name in LOGICAL_DATABASES}

@@ -1,11 +1,9 @@
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
-from backend.app.ports.database import ConnectionProvider
+from backend.app.ports.database import LOGICAL_DATABASES, ConnectionProvider
 from backend.api.dependencies import get_connection_provider
 
 router = APIRouter()
-
-_DATABASES = ("articles", "users", "analytics")
 
 
 def _label(is_connected: bool) -> str:
@@ -32,14 +30,15 @@ async def health_check(
             content={
                 "status": "unhealthy",
                 "database": "disconnected",
-                "databases": {name: "disconnected" for name in _DATABASES},
+                "databases": {name: "disconnected" for name in LOGICAL_DATABASES},
                 "version": version,
                 "detail": str(e),
             },
         )
 
-    databases = {name: _label(results.get(name, False)) for name in _DATABASES}
-    all_connected = all(value == "connected" for value in databases.values())
+    statuses = {name: results.get(name, False) for name in LOGICAL_DATABASES}
+    all_connected = all(statuses.values())
+    databases = {name: _label(is_connected) for name, is_connected in statuses.items()}
     content = {
         "status": "healthy" if all_connected else "unhealthy",
         "database": _label(all_connected),

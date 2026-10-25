@@ -57,3 +57,27 @@ async def async_sessions(db_engines):
 @pytest_asyncio.fixture
 async def async_session(async_sessions):
     yield async_sessions["articles"]
+
+
+DB_ENV_VARS = [
+    "ARTICLES_DATABASE_URL",
+    "USERS_DATABASE_URL",
+    "ANALYTICS_DATABASE_URL",
+    "DATABASE_URL",
+    "DB_USER",
+    "DB_PASSWORD",
+    "DB_HOST",
+    "DB_PORT",
+    "DB_NAME_ARTICLES",
+    "DB_NAME_USERS",
+    "DB_NAME_ANALYTICS",
+    "DB_SSL_MODE",
+    "DB_SSL_CA",
+]
+
+
+@pytest.fixture
+def clean_db_env(monkeypatch):
+    """Removes database-related env vars so URL/TLS resolution tests start from a blank slate."""
+    for name in DB_ENV_VARS:
+        monkeypatch.delenv(name, raising=False)

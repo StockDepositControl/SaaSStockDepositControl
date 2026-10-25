@@ -45,13 +45,10 @@ if not db_target:
 
 if db_target == "users":
     target_metadata = BaseUsers.metadata
-    db_name = os.getenv("DB_NAME_USERS", "db_users")
 elif db_target == "analytics":
     target_metadata = BaseAnalytics.metadata
-    db_name = os.getenv("DB_NAME_ANALYTICS", "db_analytics")
 else:
     target_metadata = BaseArticles.metadata
-    db_name = os.getenv("DB_NAME_ARTICLES", os.getenv("DB_NAME", "db_articles"))
 
 # Update version_locations dynamically
 versions_folder = "versions" if db_target == "articles" else f"versions_{db_target}"
