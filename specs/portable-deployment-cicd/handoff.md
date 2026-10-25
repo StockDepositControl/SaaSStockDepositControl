@@ -43,7 +43,7 @@ Execute the tasks sequentially following the vertical slices defined in `tasks.m
 1. **Slice 1 (Security & Core Primitives):**
    - Run `T1` (Split dependencies: `backend/requirements.txt` vs `requirements-dev.txt`).
    - Run `T2` (Update `antigravity.yaml` `allowed_directories`). **Done** — commit `8ba48f2`.
-   - Run `T3` (Enforce production `SECRET_KEY` startup check in `backend/api/main.py`).
+   - Run `T3` (Enforce production `SECRET_KEY` startup check in `backend/api/main.py`). **Done** — commit `3580e00`.
    - Run `T4` (Database TLS and URL precedence in `backend/adapters/database/connection.py`).
    - Run `T5` (Alembic `migrations/env.py` URL precedence, `%` escape, and TLS).
    - Run `T6` (Multi-database `/api/v1/health` connectivity probe).
@@ -76,3 +76,12 @@ After implementing each slice, Claude Code must run the corresponding verificati
 - `docker / compose`: `docker compose config -q` (across profiles: `--profile with-db`, `--profile demo`, `--profile tunnel`)
 - `scripts`: `bash -n scripts/devops/deploy.sh docker/mariadb/01-init-dbs.sh`
 - `ci / cd`: validate YAML syntax via `python3 -c "import yaml; ..."`
+
+---
+
+## 5. T3 Spec-Challenge Notes & Outcome
+
+- Blocklist follows `spec.md` §5.4 (`changeme`, `changeme_secret_key`, `secret`, empty, `< 32` chars); `tasks.md` T3 omitted `secret`.
+- `tasks.md` T3 second verify command needs the repo root on `PYTHONPATH` when run from `backend/`: `PYTHONPATH=.. python -c ...`.
+- Check lives in `validate_production_secret_key()` called from the lifespan; tests enter it via `TestClient(app)` context. Full backend suite: 292 passed.
+- Pre-existing ruff `I001` warnings in `backend/api/main.py` (sys.path hack) left untouched.

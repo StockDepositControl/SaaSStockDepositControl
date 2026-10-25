@@ -65,7 +65,7 @@ flowchart TD
   - **Files:** `antigravity.yaml`
   - **Verify:** `python3 -c "import yaml; cfg = yaml.safe_load(open('antigravity.yaml')); dirs = cfg['project']['allowed_directories']; assert '.github/' in dirs and 'specs/' in dirs, 'Missing allowed_directories'"` && `git status --porcelain specs/` confirms specs is tracked.
 
-- [ ] **T3: Enforce production `SECRET_KEY` startup check in FastAPI**
+- [x] **T3: Enforce production `SECRET_KEY` startup check in FastAPI** *(commit `3580e00`)*
   - **S#:** `S13`
   - **Risk Tier:** Medium
   - **Description:** In `backend/api/main.py` lifespan, check `ENVIRONMENT`. If `ENVIRONMENT == "production"` and `SECRET_KEY` is trivial (`changeme`, `changeme_secret_key`, empty, or `< 32` characters), log a fatal structured error and raise `RuntimeError("Insecure SECRET_KEY configured")` to prevent server startup. This Python lifespan check is the single authoritative source of truth (not duplicated in shell entrypoints).
