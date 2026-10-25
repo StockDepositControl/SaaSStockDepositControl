@@ -23,6 +23,18 @@ def test_production_rejects_insecure_secret_key(monkeypatch, secret_key):
         pass
 
 
+@pytest.mark.parametrize("environment", ["Production", "PRODUCTION", " production "])
+def test_production_check_ignores_environment_case_and_whitespace(monkeypatch, environment):
+    monkeypatch.setenv("ENVIRONMENT", environment)
+    monkeypatch.setenv("SECRET_KEY", "changeme")
+
+    with (
+        pytest.raises(RuntimeError, match="Insecure SECRET_KEY configured"),
+        TestClient(app),
+    ):
+        pass
+
+
 def test_production_rejects_missing_secret_key(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.delenv("SECRET_KEY", raising=False)

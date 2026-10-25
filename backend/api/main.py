@@ -33,7 +33,7 @@ MIN_SECRET_KEY_LENGTH = 32
 
 def validate_production_secret_key() -> None:
     """Refuse to start in production with a trivial SECRET_KEY (sole authority for this check)."""
-    if os.getenv("ENVIRONMENT", "development") != "production":
+    if os.getenv("ENVIRONMENT", "development").strip().lower() != "production":
         return
     secret_key = os.getenv("SECRET_KEY", "")
     if secret_key in INSECURE_SECRET_KEYS or len(secret_key) < MIN_SECRET_KEY_LENGTH:
