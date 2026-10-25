@@ -78,13 +78,10 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements*.txt
       - run: pip install -r requirements.txt -r requirements-dev.txt
-      # TODO(handoff §9): pre-existing ruff baseline violations; make blocking once cleared.
       - name: Ruff lint
         run: ruff check .
-        continue-on-error: true
       - name: Ruff format
         run: ruff format --check .
-        continue-on-error: true
       - name: Pytest
         run: pytest --cov=backend --cov-report=term-missing --cov-report=xml:coverage.xml tests/
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
