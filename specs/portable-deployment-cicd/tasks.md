@@ -140,6 +140,7 @@ flowchart TD
   - **S#:** `S7`, `S8`
   - **Risk Tier:** Medium
   - **Description:** Refactor `docker-compose.yml` into service profiles: `default` (`proxy`, `backend`, `web`), `with-db` (`mariadb` bound to `127.0.0.1:3306`), `demo` (`seed`), and `tunnel` (`cloudflared`). Backend defaults `ENVIRONMENT: ${ENVIRONMENT:-production}`. Reference GHCR images parameterized by `${IMAGE_TAG:-latest}`.
+  - **Carry-over from T7 review:** (1) migrations race: only one service/step may run Alembic (`RUN_MIGRATIONS=false` on extra replicas or a one-shot migrate service); (2) the backend `HEALTHCHECK` `start-period` (20s) can be shorter than first-boot migrations, so set it in compose; (3) observe the healthcheck live.
   - **Files:** `docker-compose.yml`
   - **Verify:** `docker compose config -q && docker compose --profile with-db config -q && docker compose --profile demo config -q && docker compose --profile tunnel config -q`
 
@@ -187,6 +188,7 @@ flowchart TD
   - **S#:** `S19`, `S20`, `S21`
   - **Risk Tier:** High
   - **Description:** Author `.github/workflows/ci.yml` featuring path filtering (`dorny/paths-filter`), `backend` (ruff + pytest from `backend/`), `migrations-smoke` with real MariaDB 10.11 container (apply 3 Alembic migrations, seed, probe `/health`, test downgrade/upgrade idempotency), `web` (lint, tsc, vitest, next build), `mobile` (tsc, expo-doctor), `docker` (hadolint, compose config, buildx test), `security` (gitleaks, pip-audit, npm audit, trivy), and `ci-success` aggregator. Author `.github/dependabot.yml`.
+  - **Carry-over from T7 review:** add a smoke test for the entrypoint branches (default `serve`, passthrough command, `RUN_MIGRATIONS=false`, migration failure aborts startup).
   - **Files:** `.github/workflows/ci.yml`, `.github/dependabot.yml`
   - **Verify:** `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); yaml.safe_load(open('.github/dependabot.yml')); print('CI YAML schema parsed cleanly')"` && `hadolint backend/Dockerfile frontend-web/Dockerfile && docker compose config -q`
 

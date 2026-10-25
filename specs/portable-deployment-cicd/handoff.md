@@ -136,3 +136,13 @@ Raised by `/code-review medium` and `/simplify` after Slice 1; the first item is
 - Verified: build OK; `import fastapi` OK; `id -u` = 10001; `pytest` absent; `import backend.api.main` OK; `ENVIRONMENT=production SECRET_KEY=changeme` is refused by the T3 lifespan check inside the container; a failing migration (runtime image has no `aiosqlite`, by design) stops startup with a non-zero exit.
 - Not verified: `hadolint` is not installed locally (CI T17 covers it); a full migration run against MariaDB is deferred to the T12/T17 compose and smoke-test slices; the healthcheck was not observed live.
 - Risk: item 5 (delivery/installers).
+
+## 12. T7 Review Follow-up
+
+RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational findings only. Resolution:
+
+- **Fixed (`fix: harden backend image context and make entrypoint dispatch explicit`):** `.dockerignore` now excludes nested `.env*`, `*.pem`, `*.key`, `__pycache__`, `.git` (verified with a scratch build context: no secret files in the image). The entrypoint default is the explicit `serve` keyword (`CMD ["serve"]`), so `docker run <image> uvicorn other:app` is exec'd as-is instead of being swallowed. Port 8000 and `--no-access-log` are documented in the entrypoint and Dockerfile.
+- **Deferred to T12:** migrations race with multiple replicas (`RUN_MIGRATIONS` per service or a one-shot migrate step); `HEALTHCHECK` `start-period` vs first-boot migrations; live healthcheck observation. Recorded under T12 in `tasks.md`.
+- **Deferred to T17:** automated smoke test of the entrypoint branches. Recorded under T17 in `tasks.md`.
+- **Not changed:** digest-pinning the base image and pinning `curl`. Spec §5.1 mandates `python:3.12-slim`, Dependabot docker updates arrive in T17, and a pinned `curl` version breaks when Debian drops it.
+- Risk: item 5 (delivery/installers).
