@@ -20,8 +20,38 @@ from backend.adapters.repositories.models import (
     Enterprise, Branch, Role, User, UserRoleAssociation,
     RecordTenant, AuditRecord, DailyReport, CriticalShrinkageAlert, WorkSession, ActionType, RiskLevel, SessionStatus
 )
-from backend.adapters.database.connection import SQLAlchemyConnectionProvider
+from backend.adapters.database.connection import SQLAlchemyConnectionProvider, resolve_database_url
 from backend.adapters.security.password_hasher import BcryptPasswordHasher
+
+def resolve_seed_urls(
+    database_url: str = None,
+    url_articles: str = None,
+    url_users: str = None,
+    url_analytics: str = None,
+) -> tuple[str, str, str]:
+    """
+    URLs for (articles, users, analytics): explicit per-database URLs win, then a
+    single ``database_url`` override, then the same env precedence as the app and
+    Alembic (``resolve_database_url``).
+    """
+    if url_articles and url_users and url_analytics:
+        return url_articles, url_users, url_analytics
+    if not database_url:
+        return (
+            resolve_database_url("articles"),
+            resolve_database_url("users"),
+            resolve_database_url("analytics"),
+        )
+    if "sqlite" not in database_url:
+        return database_url, database_url, database_url
+    if any(name in database_url for name in ("test_articles", "test_users", "test_analytics")):
+        return database_url, database_url, database_url
+    return (
+        database_url.replace("testdb", "test_articles").replace(":memory:", "file:mem_articles?mode=memory&cache=shared&uri=true"),
+        database_url.replace("testdb", "test_users").replace(":memory:", "file:mem_users?mode=memory&cache=shared&uri=true"),
+        database_url.replace("testdb", "test_analytics").replace(":memory:", "file:mem_analytics?mode=memory&cache=shared&uri=true"),
+    )
+
 
 async def run_seed(
     count: int = 500,
@@ -42,28 +72,9 @@ async def run_seed(
         fake.seed_instance(seed_val)
         random.seed(seed_val)
 
-    if url_articles and url_users and url_analytics:
-        pass
-    elif not database_url:
-        db_user = os.getenv("DB_USER", "root")
-        db_pass = os.getenv("DB_PASSWORD", "")
-        db_host = os.getenv("DB_HOST", "localhost")
-        db_port = os.getenv("DB_PORT", "3306")
-        url_articles = f"mysql+aiomysql://{db_user}:{db_pass}@{db_host}:{db_port}/{os.getenv('DB_NAME_ARTICLES', 'db_articles')}"
-        url_users = f"mysql+aiomysql://{db_user}:{db_pass}@{db_host}:{db_port}/{os.getenv('DB_NAME_USERS', 'db_users')}"
-        url_analytics = f"mysql+aiomysql://{db_user}:{db_pass}@{db_host}:{db_port}/{os.getenv('DB_NAME_ANALYTICS', 'db_analytics')}"
-    else:
-        if "sqlite" in database_url:
-            if "test_articles" in database_url or "test_users" in database_url or "test_analytics" in database_url:
-                url_articles = database_url
-                url_users = database_url
-                url_analytics = database_url
-            else:
-                url_articles = database_url.replace("testdb", "test_articles").replace(":memory:", "file:mem_articles?mode=memory&cache=shared&uri=true")
-                url_users = database_url.replace("testdb", "test_users").replace(":memory:", "file:mem_users?mode=memory&cache=shared&uri=true")
-                url_analytics = database_url.replace("testdb", "test_analytics").replace(":memory:", "file:mem_analytics?mode=memory&cache=shared&uri=true")
-        else:
-            url_articles = url_users = url_analytics = database_url
+    url_articles, url_users, url_analytics = resolve_seed_urls(
+        database_url, url_articles, url_users, url_analytics
+    )
 
     provider_articles = SQLAlchemyConnectionProvider(database_url=url_articles)
     provider_users = SQLAlchemyConnectionProvider(database_url=url_users)
