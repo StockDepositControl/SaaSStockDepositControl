@@ -120,7 +120,7 @@ After implementing each slice, Claude Code must run the corresponding verificati
 Raised by `/code-review medium` and `/simplify` after Slice 1; the first item is fixed, the rest are open decisions.
 
 - **Fixed (`19b898c`):** the production `SECRET_KEY` check now normalises `ENVIRONMENT` (strip + lowercase); `Production` previously skipped it.
-- **`/health` error detail:** the exception path returns `str(e)` to unauthenticated callers (`backend/api/v1/health.py`). S14 does not require it; changing it is a public-contract change (AGENTS.md "Ask First").
+- **Fixed (`/health` error detail):** the exception path used to return `str(e)` to unauthenticated callers. It now returns the same generic `detail` as the non-exception path and logs the exception server-side. Approved by the human as a public-contract change; S14 does not require the raw text.
 - **`DATABASE_URL` fan-out (T4):** `resolve_database_url` now applies `DATABASE_URL` to users and analytics with the database name swapped. Deployments mixing `DATABASE_URL` (articles) with `DB_*` for the others change target. Legacy `DB_NAME` is no longer honoured for articles in Alembic.
 - **`check_connectivity` meaning (T6):** now true only when all three databases respond; a caller that only needs articles will fail when users or analytics is down.
 - **Probe vs injected provider:** a `SQLAlchemyConnectionProvider` built with an explicit URL probes its own articles engine but users/analytics via module-global, env-derived factories.
