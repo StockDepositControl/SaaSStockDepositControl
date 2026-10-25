@@ -382,7 +382,7 @@ describe("useBarcodeScanner callback stability", () => {
     mockStart.mockResolvedValue(undefined);
 
     const { rerender } = renderHook(
-      ({ onDetected }) =>
+      ({ onDetected }: { onDetected: (decodedText: string) => void }) =>
         useBarcodeScanner({ elementId: "test-reader", active: true, onDetected }),
       { initialProps: { onDetected: vi.fn() } }
     );
