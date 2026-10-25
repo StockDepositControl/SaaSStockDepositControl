@@ -19,7 +19,10 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0
 
-RUN addgroup -S -g 1001 nodejs && adduser -S -u 1001 -G nodejs nextjs
+# The standalone server only needs `node`; the base image's bundled npm is unused
+# at runtime and ships its own vulnerable dependencies (e.g. tar), so drop it.
+RUN addgroup -S -g 1001 nodejs && adduser -S -u 1001 -G nodejs nextjs \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
