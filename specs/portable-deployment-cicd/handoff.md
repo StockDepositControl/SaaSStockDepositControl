@@ -46,7 +46,7 @@ Execute the tasks sequentially following the vertical slices defined in `tasks.m
    - Run `T3` (Enforce production `SECRET_KEY` startup check in `backend/api/main.py`). **Done** — commit `3580e00`.
    - Run `T4` (Database TLS and URL precedence in `backend/adapters/database/connection.py`). **Done** — commit `ff5eaf4`.
    - Run `T5` (Alembic `migrations/env.py` URL precedence, `%` escape, and TLS). **Done** — commit `5de4820`.
-   - Run `T6` (Multi-database `/api/v1/health` connectivity probe).
+   - Run `T6` (Multi-database `/api/v1/health` connectivity probe). **Done** — see §8.
 2. **Slice 2 (Containerization & Ingress):**
    - Run `T7` (`backend/Dockerfile` and `docker-entrypoint.sh` without duplicate secret check).
    - Run `T8` (`frontend-web/next.config.ts` standalone + relative URLs).
@@ -100,3 +100,10 @@ After implementing each slice, Claude Code must run the corresponding verificati
 - Deviations from `tasks.md` T5 (approved plan): extra files `url_config.py` and `tests/db/test_alembic_env_url.py`. Verify command #2 (`from backend.migrations.env import db_target`) cannot work by design; use `cd backend && PYTHONPATH=.. python -c "from backend.migrations.url_config import resolve_alembic_url"` instead. Verify command #1 needs an absolute SQLite path (`sqlite+aiosqlite:////tmp/x.db`); the relative `///tmp/test.db` form fails with "unable to open database file".
 - Because `load_dotenv()` runs in `env.py`, a developer `.env` with `<TARGET>_DATABASE_URL` takes precedence over an inline `DATABASE_URL`; clear the specific var (e.g. `ARTICLES_DATABASE_URL=`) to force the fallback in a manual check.
 - Full backend suite: 330 passed (318 baseline + 12 new). Pre-existing ruff `I001` in `env.py` left untouched.
+
+## 8. T6 Notes & Outcome
+
+- Port: `ConnectionProvider.check_connectivity()` stays abstract (bool). New non-abstract `check_databases() -> dict[str, bool]` defaults to the single `check_connectivity()` result for articles/users/analytics, so legacy providers and test mocks keep working. `SQLAlchemyConnectionProvider` overrides it with a real `SELECT 1` per database (own pool for articles; `get_users_session_factory` / `get_analytics_session_factory` for the others), and `check_connectivity()` now returns `all(...)` of it.
+- `/health` body: legacy `"database"` is kept as the aggregate (`connected`/`disconnected`); added `"databases"` (per-DB) and `"version"` (read from `request.app.version`, no duplicated constant). Any DB down or probe exception -> 503 with `status: unhealthy`.
+- Deviations from `tasks.md` T6: `backend/tests/api/test_health.py` did not exist (created); `tests/api/test_api_bootstrap.py` had an exact-equality assertion on the old body and was relaxed to key checks.
+- Full backend suite: 341 passed (330 baseline + 11 new). Pre-existing ruff warnings in touched files left untouched.

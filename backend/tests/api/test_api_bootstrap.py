@@ -53,7 +53,9 @@ def test_health_endpoint_healthy():
 
     # Assert: Should return 200 with connected status
     assert response.status_code == 200
-    assert response.json() == {"status": "healthy", "database": "connected"}
+    body = response.json()
+    assert body["status"] == "healthy"
+    assert body["database"] == "connected"
     app.dependency_overrides.clear()
 
 

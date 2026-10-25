@@ -45,3 +45,13 @@ class ConnectionProvider(ABC):
         Returns True if a lightweight probe succeeds, False otherwise.
         """
         pass
+
+    async def check_databases(self) -> dict[str, bool]:
+        """
+        Probe each logical database (articles, users, analytics) independently.
+        Returns a mapping of logical name to reachability.
+        Single-database providers inherit this default, which reports the
+        overall connectivity result for every logical database.
+        """
+        is_connected = await self.check_connectivity()
+        return {name: is_connected for name in ("articles", "users", "analytics")}

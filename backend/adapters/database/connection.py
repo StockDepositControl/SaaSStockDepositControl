@@ -3,6 +3,7 @@ import ssl
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Any
 from dotenv import load_dotenv
+from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from backend.app.ports.database import ConnectionProvider, DatabaseSession
@@ -91,6 +92,16 @@ def _create_engine(database_url: str):
         kwargs["connect_args"] = connect_args
     return create_async_engine(database_url, **kwargs)
 
+async def _probe(get_factory) -> bool:
+    """Runs SELECT 1 through a session factory; any failure (config or I/O) is a miss."""
+    try:
+        async with get_factory()() as raw_session:
+            await raw_session.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        return False
+
+
 class SQLAlchemyDatabaseSession(DatabaseSession):
     """
     SQLAlchemy-specific concrete implementation of the DatabaseSession port.
@@ -138,16 +149,18 @@ class SQLAlchemyConnectionProvider(ConnectionProvider):
 
     async def check_connectivity(self) -> bool:
         """
-        Lightweight connectivity probe using SELECT 1.
-        Returns True if the database responds, False otherwise.
+        Lightweight connectivity probe using SELECT 1 on all three logical databases.
+        Returns True only if every database responds, False otherwise.
         """
-        try:
-            from sqlalchemy import text
-            async with self.session_factory() as raw_session:
-                await raw_session.execute(text("SELECT 1"))
-            return True
-        except Exception:
-            return False
+        return all((await self.check_databases()).values())
+
+    async def check_databases(self) -> dict[str, bool]:
+        factories = {
+            "articles": lambda: self.session_factory,
+            "users": get_users_session_factory,
+            "analytics": get_analytics_session_factory,
+        }
+        return {name: await _probe(factory) for name, factory in factories.items()}
 
     async def dispose(self) -> None:
         """Disposes of connection pool resources across all multi-db pools."""
