@@ -193,3 +193,15 @@ RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational fin
 - Not verified: real password expansion (S9) needs a clean `mariadb_data` volume; covered once T12 composes `with-db`.
 - Known limitation: a `'` in `MARIADB_APP_PASSWORD` or `DB_USER` breaks the SQL string (spec body is verbatim); candidate hardening follow-up.
 - Risk: item 1 (DB init / credentials), low impact.
+
+## 18. T12 Notes & Outcome
+
+- Files (`e8493e1`): `docker-compose.yml` rewritten (nginx removed). Services: `proxy` (builds `docker/caddy`, ports `80`, `443`, `${HTTP_PORT:-8080}:8080`, `caddy_data`/`caddy_config` volumes so certificates persist), `backend`, `web`; profile `with-db` adds `mariadb`; `demo` adds `seed`; `tunnel` adds `cloudflared`.
+- `backend` and `seed` share a `x-backend-env` anchor with `ENVIRONMENT: ${ENVIRONMENT:-production}`, `SECRET_KEY`, `DATABASE_URL` family, `DB_*`, `DB_SSL_*`, `RUN_MIGRATIONS`. `SECRET_KEY` has no `:?required` guard so `docker compose config -q` passes without a `.env`; the T3 lifespan check stays the single enforcement point.
+- `mariadb` publishes `127.0.0.1:${MARIADB_PORT:-3306}:3306` only (S8) and mounts `01-init-dbs.sh` (T11). `backend` depends on it with `required: false`, so the default profile starts without it.
+- T7 carry-overs: (1) migrations race: only `backend` runs Alembic; `seed` passes a non-`serve` command, which the entrypoint exec's without migrations. (2) `backend` healthcheck overridden in compose with `start_period: 90s`. (3) live healthcheck not observed (needs a reachable database and a `.env`); deferred to staging or the T17 smoke test.
+- Spec deviations: all services share `backend-net` (the spec's "mariadb on backend-net" would otherwise isolate it from `backend`); `DB_HOST` defaults to `mariadb`; `extra_hosts: host.docker.internal:host-gateway` added to `backend`/`seed` for a host-installed database; `proxy` has no compose healthcheck because `/caddy-health` listens on `:8080` only when `SERVER_NAME=:8080`.
+- Gotcha for T14: Compose pre-sets `COMPOSE_PROJECT_NAME` from the directory name, so the spec's `:-saas-stock` default only applies if `.env` sets `COMPOSE_PROJECT_NAME=saas-stock`. Without it local image names render as `<dirname>-backend`. `.env.example` must set it (and `GHCR_OWNER`).
+- Verified: `docker compose config -q` for default, `with-db`, `demo`, `tunnel`; scratch assertions (not committed) for service sets per profile (S7), localhost-only MariaDB binding (S8), `ENVIRONMENT` default `production`, and GHCR image default. RED observed first (old file: `mariadb nginx` only).
+- Not verified: `docker compose up` end to end, S9 password expansion on a clean volume, Caddy-to-backend proxying.
+- Risk: item 5 (delivery/compose), item 1 (MariaDB exposure, mitigated by localhost binding).

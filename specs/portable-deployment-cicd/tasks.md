@@ -136,7 +136,7 @@ flowchart TD
   - **Files:** `docker/mariadb/01-init-dbs.sh`, `docker/mariadb/init-dbs.sql` (removed or deprecated)
   - **Verify:** `bash -n docker/mariadb/01-init-dbs.sh`
 
-- [ ] **T12: Author unified `docker-compose.yml` with profiles and production default**
+- [x] **T12: Author unified `docker-compose.yml` with profiles and production default** *(commit `e8493e1`)*
   - **S#:** `S7`, `S8`
   - **Risk Tier:** Medium
   - **Description:** Refactor `docker-compose.yml` into service profiles: `default` (`proxy`, `backend`, `web`), `with-db` (`mariadb` bound to `127.0.0.1:3306`), `demo` (`seed`), and `tunnel` (`cloudflared`). Backend defaults `ENVIRONMENT: ${ENVIRONMENT:-production}`. Reference GHCR images parameterized by `${IMAGE_TAG:-latest}`.
