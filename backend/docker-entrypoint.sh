@@ -3,14 +3,17 @@
 # SECRET_KEY validation is intentionally NOT done here; the FastAPI lifespan owns it.
 set -eo pipefail
 
-# `serve` (the image default) starts the API. Any other command, including a
-# custom `uvicorn ...` invocation, is exec'd untouched and skips migrations.
+# `serve` (the image default) starts the API; extra arguments are forwarded to
+# uvicorn (e.g. `serve --reload` in the dev override, so migrations still run).
+# Any other command, including a custom `uvicorn ...` invocation, is exec'd
+# untouched and skips migrations.
 if [ "${1:-serve}" != "serve" ]; then
     exec "$@"
 fi
+shift || true
 
 if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-    cd /app
+    cd "${APP_DIR:-/app}"
     for cfg in alembic.ini alembic_users.ini alembic_analytics.ini; do
         echo "Applying migrations: ${cfg}"
         alembic -c "backend/migrations/${cfg}" upgrade head
@@ -24,4 +27,5 @@ exec uvicorn backend.api.main:app \
     --host 0.0.0.0 \
     --port 8000 \
     --workers "${UVICORN_WORKERS:-2}" \
-    --no-access-log
+    --no-access-log \
+    "$@"

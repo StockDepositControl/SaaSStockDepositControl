@@ -6,8 +6,10 @@ services:
   backend:
     environment:
       ENVIRONMENT: development
-    # Non-"serve" commands are exec'd by the entrypoint without running migrations.
-    command: ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+      # uvicorn ignores --workers when --reload is set.
+      UVICORN_WORKERS: "1"
+    # `serve` applies migrations (RUN_MIGRATIONS) and forwards --reload to uvicorn.
+    command: ["serve", "--reload"]
     volumes:
       - ./backend:/app/backend
 
