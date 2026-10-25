@@ -1,0 +1,38 @@
+# Development override: bind-mounts local source and enables hot reload.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# Caddy and MariaDB (--profile with-db) keep running from the base file.
+
+services:
+  backend:
+    environment:
+      ENVIRONMENT: development
+    # Non-"serve" commands are exec'd by the entrypoint without running migrations.
+    command: ["uvicorn", "backend.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./backend:/app/backend
+
+  web:
+    # The production image is a standalone bundle without devDependencies;
+    # the `deps` stage holds the full node_modules that `next dev` needs.
+    build:
+      context: ./frontend-web
+      target: deps
+    image: ghcr.io/${GHCR_OWNER:-stockdeposit}/${COMPOSE_PROJECT_NAME:-saas-stock}-web-dev:local
+    environment:
+      ENVIRONMENT: development
+      NODE_ENV: development
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    command: ["npm", "run", "dev"]
+    volumes:
+      - ./frontend-web:/app
+      # Keep the image's node_modules and the build cache out of the bind mount.
+      - /app/node_modules
+      - /app/.next
+    # The `deps` stage has no HEALTHCHECK; the proxy waits for web to be healthy.
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --spider http://127.0.0.1:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 3

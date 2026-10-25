@@ -144,7 +144,7 @@ flowchart TD
   - **Files:** `docker-compose.yml`
   - **Verify:** `docker compose config -q && docker compose --profile with-db config -q && docker compose --profile demo config -q && docker compose --profile tunnel config -q`
 
-- [ ] **T13: Author `docker-compose.dev.yml` override for local development**
+- [x] **T13: Author `docker-compose.dev.yml` override for local development** *(commit `TBD`)*
   - **S#:** `S10`
   - **Risk Tier:** Low
   - **Description:** Author `docker-compose.dev.yml` mounting local `backend/` and `frontend-web/` directories with live code reload and `ENVIRONMENT: development`.

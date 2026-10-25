@@ -205,3 +205,11 @@ RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational fin
 - Verified: `docker compose config -q` for default, `with-db`, `demo`, `tunnel`; scratch assertions (not committed) for service sets per profile (S7), localhost-only MariaDB binding (S8), `ENVIRONMENT` default `production`, and GHCR image default. RED observed first (old file: `mariadb nginx` only).
 - Not verified: `docker compose up` end to end, S9 password expansion on a clean volume, Caddy-to-backend proxying.
 - Risk: item 5 (delivery/compose), item 1 (MariaDB exposure, mitigated by localhost binding).
+
+## 19. T13 Notes & Outcome
+
+- Files: `docker-compose.dev.yml`. `backend` gets `ENVIRONMENT: development`, mount `./backend:/app/backend` and `uvicorn ... --reload` (the entrypoint exec's non-`serve` commands, so no migrations run in dev). `web` gets `ENVIRONMENT: development`, mount `./frontend-web:/app` with anonymous `/app/node_modules` and `/app/.next`, and `npm run dev`.
+- Spec-challenge finding: the production `web` image is a standalone bundle without `node_modules`, so the override builds the Dockerfile `deps` stage (`build.target: deps`, image tagged `...-web-dev:local` so it never shadows the release tag). That stage has no `HEALTHCHECK`, and `proxy` waits for `web` to be healthy, so the override defines a `wget` healthcheck.
+- Verified: RED (scratch assertions, missing file), then GREEN; `docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q` passes, also combined with `with-db`, `demo`, `tunnel`; base `config -q` unchanged.
+- Not verified: live `up` and actual hot reload (S10), `next dev` behind Caddy, file-watch events through the bind mount.
+- Risk: none (dev-only override).
