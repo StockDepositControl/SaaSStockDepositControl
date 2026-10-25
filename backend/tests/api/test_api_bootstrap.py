@@ -70,7 +70,8 @@ def test_health_endpoint_unhealthy():
     # Assert: Should return 503 Service Unavailable
     assert response.status_code == 503
     assert response.json()["status"] == "unhealthy"
-    assert "Connection refused" in response.json()["detail"]
+    assert response.json()["detail"] == "Database connectivity probe failed"
+    assert "Connection refused" not in response.text
     app.dependency_overrides.clear()
 
 
