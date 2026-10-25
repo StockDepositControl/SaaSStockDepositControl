@@ -72,7 +72,7 @@ flowchart TD
   - **Files:** `backend/api/main.py`, `backend/tests/unit/test_startup_security.py`
   - **Verify:** `cd backend && pytest tests/unit/test_startup_security.py` && `cd backend && ENVIRONMENT=production SECRET_KEY=changeme python -c "import asyncio; from backend.api.main import app; asyncio.run(app.router.lifespan_context(app).__aenter__())" 2>&1 | grep -q "RuntimeError" && echo "Lifespan rejected insecure SECRET_KEY successfully"`
 
-- [ ] **T4: Add Database TLS and full URL resolution in connection provider**
+- [x] **T4: Add Database TLS and full URL resolution in connection provider** *(commit `ff5eaf4`)*
   - **S#:** `S11`
   - **Risk Tier:** Medium
   - **Description:** In `backend/adapters/database/connection.py`, enforce deterministic URL precedence across all three engine factories (`ARTICLES_DATABASE_URL` / `USERS_DATABASE_URL` / `ANALYTICS_DATABASE_URL` -> `DATABASE_URL` fallback -> `DB_*` components). Support `DB_SSL_MODE` (`disable`, `require`, `verify-ca`) and `DB_SSL_CA` via `aiomysql` `connect_args={"ssl": ssl_context}` when mode is not `disable`.
