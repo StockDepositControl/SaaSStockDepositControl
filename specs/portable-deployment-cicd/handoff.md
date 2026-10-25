@@ -127,3 +127,12 @@ Raised by `/code-review medium` and `/simplify` after Slice 1; the first item is
 - **TLS:** `verify-ca` does not check the hostname; a `verify-full` mode would close that gap.
 - **Docs:** `AGENTS.md` Install / Setup should also install `requirements-dev.txt` for the test environment.
 - **Outside the diff:** `backend/scripts/seed.py` builds its URLs from `DB_*` and ignores `DATABASE_URL` / `*_DATABASE_URL`; `api/dependencies/__init__.py:30` reads `SECRET_KEY` with its own dev default.
+
+## 11. T7 Notes & Outcome
+
+- Files (`0696d93`): `backend/Dockerfile`, `backend/docker-entrypoint.sh`, `backend/.dockerignore`. Deviation from `tasks.md` T7: the ignore file is `backend/.dockerignore`, not repo-root `.dockerignore`, because Docker only reads the ignore file inside the build context (`backend/`).
+- Image layout: code at `/app/backend`, `WORKDIR /app`, `PYTHONPATH=/app`, so `backend.api.main` and `backend/migrations/*.ini` resolve. `tests/`, `pytest.ini` and `requirements-dev.txt` are excluded from the image.
+- Entrypoint: `CMD ["uvicorn"]` is the default; any other command (e.g. `python -c ...`) is exec'd as-is without migrations. Default path runs the 3 Alembic configs when `RUN_MIGRATIONS` is `true` (default), aborts on failure, then `exec uvicorn ... --workers ${UVICORN_WORKERS:-2} --no-access-log`. No `SECRET_KEY` check in shell (T3 owns it).
+- Verified: build OK; `import fastapi` OK; `id -u` = 10001; `pytest` absent; `import backend.api.main` OK; `ENVIRONMENT=production SECRET_KEY=changeme` is refused by the T3 lifespan check inside the container; a failing migration (runtime image has no `aiosqlite`, by design) stops startup with a non-zero exit.
+- Not verified: `hadolint` is not installed locally (CI T17 covers it); a full migration run against MariaDB is deferred to the T12/T17 compose and smoke-test slices; the healthcheck was not observed live.
+- Risk: item 5 (delivery/installers).

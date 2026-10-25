@@ -97,7 +97,7 @@ flowchart TD
 
 ## Phase 2: Containerization & Ingress Gateway
 
-- [ ] **T7: Create production multi-stage `backend/Dockerfile` and entrypoint**
+- [x] **T7: Create production multi-stage `backend/Dockerfile` and entrypoint** *(commit `0696d93`)*
   - **S#:** `S1`
   - **Risk Tier:** Medium
   - **Description:** Author `backend/Dockerfile` (`python:3.12-slim`, non-root user `appuser` UID 10001, virtualenv, no test tools). Create `backend/docker-entrypoint.sh` executing Alembic migrations when `RUN_MIGRATIONS=true` and launching Uvicorn (without duplicating `SECRET_KEY` validation, which is handled exclusively by T3 in Python).
