@@ -314,3 +314,50 @@ Three defects in earlier slices that the T17 `migrations-smoke` job would hit. O
 
   The human must decide between a `.gitleaksignore` with fingerprints and a history rewrite.
 - Risk: item 5 (CI/CD, dependency upgrade), item 3 (status-check contract `ci-success` for branch protection).
+
+## 26. T18 Notes & Outcome
+
+- Files: new `.github/workflows/cd.yml` and `.github/workflows/mobile-release.yml`. Third-party actions are pinned by SHA, including the new `docker/login-action` v4.7.0 and `docker/metadata-action` v6.2.0. Every checkout uses `persist-credentials: false`.
+- Triggers:
+  - `workflow_run` of CI, accepted only when the conclusion is `success`, the event is `push`, and the head repository is this repository. Fork PRs and fork branches named `main` never reach jobs that hold secrets.
+  - `v*.*.*` tags.
+  - `workflow_dispatch` for production.
+- Jobs:
+  - `build`: backend/web matrix, amd64 + arm64. Main pushes get `edge` and `sha-<7>` from `workflow_run.head_sha`, because `github.sha` is the default-branch tip in a `workflow_run`. Tags get `vX.Y.Z`, `vX.Y`, `vX` and `latest`. Uses the gha cache scopes shared with CI.
+  - `deploy-staging`
+  - `release`: `gh release create --generate-notes --verify-tag`
+  - `deploy-production`
+- Spec-challenge decisions (approved plan):
+  1. **Rollback lives in `deploy.sh update` only.** Staging and production call it with `HEALTH_TIMEOUT=55 HEALTH_INTERVAL=5`, which gives 12 probes × 5s (about 60s) and uses `.previous_tag` only. The spec's inline script is not copied, because it overwrites `.previous_tag` on a re-deploy.
+  2. **Proxy is built on the host.** The bundle adds `docker/caddy/Dockerfile` and `docker/mariadb/01-init-dbs.sh` to the spec §5.8 tar list. CD syncs the bundle to the host on every deploy (`tar | ssh`). This never touches `.env`, `.previous_tag` or `backups/`. This closes the §24 open point.
+  3. **Strict host keys.** New secrets `STAGING_SSH_KNOWN_HOSTS` and `PROD_SSH_KNOWN_HOSTS` enable `StrictHostKeyChecking=yes`, so there is no `ssh-keyscan` TOFU. SSH is native OpenSSH, with no third-party action.
+  4. **Least privilege.** The workflow default is `contents: read`. `build` gets `packages: write`, deploys get `packages: read`, and `release` gets `contents: write`.
+  5. **Inputs go through `env`, never inline `${{ }}` in `run:`.** `STAGING_DOMAIN`, `*_DEPLOY_DIR` and `target_version` are regex-validated, and remote commands are built with `printf %q`.
+- Additions to the spec §5.8 inventory:
+  - Optional `STAGING_DEPLOY_DIR` and `PROD_DEPLOY_DIR` (default `/opt/saas-stock-deposit`)
+  - `PROD_DOMAIN`
+  - `PROD_ENVIRONMENT`: set it to `production` to get required reviewers on Team/Enterprise
+  - Staging is opt-in and skipped while `STAGING_DOMAIN` is unset.
+- Registry login: the host logs in with the job's `GITHUB_TOKEN` (`packages: read`) over stdin. That token expires when the job ends, and `docker logout` runs afterwards. No long-lived PAT is stored on the hosts.
+- Production gate: dispatch only from `main`. `confirm_text` must equal `DEPLOY-PRODUCTION` and `target_version` must match `^v\d+\.\d+\.\d+$`. The checkout uses that tag, and `deploy.sh backup && deploy.sh update <tag>` runs.
+- `mobile-release.yml`: skipped with a notice when `EXPO_TOKEN` or `frontend-mobile/eas.json` is missing. `eas.json` does not exist yet, so the job is inert until someone adds a `preview` profile. It uses pinned `eas-cli@24.12.1` (older than 2 weeks) with `--no-wait`.
+- Verified:
+  - **RED:** the tasks.md YAML check failed because `cd.yml` was missing.
+  - **GREEN:** the tasks.md YAML check passes, `git diff --check` is clean, and `bash -n scripts/devops/deploy.sh` is OK.
+  - **actionlint:** 1.7.12 with shellcheck 0.10.0 exits 0 on `cd.yml`, `mobile-release.yml` and `ci.yml`.
+  - **Bundle:** built locally from `DEPLOY_FILES`. The extracted `deploy.sh` keeps its executable bit and `help` runs.
+- Reviews:
+  - `/security-review`: no findings with confidence ≥ 8.
+  - RDD lineage `review-fae2ef16cca9e6e9`: approved with 4 lenses, then acknowledged.
+  - Judgment-day: **APPROVED**. Neither judge reported a CRITICAL finding, so there was no fix round. The info ledger is below.
+- Judgment-day info ledger. JD-1, JD-4 and JD-5 were applied after the verdict at the human's request; the others are candidate hardening:
+  - **JD-1 (WARNING, B):** the workflow-level concurrency group includes failed-CI `workflow_run` events. A run created by a failed CI run, which skips everything, can cancel a pending run for a green commit, so that commit is never published or deployed. **Fixed:** `workflow_run.conclusion` is part of the group key.
+  - **JD-2 (WARNING, A):** there is no "still tip of main" check. A slower CI run for an older commit can finish later and move `edge` and staging back to that commit.
+  - **JD-3 (WARNING, A):** an empty `environment:` value when `PROD_ENVIRONMENT` is unset is not explicitly documented. It needs a real dispatch run to confirm.
+  - **JD-4 (B WARNING, A SUGGESTION):** `EXPO_TOKEN` is set in job-level env, so `npm ci` lifecycle scripts can see it. **Fixed:** scoped to the gate and EAS steps.
+  - **JD-5 (SUGGESTION, B):** no SSH `ConnectTimeout` or `ServerAliveInterval`. A dead host hangs until the job timeout. **Fixed:** `ConnectTimeout=15`, `ServerAliveInterval=15`, `ServerAliveCountMax=4`.
+  - **JD-6 (SUGGESTION, A):** the `confirm_text` check runs inside the job, so with reviewers configured a wrong text still asks for approval first.
+  - **JD-7 (SUGGESTION, A):** `.env.example` defaults `GHCR_OWNER=stockdeposit`. A first deploy must set it to the lowercased repository owner, and nothing checks that.
+  - **JD-8 (SUGGESTION, A):** tag releases are not gated on CI. Pre-release tags such as `v1.2.3-rc1` publish as normal releases and move `latest`.
+- Not verified: a real GitHub Actions run (S22, S23, S24 need GHCR, an SSH host, a tag push and the secrets); `docker compose up` building the proxy on the host; empty-`environment` behaviour (JD-3).
+- Risk: item 5 (CI/CD delivery), item 2 (SSH keys, registry token), item 3 (new secrets/variables contract).
