@@ -129,7 +129,7 @@ flowchart TD
 
 ## Phase 3: Compose Orchestration & Dev Experience
 
-- [ ] **T11: Secure MariaDB entrypoint script for environment variable expansion**
+- [x] **T11: Secure MariaDB entrypoint script for environment variable expansion** *(commit `d73f519`)*
   - **S#:** `S9`
   - **Risk Tier:** Medium
   - **Description:** Replace `docker/mariadb/init-dbs.sql` with an executable `docker/mariadb/01-init-dbs.sh` executing dynamic SQL with `$MARIADB_APP_PASSWORD` expansion.

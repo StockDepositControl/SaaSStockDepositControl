@@ -184,3 +184,12 @@ RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational fin
 - Branch audit: one Conventional Commit per task, each followed by a `docs:` commit; no AI attribution in any commit message; working tree clean before this closure.
 - Open carry-overs: T12 (migrations race, backend `start-period`, live healthcheck), T17 (entrypoint smoke test, enforce `tsc`/`lint` baseline).
 - Risk: none (docs only).
+
+## 17. T11 Notes & Outcome
+
+- Files: new executable `docker/mariadb/01-init-dbs.sh` (spec §5.3 body verbatim); `docker/mariadb/init-dbs.sql` removed so MariaDB cannot run it and create the user with the literal `${MARIADB_APP_PASSWORD}`.
+- Spec inconsistency: the spec problem text says `01-init-dbs.sql`, the solution and `tasks.md` say `.sh`; `.sh` used.
+- Verified: RED (`bash -n` on the missing file, exit 127), then GREEN (`bash -n` and `test -x` pass).
+- Not verified: real password expansion (S9) needs a clean `mariadb_data` volume; covered once T12 composes `with-db`.
+- Known limitation: a `'` in `MARIADB_APP_PASSWORD` or `DB_USER` breaks the SQL string (spec body is verbatim); candidate hardening follow-up.
+- Risk: item 1 (DB init / credentials), low impact.
