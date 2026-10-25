@@ -173,7 +173,7 @@ flowchart TD
 
 ## Phase 5: DevOps Automation & Runbooks
 
-- [ ] **T16: Enhance `scripts/devops/deploy.sh` and author runbooks**
+- [x] **T16: Enhance `scripts/devops/deploy.sh` and author runbooks** *(commit `571f077`)*
   - **S#:** `S17`, `S18`
   - **Risk Tier:** Medium
   - **Description:** Update `scripts/devops/deploy.sh` with `pull`, `update`, `rollback`, and `backup` commands with strict error handling (`set -euo pipefail`). Update `docs/deploy/README.md` with targeted runbooks for Client On-Premise, Oracle Cloud VM (arm64), Cloudflare Tunnel, and Database TLS/compatibility guidance.
