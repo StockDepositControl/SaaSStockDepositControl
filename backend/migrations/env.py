@@ -18,6 +18,11 @@ load_dotenv()
 
 # Import models metadata
 from backend.adapters.repositories.models import BaseArticles, BaseUsers, BaseAnalytics
+from backend.migrations.url_config import (
+    alembic_engine_kwargs,
+    escape_for_configparser,
+    resolve_alembic_url,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -40,13 +45,10 @@ if not db_target:
 
 if db_target == "users":
     target_metadata = BaseUsers.metadata
-    db_name = os.getenv("DB_NAME_USERS", "db_users")
 elif db_target == "analytics":
     target_metadata = BaseAnalytics.metadata
-    db_name = os.getenv("DB_NAME_ANALYTICS", "db_analytics")
 else:
     target_metadata = BaseArticles.metadata
-    db_name = os.getenv("DB_NAME_ARTICLES", os.getenv("DB_NAME", "db_articles"))
 
 # Update version_locations dynamically
 versions_folder = "versions" if db_target == "articles" else f"versions_{db_target}"
@@ -54,13 +56,9 @@ version_locations_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
 # Use raw config setter for multple locations if needed, or set main option
 config.set_main_option("version_locations", version_locations_path)
 
-db_user = os.getenv("DB_USER", "root")
-db_pass = os.getenv("DB_PASSWORD", "")
-db_host = os.getenv("DB_HOST", "localhost")
-db_port = os.getenv("DB_PORT", "3306")
-database_url = f"mysql+aiomysql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+database_url = resolve_alembic_url(db_target)
 
-config.set_main_option("sqlalchemy.url", database_url)
+config.set_main_option("sqlalchemy.url", escape_for_configparser(database_url))
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -103,6 +101,7 @@ async def run_async_migrations() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        **alembic_engine_kwargs(database_url),
     )
 
     async with connectable.connect() as connection:

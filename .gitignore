@@ -1,15 +1,3 @@
-# Docs
-/docs/Plan.md
-/docs/implementation_plan.md
-/docs/mvp_casos_de_uso.md
-/docs/postman_collection.json
-/docs/functional_specs.md
-/docs/implementation_plan.md
-/specs
-
-# Tasks
-/backend/tasks/
-
 # Environment files
 .env
 
