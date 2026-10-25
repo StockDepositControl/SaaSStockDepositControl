@@ -97,28 +97,28 @@ flowchart TD
 
 ## Phase 2: Containerization & Ingress Gateway
 
-- [ ] **T7: Create production multi-stage `backend/Dockerfile` and entrypoint**
+- [x] **T7: Create production multi-stage `backend/Dockerfile` and entrypoint** *(commit `0696d93`)*
   - **S#:** `S1`
   - **Risk Tier:** Medium
   - **Description:** Author `backend/Dockerfile` (`python:3.12-slim`, non-root user `appuser` UID 10001, virtualenv, no test tools). Create `backend/docker-entrypoint.sh` executing Alembic migrations when `RUN_MIGRATIONS=true` and launching Uvicorn (without duplicating `SECRET_KEY` validation, which is handled exclusively by T3 in Python).
   - **Files:** `backend/Dockerfile`, `backend/docker-entrypoint.sh`, `.dockerignore`
   - **Verify:** `docker build -t test-backend backend/ && docker run --rm test-backend python -c "import fastapi"`
 
-- [ ] **T8: Configure Next.js standalone output and clean relative routing**
+- [x] **T8: Configure Next.js standalone output and clean relative routing** *(commit `cdeb636`)*
   - **S#:** `S2`, `S6`
   - **Risk Tier:** Medium
   - **Description:** In `frontend-web/next.config.ts`, set `output: "standalone"`. Remove hardcoded rewrite to `http://127.0.0.1:8000` and LAN IPs in `allowedDevOrigins`. Verify `frontend-web/lib/adapters/httpClient.ts` preserves relative URLs with empty `NEXT_PUBLIC_API_URL`.
   - **Files:** `frontend-web/next.config.ts`, `frontend-web/lib/adapters/httpClient.ts`
   - **Verify:** `cd frontend-web && npm run build` produces `.next/standalone`.
 
-- [ ] **T9: Create production multi-stage `frontend-web/Dockerfile`**
+- [x] **T9: Create production multi-stage `frontend-web/Dockerfile`** *(commit `6d0185a`)*
   - **S#:** `S2`
   - **Risk Tier:** Medium
   - **Description:** Author `frontend-web/Dockerfile` (`node:20-alpine`, multi-stage, non-root user `nextjs` UID 1001, standalone server runner, healthcheck probe).
   - **Files:** `frontend-web/Dockerfile`, `frontend-web/.dockerignore`
   - **Verify:** `docker build -t test-web frontend-web/ && docker run --rm -p 3000:3000 test-web node server.js & sleep 3 && curl -f http://127.0.0.1:3000/`
 
-- [ ] **T10: Implement Caddy ingress gateway configuration**
+- [x] **T10: Implement Caddy ingress gateway configuration** *(commit `ab51f1a`)*
   - **S#:** `S4`, `S5`, `S6`
   - **Risk Tier:** Medium
   - **Description:** Author `docker/caddy/Caddyfile` with `/api/*` reverse proxy to `backend:8000`, root reverse proxy to `web:3000`, single-line `respond /caddy-health "healthy" 200` endpoint, automatic HTTPS for public domains, and `:8080` HTTP fallback. Omit invalid fake ACME email defaults.
@@ -129,28 +129,29 @@ flowchart TD
 
 ## Phase 3: Compose Orchestration & Dev Experience
 
-- [ ] **T11: Secure MariaDB entrypoint script for environment variable expansion**
+- [x] **T11: Secure MariaDB entrypoint script for environment variable expansion** *(commit `d73f519`)*
   - **S#:** `S9`
   - **Risk Tier:** Medium
   - **Description:** Replace `docker/mariadb/init-dbs.sql` with an executable `docker/mariadb/01-init-dbs.sh` executing dynamic SQL with `$MARIADB_APP_PASSWORD` expansion.
   - **Files:** `docker/mariadb/01-init-dbs.sh`, `docker/mariadb/init-dbs.sql` (removed or deprecated)
   - **Verify:** `bash -n docker/mariadb/01-init-dbs.sh`
 
-- [ ] **T12: Author unified `docker-compose.yml` with profiles and production default**
+- [x] **T12: Author unified `docker-compose.yml` with profiles and production default** *(commit `e8493e1`)*
   - **S#:** `S7`, `S8`
   - **Risk Tier:** Medium
   - **Description:** Refactor `docker-compose.yml` into service profiles: `default` (`proxy`, `backend`, `web`), `with-db` (`mariadb` bound to `127.0.0.1:3306`), `demo` (`seed`), and `tunnel` (`cloudflared`). Backend defaults `ENVIRONMENT: ${ENVIRONMENT:-production}`. Reference GHCR images parameterized by `${IMAGE_TAG:-latest}`.
+  - **Carry-over from T7 review:** (1) migrations race: only one service/step may run Alembic (`RUN_MIGRATIONS=false` on extra replicas or a one-shot migrate service); (2) the backend `HEALTHCHECK` `start-period` (20s) can be shorter than first-boot migrations, so set it in compose; (3) observe the healthcheck live.
   - **Files:** `docker-compose.yml`
   - **Verify:** `docker compose config -q && docker compose --profile with-db config -q && docker compose --profile demo config -q && docker compose --profile tunnel config -q`
 
-- [ ] **T13: Author `docker-compose.dev.yml` override for local development**
+- [x] **T13: Author `docker-compose.dev.yml` override for local development** *(commit `9ce8db8`)*
   - **S#:** `S10`
   - **Risk Tier:** Low
   - **Description:** Author `docker-compose.dev.yml` mounting local `backend/` and `frontend-web/` directories with live code reload and `ENVIRONMENT: development`.
   - **Files:** `docker-compose.dev.yml`
   - **Verify:** `docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q`
 
-- [ ] **T14: Update `.env.example` with comprehensive deployment variables**
+- [x] **T14: Update `.env.example` with comprehensive deployment variables** *(commit `9a5aeb8`)*
   - **S#:** `S4`, `S7`, `S11`
   - **Risk Tier:** Low
   - **Description:** Update `.env.example` with TLS settings (`DB_SSL_MODE`, `DB_SSL_CA`), Caddy domain (`SERVER_NAME`), image tags, and clear instructions for each deployment profile.
@@ -161,7 +162,7 @@ flowchart TD
 
 ## Phase 4: Mobile Client Runtime Portability (Dedicated Slice)
 
-- [ ] **T15: Implement dynamic server URL configuration on Mobile Login**
+- [x] **T15: Implement dynamic server URL configuration on Mobile Login** *(commit `8defca4`)*
   - **S#:** `S15`, `S16`
   - **Risk Tier:** Medium
   - **Description:** Add Server Settings modal in `frontend-mobile/src/screens/LoginScreen.tsx` with AsyncStorage storage (`@stock_server_url`) and an inline "Probar Conexión" health check button calling `/api/v1/health`. Update mobile API client to resolve base URL dynamically.
@@ -172,7 +173,7 @@ flowchart TD
 
 ## Phase 5: DevOps Automation & Runbooks
 
-- [ ] **T16: Enhance `scripts/devops/deploy.sh` and author runbooks**
+- [x] **T16: Enhance `scripts/devops/deploy.sh` and author runbooks** *(commit `571f077`)*
   - **S#:** `S17`, `S18`
   - **Risk Tier:** Medium
   - **Description:** Update `scripts/devops/deploy.sh` with `pull`, `update`, `rollback`, and `backup` commands with strict error handling (`set -euo pipefail`). Update `docs/deploy/README.md` with targeted runbooks for Client On-Premise, Oracle Cloud VM (arm64), Cloudflare Tunnel, and Database TLS/compatibility guidance.
@@ -187,6 +188,7 @@ flowchart TD
   - **S#:** `S19`, `S20`, `S21`
   - **Risk Tier:** High
   - **Description:** Author `.github/workflows/ci.yml` featuring path filtering (`dorny/paths-filter`), `backend` (ruff + pytest from `backend/`), `migrations-smoke` with real MariaDB 10.11 container (apply 3 Alembic migrations, seed, probe `/health`, test downgrade/upgrade idempotency), `web` (lint, tsc, vitest, next build), `mobile` (tsc, expo-doctor), `docker` (hadolint, compose config, buildx test), `security` (gitleaks, pip-audit, npm audit, trivy), and `ci-success` aggregator. Author `.github/dependabot.yml`.
+  - **Carry-over from T7 review:** add a smoke test for the entrypoint branches (default `serve`, passthrough command, `RUN_MIGRATIONS=false`, migration failure aborts startup). *Done in the pre-T17 fixes: `backend/tests/unit/test_docker_entrypoint.py` (handoff §23); CI only needs to run pytest.*
   - **Files:** `.github/workflows/ci.yml`, `.github/dependabot.yml`
   - **Verify:** `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); yaml.safe_load(open('.github/dependabot.yml')); print('CI YAML schema parsed cleanly')"` && `hadolint backend/Dockerfile frontend-web/Dockerfile && docker compose config -q`
 

@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import ssl
+from urllib.parse import quote
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Any
 from dotenv import load_dotenv
@@ -52,8 +53,9 @@ def resolve_database_url(target: str) -> str:
             return base_url
         return make_url(base_url).set(database=db_name).render_as_string(hide_password=False)
 
-    db_user = os.getenv("DB_USER", "root")
-    db_pass = os.getenv("DB_PASSWORD", "")
+    # quote (not quote_plus): SQLAlchemy decodes with unquote, so a space must stay %20.
+    db_user = quote(os.getenv("DB_USER", "root"), safe="")
+    db_pass = quote(os.getenv("DB_PASSWORD", ""), safe="")
     db_host = os.getenv("DB_HOST", "localhost")
     db_port = os.getenv("DB_PORT", "3306")
     return f"mysql+aiomysql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"

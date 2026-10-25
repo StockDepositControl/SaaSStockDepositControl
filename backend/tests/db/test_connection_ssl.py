@@ -12,6 +12,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
+from sqlalchemy.engine import make_url
 
 pytestmark = pytest.mark.usefixtures("clean_db_env")
 
@@ -103,6 +104,19 @@ def test_component_defaults(monkeypatch):
         resolve_database_url("articles")
         == "mysql+aiomysql://root:@localhost:3306/db_articles"
     )
+
+
+def test_components_with_reserved_characters_round_trip(monkeypatch):
+    monkeypatch.setenv("DB_USER", "app user")
+    monkeypatch.setenv("DB_PASSWORD", "p@ss/w#rd:1%x+y?")
+    monkeypatch.setenv("DB_HOST", "dbhost")
+    monkeypatch.setenv("DB_PORT", "3307")
+
+    parsed = make_url(resolve_database_url("users"))
+
+    assert parsed.username == "app user"
+    assert parsed.password == "p@ss/w#rd:1%x+y?"
+    assert (parsed.host, parsed.port, parsed.database) == ("dbhost", 3307, "db_users")
 
 
 def test_unknown_target_is_rejected():

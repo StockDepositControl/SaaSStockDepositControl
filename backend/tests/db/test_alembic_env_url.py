@@ -3,6 +3,7 @@ import ssl
 import pytest
 from alembic.config import Config
 from backend.adapters.database.connection import DatabaseConfigError
+from sqlalchemy.engine import make_url
 from backend.migrations.url_config import (
     alembic_engine_kwargs,
     escape_for_configparser,
@@ -29,6 +30,16 @@ class TestPercentEscaping:
         cfg = Config()
         cfg.set_main_option("sqlalchemy.url", escape_for_configparser(raw))
         assert cfg.get_main_option("sqlalchemy.url") == raw
+
+    def test_component_password_with_reserved_characters_survives_alembic_config(
+        self, monkeypatch
+    ):
+        monkeypatch.setenv("DB_USER", "app_user")
+        monkeypatch.setenv("DB_PASSWORD", "p@ss/w#rd:1%x")
+        url = resolve_alembic_url("articles")
+        cfg = Config()
+        cfg.set_main_option("sqlalchemy.url", escape_for_configparser(url))
+        assert make_url(cfg.get_main_option("sqlalchemy.url")).password == "p@ss/w#rd:1%x"
 
     def test_unescaped_url_breaks_alembic_config(self):
         cfg = Config()
