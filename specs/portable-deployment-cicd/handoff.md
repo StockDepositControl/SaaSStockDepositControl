@@ -114,3 +114,16 @@ After implementing each slice, Claude Code must run the corresponding verificati
 - Slice 1 commits: T1 `0739f85`, T2 `8ba48f2`, T3 `3580e00`, T4 `ff5eaf4`, T5 `5de4820`, T6 `c825678`.
 - Closing verification (from `backend/`): `pytest` 341 passed; `pip-audit -r requirements.txt` clean; T1 verify commands pass.
 - Known baseline: `ruff check .` / `ruff format --check .` report pre-existing violations repo-wide (806 errors, 124 files unformatted, mostly in untouched code). The lint gate in CI (T17) needs a baseline/ruff-config decision before it can be enforced.
+
+## 10. Slice 1 Code-Review Follow-ups
+
+Raised by `/code-review medium` and `/simplify` after Slice 1; the first item is fixed, the rest are open decisions.
+
+- **Fixed (`19b898c`):** the production `SECRET_KEY` check now normalises `ENVIRONMENT` (strip + lowercase); `Production` previously skipped it.
+- **`/health` error detail:** the exception path returns `str(e)` to unauthenticated callers (`backend/api/v1/health.py`). S14 does not require it; changing it is a public-contract change (AGENTS.md "Ask First").
+- **`DATABASE_URL` fan-out (T4):** `resolve_database_url` now applies `DATABASE_URL` to users and analytics with the database name swapped. Deployments mixing `DATABASE_URL` (articles) with `DB_*` for the others change target. Legacy `DB_NAME` is no longer honoured for articles in Alembic.
+- **`check_connectivity` meaning (T6):** now true only when all three databases respond; a caller that only needs articles will fail when users or analytics is down.
+- **Probe vs injected provider:** a `SQLAlchemyConnectionProvider` built with an explicit URL probes its own articles engine but users/analytics via module-global, env-derived factories.
+- **TLS:** `verify-ca` does not check the hostname; a `verify-full` mode would close that gap.
+- **Docs:** `AGENTS.md` Install / Setup should also install `requirements-dev.txt` for the test environment.
+- **Outside the diff:** `backend/scripts/seed.py` builds its URLs from `DB_*` and ignores `DATABASE_URL` / `*_DATABASE_URL`; `api/dependencies/__init__.py:30` reads `SECRET_KEY` with its own dev default.
