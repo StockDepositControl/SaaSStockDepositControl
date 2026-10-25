@@ -272,3 +272,45 @@ Three defects in earlier slices that the T17 `migrations-smoke` job would hit. O
 - Verified: RED (10 of 13 failed against the old script; the 3 passing were negative cases), GREEN 13 passed; `bash -n scripts/devops/deploy.sh docker/mariadb/01-init-dbs.sh` OK; `./scripts/devops/deploy.sh help` exits 0; full backend `pytest` 372 passed (359 + 13); `ruff check` and `ruff format --check` clean on the new test file; `git diff --check` clean.
 - Not verified: a live `update`/`rollback`/`backup` against real Docker and MariaDB (tests use stubs); `docker compose exec ... sh -c` quoting on the real container; `shellcheck` (not installed); the runbooks on Oracle/Cloudflare/on-premise hosts.
 - Risk: item 5 (delivery/deploy script), item 1 (database dump handling).
+
+## 25. T17 Notes & Outcome
+
+- Files: new `.github/workflows/ci.yml` and `.github/dependabot.yml` (commit `UNIT2`). Security prerequisite in `frontend-web` (commit `UNIT1`): `next` and `eslint-config-next` raised to `^16.4.3` (human-approved; deviates from the spec §2 pin `16.2.10`), the runner stage of `frontend-web/Dockerfile` drops the bundled npm/npx, and `useBarcodeScanner.test.ts:385` gets a type annotation because the 16.4 build type-checks it.
+- Jobs: `changes` (dorny/paths-filter), `backend`, `migrations-smoke`, `web`, `mobile`, `docker`, `security`, `ci-success`. The workflow default is `contents: read`, and only `changes` adds `pull-requests: read`. Every checkout uses `persist-credentials: false`, and third-party actions are pinned by commit SHA with a `# vX` comment so Dependabot can bump them. Concurrency cancels superseded PR runs only.
+- Spec-challenge decisions (human):
+  - **Non-blocking gates:** ruff check/format, web lint and web tsc run with `continue-on-error` because of the baselines (§9, §13); `expo-doctor` is non-blocking per spec. Web `tsc` is now clean after the annotation above, so it can be made blocking.
+  - **Blocking security gates:** Trivy (CRITICAL with a fix available) and npm audit. npm audit runs with `--omit=dev` because dev tooling never ships in the image. The dev-only `tinypool` critical (via `vitest`) needs `vitest@5`, a breaking major; a TODO in `ci.yml` tracks it.
+  - **hadolint:** `failure-threshold: warning` with `ignore: DL3025`, because the shell-form `HEALTHCHECK CMD ... || exit 1` is mandated by spec §5.1. DL3066 (named `USER`) stays visible as info.
+- Spec deviations:
+  - **S19:** the `docker` filter also matches `backend/**`, `frontend-web/**` and `ci.yml`, because those are the image build contexts. Without that, a backend-only PR would skip `docker`, which contradicts S19.
+  - **Init script:** `migrations-smoke` runs `01-init-dbs.sh` with `docker exec` inside the service container, since the runner has no `mariadb` client.
+  - **Gitleaks:** runs as the checksum-pinned CLI (8.30.1) instead of `gitleaks-action`, which needs a license on organization repos.
+- Judgment-day round 1:
+  - **JD-1 (CRITICAL, both judges, reproduced on MariaDB 10.11):** `downgrade -1` fails with `Ambiguous walk` on the `db_articles` merge head `3d4bc96d9b91`. After seeding, the head downgrades are not data-safe either: `db_analytics` fails with 1062 on `idx_daily_reports_tenant_date`, and the `db_users` re-upgrade fails its FK. Fix: the reversibility step runs before Seed and downgrades each DB to the first parent of its head, parsed from `alembic show head` (`Parent:` or `Merges:`), then upgrades back to head. Spec §5.7 orders it after Seed; S20 still holds.
+  - **JD-2 (WARNING, both judges):** the `changes` checkout uses `fetch-depth: 0`, so paths-filter can diff a push locally without credentials.
+  - **JD-3/JD-4 (info, not fixed):** the second Trivy step is skipped when the first fails; the concurrency comment overstates push behaviour, since GitHub keeps one pending run per group.
+  - **Not closed:** the scoped re-judgment was not run (tool outage, then declined), so judgment-day has no terminal verdict.
+- `downgrade base` is not viable on any DB. These older downgrades fail on MariaDB:
+  - articles `a941f830d92e`: 1553 (index needed by an FK)
+  - users `a1b2c3d4e5f6`: 1091 (FK `fk_users_branch_id` missing)
+  - analytics `d3e4f5a6b7c8`: 1833 (`tenant_id` used by an FK)
+
+  These are pre-existing migration defects and a candidate follow-up. They are also why the CI check covers only one step.
+- Verified:
+  - **RED:** the tasks.md YAML check failed because `ci.yml` was missing.
+  - **Workflow lint:** actionlint 1.7.12 (with shellcheck) exits 0 on the final `ci.yml`. The tasks.md YAML parse, hadolint on both Dockerfiles, `docker compose config -q` for all four profiles and `git diff --check` all pass.
+  - **Web:** `npm run build`, `npm test` (128 passed), `npx tsc --noEmit` and `npm audit --omit=dev` (0 vulnerabilities) pass.
+  - **Images:** Trivy 0.75.0 reports no fixable CRITICAL issue on either image. The rebuilt web container is healthy, `/login` returns 200, it runs as UID 1001 and npm is absent.
+  - **Throwaway MariaDB 10.11:** the init script, 3 × `upgrade head`, the new reversibility loop and the seed all exit 0.
+  - **Reviews:** `/security-review` found no vulnerabilities. RDD lineage `review-492ece57c7b2eb4a` was approved with 4 lenses.
+- Not verified:
+  - a real GitHub Actions run (S19, S20, S21 need a PR)
+  - the `/api/v1/health` probe after the fix (the earlier session-wide health was observed in §23)
+  - paths-filter behaviour on push
+- **Open blocker, gitleaks:** the `security` job will fail on history. 8 `generic-api-key` hits:
+  - a test-only HS256 key in `backend/tests/api/test_auth_routes.py:32` (and the old `tests/test_auth.py`)
+  - example JWTs in `docs/API_DOCUMENTATION.md:199` and the untracked `summary_project.md:473`
+  - a 40-character `SECRET_KEY` (`super_secret…`) in `summary_project.md:635`, commit `4dae916`. It would pass the T3 production validator, so never reuse it and rotate it if it was ever deployed.
+
+  The human must decide between a `.gitleaksignore` with fingerprints and a history rewrite.
+- Risk: item 5 (CI/CD, dependency upgrade), item 3 (status-check contract `ci-success` for branch protection).

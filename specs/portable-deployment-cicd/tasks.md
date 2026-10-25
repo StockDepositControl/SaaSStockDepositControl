@@ -184,7 +184,7 @@ flowchart TD
 
 ## Phase 6: CI/CD GitHub Actions & Release Automation
 
-- [ ] **T17: Author CI workflow and Dependabot configuration**
+- [x] **T17: Author CI workflow and Dependabot configuration** *(commits `UNIT1` web security prerequisite, `UNIT2` CI; see handoff §25 — gitleaks history blocker open)*
   - **S#:** `S19`, `S20`, `S21`
   - **Risk Tier:** High
   - **Description:** Author `.github/workflows/ci.yml` featuring path filtering (`dorny/paths-filter`), `backend` (ruff + pytest from `backend/`), `migrations-smoke` with real MariaDB 10.11 container (apply 3 Alembic migrations, seed, probe `/health`, test downgrade/upgrade idempotency), `web` (lint, tsc, vitest, next build), `mobile` (tsc, expo-doctor), `docker` (hadolint, compose config, buildx test), `security` (gitleaks, pip-audit, npm audit, trivy), and `ci-success` aggregator. Author `.github/dependabot.yml`.
