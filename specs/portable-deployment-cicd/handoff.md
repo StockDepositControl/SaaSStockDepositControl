@@ -41,7 +41,7 @@ The goal of this initiative is to eliminate the current development-only hosting
 Execute the tasks sequentially following the vertical slices defined in `tasks.md`:
 
 1. **Slice 1 (Security & Core Primitives):**
-   - Run `T1` (Split dependencies: `backend/requirements.txt` vs `requirements-dev.txt`).
+   - Run `T1` (Split dependencies: `backend/requirements.txt` vs `requirements-dev.txt`). **Done** — commit `0739f85`.
    - Run `T2` (Update `antigravity.yaml` `allowed_directories`). **Done** — commit `8ba48f2`.
    - Run `T3` (Enforce production `SECRET_KEY` startup check in `backend/api/main.py`). **Done** — commit `3580e00`.
    - Run `T4` (Database TLS and URL precedence in `backend/adapters/database/connection.py`). **Done** — commit `ff5eaf4`.
@@ -107,3 +107,10 @@ After implementing each slice, Claude Code must run the corresponding verificati
 - `/health` body: legacy `"database"` is kept as the aggregate (`connected`/`disconnected`); added `"databases"` (per-DB) and `"version"` (read from `request.app.version`, no duplicated constant). Any DB down or probe exception -> 503 with `status: unhealthy`.
 - Deviations from `tasks.md` T6: `backend/tests/api/test_health.py` did not exist (created); `tests/api/test_api_bootstrap.py` had an exact-equality assertion on the old body and was relaxed to key checks.
 - Full backend suite: 341 passed (330 baseline + 11 new). Pre-existing ruff warnings in touched files left untouched.
+
+## 9. T1 Notes & Slice 1 Closure
+
+- T1 (`0739f85`): `pytest`, `pytest-asyncio`, `httpx` and `aiosqlite` moved to `requirements-dev.txt`, which also gains `pytest-cov`, `ruff` and `pip-audit`. `cryptography` added to runtime for MySQL TLS. Deviation from `tasks.md` T1: `faker` stays in runtime because `seed.py` imports it.
+- Slice 1 commits: T1 `0739f85`, T2 `8ba48f2`, T3 `3580e00`, T4 `ff5eaf4`, T5 `5de4820`, T6 `c825678`.
+- Closing verification (from `backend/`): `pytest` 341 passed; `pip-audit -r requirements.txt` clean; T1 verify commands pass.
+- Known baseline: `ruff check .` / `ruff format --check .` report pre-existing violations repo-wide (806 errors, 124 files unformatted, mostly in untouched code). The lint gate in CI (T17) needs a baseline/ruff-config decision before it can be enforced.

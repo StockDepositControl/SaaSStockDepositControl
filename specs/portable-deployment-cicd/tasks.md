@@ -51,7 +51,7 @@ flowchart TD
 
 ## Phase 1: Core Primitives & Security Hardening
 
-- [ ] **T1: Split backend requirements into runtime and development**
+- [x] **T1: Split backend requirements into runtime and development** *(commit `0739f85`)*
   - **S#:** `S3`
   - **Risk Tier:** Low
   - **Description:** Move testing and development dependencies (`pytest`, `pytest-asyncio`, `httpx`, `aiosqlite`, `faker`) from `backend/requirements.txt` into `backend/requirements-dev.txt`. Ensure `backend/requirements.txt` includes `cryptography` for MySQL TLS.
