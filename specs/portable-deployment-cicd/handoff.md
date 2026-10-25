@@ -155,3 +155,13 @@ RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational fin
 - Known baseline, not caused by T8: `npx tsc --noEmit` fails on `lib/hooks/useBarcodeScanner.test.ts:385` (confirmed identical with T8 stashed); `npm run lint` reports 1 error in `app/users/page.tsx:35` (setState in effect) plus 10 warnings. Both gates need a fix before T17 can enforce `tsc` and `lint` in CI.
 - Behaviour change: `npm run dev` no longer proxies `/api/v1/*` to `127.0.0.1:8000`. The proxy is Caddy (T10) or the dev compose override (T13); until then, local dev needs an external proxy or `NEXT_PUBLIC_API_URL` set.
 - Risk: item 3 (shared public contract / dev workflow).
+
+## 14. T9 Notes & Outcome
+
+- Files (`6d0185a`): `frontend-web/Dockerfile` (3 stages `deps` / `builder` / `runner` on `node:20-alpine`) and `frontend-web/.dockerignore`. Deviation from `tasks.md` T9: none in file list.
+- Runner sets `HOSTNAME=0.0.0.0` and `PORT=3000`. Next standalone binds to `$HOSTNAME`, which Docker sets to the container id, so without it the `127.0.0.1` healthcheck and Caddy's `web:3000` upstream (T10) would not reach the server.
+- Build context is `frontend-web/`. `tsconfig.json` and `vite.config.ts` alias `@shared` to `../shared`, but no source file imports it, so the narrow context is safe. If code starts importing `@shared`, the context must widen.
+- `.dockerignore` excludes `*.test.ts(x)`, `.env*` (keeps `.env.example`), `*.pem`, `*.key`, `.git`, `node_modules`, `.next`.
+- Verified: build OK; container runs as UID 1001; healthcheck reaches `healthy`; `GET /` returns 307 to `/login`, which returns 200 `text/html`; `npm test` 128 passed. The `tasks.md` verify command was adapted (named container, port 3100 because host port 3000 was already in use, cleanup with `docker rm -f`).
+- Not verified: `hadolint` is not installed locally (CI T17 covers it); `tsc --noEmit` and `npm run lint` still carry the baseline failures recorded in §13.
+- Risk: item 5 (delivery/installers).

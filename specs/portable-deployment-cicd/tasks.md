@@ -111,7 +111,7 @@ flowchart TD
   - **Files:** `frontend-web/next.config.ts`, `frontend-web/lib/adapters/httpClient.ts`
   - **Verify:** `cd frontend-web && npm run build` produces `.next/standalone`.
 
-- [ ] **T9: Create production multi-stage `frontend-web/Dockerfile`**
+- [x] **T9: Create production multi-stage `frontend-web/Dockerfile`** *(commit `6d0185a`)*
   - **S#:** `S2`
   - **Risk Tier:** Medium
   - **Description:** Author `frontend-web/Dockerfile` (`node:20-alpine`, multi-stage, non-root user `nextjs` UID 1001, standalone server runner, healthcheck probe).
