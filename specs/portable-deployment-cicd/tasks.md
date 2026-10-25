@@ -86,7 +86,7 @@ flowchart TD
   - **Files:** `backend/migrations/env.py`
   - **Verify:** `DATABASE_URL="sqlite+aiosqlite:///tmp/test.db" alembic -c backend/migrations/alembic.ini current` && `cd backend && python -c "from backend.migrations.env import db_target; print('Alembic env.py loaded cleanly')"`
 
-- [x] **T6: Enhance `/api/v1/health` for multi-database connectivity probe** *(commit pending)*
+- [x] **T6: Enhance `/api/v1/health` for multi-database connectivity probe** *(commit `c825678`)*
   - **S#:** `S14`
   - **Risk Tier:** Medium
   - **Description:** Update `ConnectionProvider.check_connectivity()` and `backend/api/v1/health.py` to execute `SELECT 1` across all three logical databases (`db_articles`, `db_users`, `db_analytics`). Return 200 OK only if all three are connected; return 503 if any probe fails.
