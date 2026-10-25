@@ -235,3 +235,13 @@ RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational fin
 - Known limitation: a session restored from AsyncStorage stays valid after the server URL changes; switching servers should be done from the login screen (logged out).
 - Risk: item 3 (client runtime config consumed by the API client).
 
+## 22. T15 Review Follow-up
+
+`/code-review medium` on T15 raised two issues, fixed in `fix: allow cleartext servers and clear session on server change`:
+
+- **Cleartext HTTP:** `http://` and `https://` stay accepted (on-premise LAN servers). `app.json` now sets `ios.infoPlist.NSAppTransportSecurity.NSAllowsArbitraryLoads: true` and, through the new `expo-build-properties` plugin (`~57.0.22`, approved as a new dependency), `android.usesCleartextTraffic: true`. `NSAllowsArbitraryLoads` was chosen over `NSAllowsLocalNetworking` because an internal DNS name would not be covered by the latter; App Store review may ask for a justification. `npx expo config` resolves both settings.
+- **Stale session:** `setServerUrl()` removes `STORAGE_KEYS.JWT_TOKEN` and all `STORAGE_KEYS.SESSION_PREFIX` keys from AsyncStorage when the normalized URL differs from the active one. Saving the same URL keeps the session.
+- Verified: `npx tsc --noEmit` clean; `npx expo-doctor` shows the same 2 baseline failures as before. Not verified: cleartext on a release build or device; no mobile test runner for the session-clearing logic.
+- Other review findings triaged by the human: before T17 (DB credential URL-encoding in `connection.py`, `seed.py` on `resolve_database_url` + SSL, dev migrations under `docker-compose.dev.yml`); fold into T16/T17 (configurable proxy ports 80/443, `MARIADB_APP_PASSWORD` fallback to `DB_PASSWORD`); non-blocking (`SECRET_KEY` on non-`production` names, lazy health-probe pools and injected-provider edge cases, `verify-full` TLS mode, web dev proxy outside Docker).
+- Risk: item 5 (new dependency, app permissions config) and item 2 (auth token handling).
+
