@@ -48,10 +48,10 @@ Execute the tasks sequentially following the vertical slices defined in `tasks.m
    - Run `T5` (Alembic `migrations/env.py` URL precedence, `%` escape, and TLS). **Done** — commit `5de4820`.
    - Run `T6` (Multi-database `/api/v1/health` connectivity probe). **Done** — see §8.
 2. **Slice 2 (Containerization & Ingress):**
-   - Run `T7` (`backend/Dockerfile` and `docker-entrypoint.sh` without duplicate secret check).
-   - Run `T8` (`frontend-web/next.config.ts` standalone + relative URLs).
-   - Run `T9` (`frontend-web/Dockerfile`).
-   - Run `T10` (`docker/caddy/Caddyfile` with clean syntax & no fake email).
+   - Run `T7` (`backend/Dockerfile` and `docker-entrypoint.sh` without duplicate secret check). **Done** — commit `0696d93` (hardening `d714627`).
+   - Run `T8` (`frontend-web/next.config.ts` standalone + relative URLs). **Done** — commit `cdeb636`.
+   - Run `T9` (`frontend-web/Dockerfile`). **Done** — commit `6d0185a`.
+   - Run `T10` (`docker/caddy/Caddyfile` with clean syntax & no fake email). **Done** — commit `ab51f1a`.
 3. **Slice 3 (Compose & DevOps Scripts):**
    - Run `T11` (`docker/mariadb/01-init-dbs.sh` variable fix).
    - Run `T12` (`docker-compose.yml` multi-profile with `ENVIRONMENT: production` default).
@@ -174,3 +174,13 @@ RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational fin
 - Verified: `caddy validate` OK; live run on `:8080` returns 200 `healthy` on `/caddy-health`, and `/api/*` and `/` reach the `backend`/`web` upstreams (502 here only because no upstreams exist); `caddy adapt` with the default shows `listen :8080` and no TLS/automatic-HTTPS config (S5); `docker build docker/caddy` OK.
 - Not verified: real ACME issuance (S4) needs a public domain and ports 80/443, deferred to staging; end-to-end proxying to live `backend`/`web` is covered once T12 composes them.
 - Risk: item 5 (delivery/installers).
+
+## 16. Slice 2 Closure
+
+- Slice 2 commits: T7 `0696d93` (hardening `d714627`), T8 `cdeb636`, T9 `6d0185a`, T10 `ab51f1a`.
+- Closing verification: backend `pytest` 344 passed (341 baseline from §8 plus 3 tests added since); `frontend-web` `npm test` 128 passed and `npm run build` produces `.next/standalone/server.js`; `bash -n backend/docker-entrypoint.sh` OK; `caddy validate` reports a valid configuration; `docker build` succeeds for `backend/`, `frontend-web/` and `docker/caddy`.
+- Known baseline, unchanged: `npx tsc --noEmit` fails on `lib/hooks/useBarcodeScanner.test.ts:385`; `npm run lint` reports 1 error and 10 warnings (§13).
+- Not run locally: `hadolint`, `ruff` and `gitleaks` are not installed (CI T17 covers them).
+- Branch audit: one Conventional Commit per task, each followed by a `docs:` commit; no AI attribution in any commit message; working tree clean before this closure.
+- Open carry-overs: T12 (migrations race, backend `start-period`, live healthcheck), T17 (entrypoint smoke test, enforce `tsc`/`lint` baseline).
+- Risk: none (docs only).
