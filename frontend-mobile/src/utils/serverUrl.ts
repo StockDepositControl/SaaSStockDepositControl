@@ -27,9 +27,20 @@ export async function getServerUrl(): Promise<string> {
   return API_CONFIG.BASE_URL.replace(/\/+$/, '');
 }
 
+/** Removes stored auth so a token issued by one server is never sent to another. */
+async function clearStoredSession(): Promise<void> {
+  const keys = await AsyncStorage.getAllKeys();
+  const authKeys = keys.filter(
+    (k) => k === STORAGE_KEYS.JWT_TOKEN || k.startsWith(STORAGE_KEYS.SESSION_PREFIX)
+  );
+  if (authKeys.length > 0) await AsyncStorage.multiRemove(authKeys);
+}
+
+/** Persists the URL; when it differs from the active one, the stored session is cleared first. */
 export async function setServerUrl(url: string): Promise<void> {
   const normalized = normalizeServerUrl(url);
   if (!normalized) throw new Error('La URL del servidor no es válida.');
+  if (normalized !== (await getServerUrl())) await clearStoredSession();
   await AsyncStorage.setItem(STORAGE_KEYS.SERVER_URL, normalized);
   cachedUrl = normalized;
 }
