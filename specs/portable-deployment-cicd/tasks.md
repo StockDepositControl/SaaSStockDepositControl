@@ -79,7 +79,7 @@ flowchart TD
   - **Files:** `backend/adapters/database/connection.py`, `backend/tests/db/test_connection_ssl.py`
   - **Verify:** `cd backend && pytest tests/db/test_connection_ssl.py`
 
-- [ ] **T5: Standardize Alembic `migrations/env.py` for URL precedence, % escaping, and TLS**
+- [x] **T5: Standardize Alembic `migrations/env.py` for URL precedence, % escaping, and TLS** *(commit `5de4820`)*
   - **S#:** `S12`
   - **Risk Tier:** Medium
   - **Description:** Update `backend/migrations/env.py` to follow the exact same URL precedence as `connection.py`. Escape `%` characters as `%%` when calling `config.set_main_option("sqlalchemy.url", escaped_url)` to prevent ConfigParser `InterpolationSyntaxError`. Pass SSL connection arguments into `async_engine_from_config`.

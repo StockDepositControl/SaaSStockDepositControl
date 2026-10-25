@@ -45,7 +45,7 @@ Execute the tasks sequentially following the vertical slices defined in `tasks.m
    - Run `T2` (Update `antigravity.yaml` `allowed_directories`). **Done** — commit `8ba48f2`.
    - Run `T3` (Enforce production `SECRET_KEY` startup check in `backend/api/main.py`). **Done** — commit `3580e00`.
    - Run `T4` (Database TLS and URL precedence in `backend/adapters/database/connection.py`). **Done** — commit `ff5eaf4`.
-   - Run `T5` (Alembic `migrations/env.py` URL precedence, `%` escape, and TLS).
+   - Run `T5` (Alembic `migrations/env.py` URL precedence, `%` escape, and TLS). **Done** — commit `5de4820`.
    - Run `T6` (Multi-database `/api/v1/health` connectivity probe).
 2. **Slice 2 (Containerization & Ingress):**
    - Run `T7` (`backend/Dockerfile` and `docker-entrypoint.sh` without duplicate secret check).
@@ -92,3 +92,11 @@ After implementing each slice, Claude Code must run the corresponding verificati
 - Behaviour change: `get_users_session_factory` / `get_analytics_session_factory` now fall back to `DATABASE_URL` with the database name swapped (name from `DB_NAME_USERS` / `DB_NAME_ANALYTICS`); previously they only read their specific URL.
 - TLS: `require` encrypts without cert verification; `verify-ca` validates the chain against `DB_SSL_CA` (system trust store if unset). Hostname is never checked in either mode (CA-only verification, per mode name). Invalid `DB_SSL_MODE` or unreadable `DB_SSL_CA` raises `DatabaseConfigError`.
 - Full backend suite: 318 passed (292 baseline + 26 new). Pre-existing ruff warnings in `connection.py` left untouched.
+
+## 7. T5 Notes & Outcome
+
+- `env.py` executes migrations at import and needs an Alembic context, so it cannot be imported in tests. The pure helpers live in the new `backend/migrations/url_config.py` (`resolve_alembic_url`, `escape_for_configparser`, `alembic_engine_kwargs`); `env.py` only wires them. `resolve_alembic_url` delegates to T4's `resolve_database_url`, so app and Alembic share one precedence implementation.
+- `alembic_engine_kwargs` returns `{}` for SQLite (no SSL args), otherwise `{"connect_args": build_ssl_connect_args()}` when `DB_SSL_MODE != disable`.
+- Deviations from `tasks.md` T5 (approved plan): extra files `url_config.py` and `tests/db/test_alembic_env_url.py`. Verify command #2 (`from backend.migrations.env import db_target`) cannot work by design; use `cd backend && PYTHONPATH=.. python -c "from backend.migrations.url_config import resolve_alembic_url"` instead. Verify command #1 needs an absolute SQLite path (`sqlite+aiosqlite:////tmp/x.db`); the relative `///tmp/test.db` form fails with "unable to open database file".
+- Because `load_dotenv()` runs in `env.py`, a developer `.env` with `<TARGET>_DATABASE_URL` takes precedence over an inline `DATABASE_URL`; clear the specific var (e.g. `ARTICLES_DATABASE_URL=`) to force the fallback in a manual check.
+- Full backend suite: 330 passed (318 baseline + 12 new). Pre-existing ruff `I001` in `env.py` left untouched.
