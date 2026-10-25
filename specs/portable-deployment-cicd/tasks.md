@@ -151,7 +151,7 @@ flowchart TD
   - **Files:** `docker-compose.dev.yml`
   - **Verify:** `docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q`
 
-- [ ] **T14: Update `.env.example` with comprehensive deployment variables**
+- [x] **T14: Update `.env.example` with comprehensive deployment variables** *(commit `9a5aeb8`)*
   - **S#:** `S4`, `S7`, `S11`
   - **Risk Tier:** Low
   - **Description:** Update `.env.example` with TLS settings (`DB_SSL_MODE`, `DB_SSL_CA`), Caddy domain (`SERVER_NAME`), image tags, and clear instructions for each deployment profile.

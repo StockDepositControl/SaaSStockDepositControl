@@ -213,3 +213,14 @@ RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational fin
 - Verified: RED (scratch assertions, missing file), then GREEN; `docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q` passes, also combined with `with-db`, `demo`, `tunnel`; base `config -q` unchanged.
 - Not verified: live `up` and actual hot reload (S10), `next dev` behind Caddy, file-watch events through the bind mount.
 - Risk: none (dev-only override).
+
+## 20. T14 Notes & Outcome
+
+- Files (`9a5aeb8`): `.env.example` rewritten, grouped by concern (images, ingress, application, database, MariaDB, tunnel) with a header documenting the four profiles and the dev override. Every `${VAR}` referenced by `docker-compose.yml` is now defined or documented.
+- Invariants documented: `COMPOSE_PROJECT_NAME=saas-stock` (T12 gotcha), `GHCR_OWNER`, `IMAGE_TAG`, `SERVER_NAME` (`:8080` plain HTTP vs public domain for automatic TLS), `ACME_EMAIL_OPTION` as a full directive (commented), `DB_SSL_MODE=disable` with `require`/`verify-ca` explained and `DB_SSL_CA` (commented), `ENVIRONMENT=production`, empty `SECRET_KEY` with a generation hint (T3 remains the only enforcer).
+- The `*DATABASE_URL` variables are commented out on purpose: they take precedence over `DB_*` (T4/T5), and the old example set them to `localhost`, which would silently override `DB_HOST=mariadb` in containers. `NGINX_PORT` removed (Nginx was replaced by Caddy).
+- Secrets are empty placeholders (`SECRET_KEY`, `DB_PASSWORD`, `MARIADB_*`, `CLOUDFLARE_TUNNEL_TOKEN`), so a copied `.env` fails fast instead of running with `changeme` defaults.
+- Verified: RED (scratch check, not committed, failed with 13 undocumented compose variables); GREEN (check passes); `docker compose --env-file .env.example config -q` passes for default, `with-db`, `demo` and `tunnel`; `git diff --check` clean.
+- Not verified: `gitleaks` is not installed locally (file contains only placeholders); a live `up` with a filled `.env`. `CORS_ORIGINS` and `ACCESS_TOKEN_EXPIRE_MINUTES` are kept from the old file but compose does not forward them to the backend container.
+- Environment note: the session's `.env.*` Read/Edit deny rules were removed and an `Edit(env.*)` ask rule was added through `/permissions`; untracked `.claude/` in the working tree is not part of this change.
+- Risk: none (documentation template; no runtime change).
