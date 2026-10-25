@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -24,9 +25,26 @@ from backend.api.v1.users import router as users_router
 # Load environment configuration
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
+INSECURE_SECRET_KEYS = {"", "changeme", "changeme_secret_key", "secret"}
+MIN_SECRET_KEY_LENGTH = 32
+
+
+def validate_production_secret_key() -> None:
+    """Refuse to start in production with a trivial SECRET_KEY (sole authority for this check)."""
+    if os.getenv("ENVIRONMENT", "development") != "production":
+        return
+    secret_key = os.getenv("SECRET_KEY", "")
+    if secret_key in INSECURE_SECRET_KEYS or len(secret_key) < MIN_SECRET_KEY_LENGTH:
+        logger.critical("CRITICAL: Application refused to start in production with insecure SECRET_KEY")
+        raise RuntimeError("Insecure SECRET_KEY configured")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # App startup
+    validate_production_secret_key()
     yield
     # App shutdown: dispose of active SQLAlchemy connection pools
     provider = get_connection_provider()
