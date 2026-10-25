@@ -2,7 +2,7 @@ version: "2026.1"
 project:
   name: "app-stock-deposit-control"
   type: "monorepo"
-  allowed_directories: ["backend/", "frontend-mobile/", "frontend-web/", "docker/", "scripts/", "docs/"]
+  allowed_directories: ["backend/", "frontend-mobile/", "frontend-web/", "docker/", "scripts/", "docs/", ".github/", "specs/"]
 
 mcpServers:
   codebase-memory:

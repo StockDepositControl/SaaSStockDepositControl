@@ -12,6 +12,7 @@ export const MOTIVES_CATALOG: AuditMotive[] = [
 export const STORAGE_KEYS = {
   JWT_TOKEN: 'audit_global.jwt_token',
   SESSION_PREFIX: 'audit_global:session',
+  SERVER_URL: '@stock_server_url',
 } as const;
 
 export const API_CONFIG = {

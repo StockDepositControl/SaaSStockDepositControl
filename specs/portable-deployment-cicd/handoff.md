@@ -41,17 +41,17 @@ The goal of this initiative is to eliminate the current development-only hosting
 Execute the tasks sequentially following the vertical slices defined in `tasks.md`:
 
 1. **Slice 1 (Security & Core Primitives):**
-   - Run `T1` (Split dependencies: `backend/requirements.txt` vs `requirements-dev.txt`).
-   - Run `T2` (Update `antigravity.yaml` `allowed_directories`).
-   - Run `T3` (Enforce production `SECRET_KEY` startup check in `backend/api/main.py`).
-   - Run `T4` (Database TLS and URL precedence in `backend/adapters/database/connection.py`).
-   - Run `T5` (Alembic `migrations/env.py` URL precedence, `%` escape, and TLS).
-   - Run `T6` (Multi-database `/api/v1/health` connectivity probe).
+   - Run `T1` (Split dependencies: `backend/requirements.txt` vs `requirements-dev.txt`). **Done** — commit `0739f85`.
+   - Run `T2` (Update `antigravity.yaml` `allowed_directories`). **Done** — commit `8ba48f2`.
+   - Run `T3` (Enforce production `SECRET_KEY` startup check in `backend/api/main.py`). **Done** — commit `3580e00`.
+   - Run `T4` (Database TLS and URL precedence in `backend/adapters/database/connection.py`). **Done** — commit `ff5eaf4`.
+   - Run `T5` (Alembic `migrations/env.py` URL precedence, `%` escape, and TLS). **Done** — commit `5de4820`.
+   - Run `T6` (Multi-database `/api/v1/health` connectivity probe). **Done** — see §8.
 2. **Slice 2 (Containerization & Ingress):**
-   - Run `T7` (`backend/Dockerfile` and `docker-entrypoint.sh` without duplicate secret check).
-   - Run `T8` (`frontend-web/next.config.ts` standalone + relative URLs).
-   - Run `T9` (`frontend-web/Dockerfile`).
-   - Run `T10` (`docker/caddy/Caddyfile` with clean syntax & no fake email).
+   - Run `T7` (`backend/Dockerfile` and `docker-entrypoint.sh` without duplicate secret check). **Done** — commit `0696d93` (hardening `d714627`).
+   - Run `T8` (`frontend-web/next.config.ts` standalone + relative URLs). **Done** — commit `cdeb636`.
+   - Run `T9` (`frontend-web/Dockerfile`). **Done** — commit `6d0185a`.
+   - Run `T10` (`docker/caddy/Caddyfile` with clean syntax & no fake email). **Done** — commit `ab51f1a`.
 3. **Slice 3 (Compose & DevOps Scripts):**
    - Run `T11` (`docker/mariadb/01-init-dbs.sh` variable fix).
    - Run `T12` (`docker-compose.yml` multi-profile with `ENVIRONMENT: production` default).
@@ -76,3 +76,199 @@ After implementing each slice, Claude Code must run the corresponding verificati
 - `docker / compose`: `docker compose config -q` (across profiles: `--profile with-db`, `--profile demo`, `--profile tunnel`)
 - `scripts`: `bash -n scripts/devops/deploy.sh docker/mariadb/01-init-dbs.sh`
 - `ci / cd`: validate YAML syntax via `python3 -c "import yaml; ..."`
+
+---
+
+## 5. T3 Spec-Challenge Notes & Outcome
+
+- Blocklist follows `spec.md` §5.4 (`changeme`, `changeme_secret_key`, `secret`, empty, `< 32` chars); `tasks.md` T3 omitted `secret`.
+- `tasks.md` T3 second verify command needs the repo root on `PYTHONPATH` when run from `backend/`: `PYTHONPATH=.. python -c ...`.
+- Check lives in `validate_production_secret_key()` called from the lifespan; tests enter it via `TestClient(app)` context. Full backend suite: 292 passed.
+- Pre-existing ruff `I001` warnings in `backend/api/main.py` (sys.path hack) left untouched.
+
+## 6. T4 Notes & Outcome
+
+- New public helpers in `connection.py`: `resolve_database_url(target)`, `build_ssl_connect_args()`, `DatabaseConfigError(ValueError)`. All three factories and `SQLAlchemyConnectionProvider` use them. T5 should mirror `resolve_database_url` semantics in `migrations/env.py`.
+- Behaviour change: `get_users_session_factory` / `get_analytics_session_factory` now fall back to `DATABASE_URL` with the database name swapped (name from `DB_NAME_USERS` / `DB_NAME_ANALYTICS`); previously they only read their specific URL.
+- TLS: `require` encrypts without cert verification; `verify-ca` validates the chain against `DB_SSL_CA` (system trust store if unset). Hostname is never checked in either mode (CA-only verification, per mode name). Invalid `DB_SSL_MODE` or unreadable `DB_SSL_CA` raises `DatabaseConfigError`.
+- Full backend suite: 318 passed (292 baseline + 26 new). Pre-existing ruff warnings in `connection.py` left untouched.
+
+## 7. T5 Notes & Outcome
+
+- `env.py` executes migrations at import and needs an Alembic context, so it cannot be imported in tests. The pure helpers live in the new `backend/migrations/url_config.py` (`resolve_alembic_url`, `escape_for_configparser`, `alembic_engine_kwargs`); `env.py` only wires them. `resolve_alembic_url` delegates to T4's `resolve_database_url`, so app and Alembic share one precedence implementation.
+- `alembic_engine_kwargs` returns `{}` for SQLite (no SSL args), otherwise `{"connect_args": build_ssl_connect_args()}` when `DB_SSL_MODE != disable`.
+- Deviations from `tasks.md` T5 (approved plan): extra files `url_config.py` and `tests/db/test_alembic_env_url.py`. Verify command #2 (`from backend.migrations.env import db_target`) cannot work by design; use `cd backend && PYTHONPATH=.. python -c "from backend.migrations.url_config import resolve_alembic_url"` instead. Verify command #1 needs an absolute SQLite path (`sqlite+aiosqlite:////tmp/x.db`); the relative `///tmp/test.db` form fails with "unable to open database file".
+- Because `load_dotenv()` runs in `env.py`, a developer `.env` with `<TARGET>_DATABASE_URL` takes precedence over an inline `DATABASE_URL`; clear the specific var (e.g. `ARTICLES_DATABASE_URL=`) to force the fallback in a manual check.
+- Full backend suite: 330 passed (318 baseline + 12 new). Pre-existing ruff `I001` in `env.py` left untouched.
+
+## 8. T6 Notes & Outcome
+
+- Port: `ConnectionProvider.check_connectivity()` stays abstract (bool). New non-abstract `check_databases() -> dict[str, bool]` defaults to the single `check_connectivity()` result for articles/users/analytics, so legacy providers and test mocks keep working. `SQLAlchemyConnectionProvider` overrides it with a real `SELECT 1` per database (own pool for articles; `get_users_session_factory` / `get_analytics_session_factory` for the others), and `check_connectivity()` now returns `all(...)` of it.
+- `/health` body: legacy `"database"` is kept as the aggregate (`connected`/`disconnected`); added `"databases"` (per-DB) and `"version"` (read from `request.app.version`, no duplicated constant). Any DB down or probe exception -> 503 with `status: unhealthy`.
+- Deviations from `tasks.md` T6: `backend/tests/api/test_health.py` did not exist (created); `tests/api/test_api_bootstrap.py` had an exact-equality assertion on the old body and was relaxed to key checks.
+- Full backend suite: 341 passed (330 baseline + 11 new). Pre-existing ruff warnings in touched files left untouched.
+
+## 9. T1 Notes & Slice 1 Closure
+
+- T1 (`0739f85`): `pytest`, `pytest-asyncio`, `httpx` and `aiosqlite` moved to `requirements-dev.txt`, which also gains `pytest-cov`, `ruff` and `pip-audit`. `cryptography` added to runtime for MySQL TLS. Deviation from `tasks.md` T1: `faker` stays in runtime because `seed.py` imports it.
+- Slice 1 commits: T1 `0739f85`, T2 `8ba48f2`, T3 `3580e00`, T4 `ff5eaf4`, T5 `5de4820`, T6 `c825678`.
+- Closing verification (from `backend/`): `pytest` 341 passed; `pip-audit -r requirements.txt` clean; T1 verify commands pass.
+- Known baseline: `ruff check .` / `ruff format --check .` report pre-existing violations repo-wide (806 errors, 124 files unformatted, mostly in untouched code). The lint gate in CI (T17) needs a baseline/ruff-config decision before it can be enforced.
+
+## 10. Slice 1 Code-Review Follow-ups
+
+Raised by `/code-review medium` and `/simplify` after Slice 1; the first item is fixed, the rest are open decisions.
+
+- **Fixed (`19b898c`):** the production `SECRET_KEY` check now normalises `ENVIRONMENT` (strip + lowercase); `Production` previously skipped it.
+- **Fixed (`/health` error detail):** the exception path used to return `str(e)` to unauthenticated callers. It now returns the same generic `detail` as the non-exception path and logs the exception server-side. Approved by the human as a public-contract change; S14 does not require the raw text.
+- **`DATABASE_URL` fan-out (T4):** `resolve_database_url` now applies `DATABASE_URL` to users and analytics with the database name swapped. Deployments mixing `DATABASE_URL` (articles) with `DB_*` for the others change target. Legacy `DB_NAME` is no longer honoured for articles in Alembic.
+- **`check_connectivity` meaning (T6):** now true only when all three databases respond; a caller that only needs articles will fail when users or analytics is down.
+- **Probe vs injected provider:** a `SQLAlchemyConnectionProvider` built with an explicit URL probes its own articles engine but users/analytics via module-global, env-derived factories.
+- **TLS:** `verify-ca` does not check the hostname; a `verify-full` mode would close that gap.
+- **Docs:** `AGENTS.md` Install / Setup should also install `requirements-dev.txt` for the test environment.
+- **Outside the diff:** `backend/scripts/seed.py` builds its URLs from `DB_*` and ignores `DATABASE_URL` / `*_DATABASE_URL`; `api/dependencies/__init__.py:30` reads `SECRET_KEY` with its own dev default.
+
+## 11. T7 Notes & Outcome
+
+- Files (`0696d93`): `backend/Dockerfile`, `backend/docker-entrypoint.sh`, `backend/.dockerignore`. Deviation from `tasks.md` T7: the ignore file is `backend/.dockerignore`, not repo-root `.dockerignore`, because Docker only reads the ignore file inside the build context (`backend/`).
+- Image layout: code at `/app/backend`, `WORKDIR /app`, `PYTHONPATH=/app`, so `backend.api.main` and `backend/migrations/*.ini` resolve. `tests/`, `pytest.ini` and `requirements-dev.txt` are excluded from the image.
+- Entrypoint: `CMD ["uvicorn"]` is the default; any other command (e.g. `python -c ...`) is exec'd as-is without migrations. Default path runs the 3 Alembic configs when `RUN_MIGRATIONS` is `true` (default), aborts on failure, then `exec uvicorn ... --workers ${UVICORN_WORKERS:-2} --no-access-log`. No `SECRET_KEY` check in shell (T3 owns it).
+- Verified: build OK; `import fastapi` OK; `id -u` = 10001; `pytest` absent; `import backend.api.main` OK; `ENVIRONMENT=production SECRET_KEY=changeme` is refused by the T3 lifespan check inside the container; a failing migration (runtime image has no `aiosqlite`, by design) stops startup with a non-zero exit.
+- Not verified: `hadolint` is not installed locally (CI T17 covers it); a full migration run against MariaDB is deferred to the T12/T17 compose and smoke-test slices; the healthcheck was not observed live.
+- Risk: item 5 (delivery/installers).
+
+## 12. T7 Review Follow-up
+
+RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational findings only. Resolution:
+
+- **Fixed (`fix: harden backend image context and make entrypoint dispatch explicit`):** `.dockerignore` now excludes nested `.env*`, `*.pem`, `*.key`, `__pycache__`, `.git` (verified with a scratch build context: no secret files in the image). The entrypoint default is the explicit `serve` keyword (`CMD ["serve"]`), so `docker run <image> uvicorn other:app` is exec'd as-is instead of being swallowed. Port 8000 and `--no-access-log` are documented in the entrypoint and Dockerfile.
+- **Deferred to T12:** migrations race with multiple replicas (`RUN_MIGRATIONS` per service or a one-shot migrate step); `HEALTHCHECK` `start-period` vs first-boot migrations; live healthcheck observation. Recorded under T12 in `tasks.md`.
+- **Deferred to T17:** automated smoke test of the entrypoint branches. Recorded under T17 in `tasks.md`.
+- **Not changed:** digest-pinning the base image and pinning `curl`. Spec §5.1 mandates `python:3.12-slim`, Dependabot docker updates arrive in T17, and a pinned `curl` version breaks when Debian drops it.
+- Risk: item 5 (delivery/installers).
+
+## 13. T8 Notes & Outcome
+
+- Files (`cdeb636`): `frontend-web/next.config.ts` (`output: "standalone"`, `rewrites()` removed, `192.168.1.x` hosts dropped from `allowedDevOrigins`) and new `frontend-web/next.config.test.ts` (3 behavioural assertions, RED then GREEN). Deviation from `tasks.md` T8: the test file is an extra file.
+- `lib/adapters/httpClient.ts` unchanged: it already defaults to `NEXT_PUBLIC_API_URL ?? ""` and `httpClient.test.ts` already covers relative URLs with and without params.
+- Verified: `npm test` 128 passed; `npm run build` succeeds and `.next/standalone/server.js` exists.
+- Known baseline, not caused by T8: `npx tsc --noEmit` fails on `lib/hooks/useBarcodeScanner.test.ts:385` (confirmed identical with T8 stashed); `npm run lint` reports 1 error in `app/users/page.tsx:35` (setState in effect) plus 10 warnings. Both gates need a fix before T17 can enforce `tsc` and `lint` in CI.
+- Behaviour change: `npm run dev` no longer proxies `/api/v1/*` to `127.0.0.1:8000`. The proxy is Caddy (T10) or the dev compose override (T13); until then, local dev needs an external proxy or `NEXT_PUBLIC_API_URL` set.
+- Risk: item 3 (shared public contract / dev workflow).
+
+## 14. T9 Notes & Outcome
+
+- Files (`6d0185a`): `frontend-web/Dockerfile` (3 stages `deps` / `builder` / `runner` on `node:20-alpine`) and `frontend-web/.dockerignore`. Deviation from `tasks.md` T9: none in file list.
+- Runner sets `HOSTNAME=0.0.0.0` and `PORT=3000`. Next standalone binds to `$HOSTNAME`, which Docker sets to the container id, so without it the `127.0.0.1` healthcheck and Caddy's `web:3000` upstream (T10) would not reach the server.
+- Build context is `frontend-web/`. `tsconfig.json` and `vite.config.ts` alias `@shared` to `../shared`, but no source file imports it, so the narrow context is safe. If code starts importing `@shared`, the context must widen.
+- `.dockerignore` excludes `*.test.ts(x)`, `.env*` (keeps `.env.example`), `*.pem`, `*.key`, `.git`, `node_modules`, `.next`.
+- Verified: build OK; container runs as UID 1001; healthcheck reaches `healthy`; `GET /` returns 307 to `/login`, which returns 200 `text/html`; `npm test` 128 passed. The `tasks.md` verify command was adapted (named container, port 3100 because host port 3000 was already in use, cleanup with `docker rm -f`).
+- Not verified: `hadolint` is not installed locally (CI T17 covers it); `tsc --noEmit` and `npm run lint` still carry the baseline failures recorded in §13.
+- Risk: item 5 (delivery/installers).
+
+## 15. T10 Notes & Outcome
+
+- Files: `docker/caddy/Caddyfile` and `docker/caddy/Dockerfile` (`FROM caddy:2-alpine` + `COPY Caddyfile`).
+- Deviation from `spec.md` §5.2 (spec-challenge finding): Caddy orders `handle` before `respond`, so with the spec layout the catch-all `handle {}` proxied `/caddy-health` to `web:3000` (observed RED: 502 with no upstream). The site body is wrapped in `route { ... }`, which preserves declaration order; the single-line `respond /caddy-health "healthy" 200` is kept verbatim and now answers 200 `healthy`.
+- No ACME default: `{$ACME_EMAIL_OPTION}` expands to nothing when unset. T12/T14 must pass it as a full directive (`ACME_EMAIL_OPTION="email ops@domain"`) or leave it unset.
+- Verified: `caddy validate` OK; live run on `:8080` returns 200 `healthy` on `/caddy-health`, and `/api/*` and `/` reach the `backend`/`web` upstreams (502 here only because no upstreams exist); `caddy adapt` with the default shows `listen :8080` and no TLS/automatic-HTTPS config (S5); `docker build docker/caddy` OK.
+- Not verified: real ACME issuance (S4) needs a public domain and ports 80/443, deferred to staging; end-to-end proxying to live `backend`/`web` is covered once T12 composes them.
+- Risk: item 5 (delivery/installers).
+
+## 16. Slice 2 Closure
+
+- Slice 2 commits: T7 `0696d93` (hardening `d714627`), T8 `cdeb636`, T9 `6d0185a`, T10 `ab51f1a`.
+- Closing verification: backend `pytest` 344 passed (341 baseline from §8 plus 3 tests added since); `frontend-web` `npm test` 128 passed and `npm run build` produces `.next/standalone/server.js`; `bash -n backend/docker-entrypoint.sh` OK; `caddy validate` reports a valid configuration; `docker build` succeeds for `backend/`, `frontend-web/` and `docker/caddy`.
+- Known baseline, unchanged: `npx tsc --noEmit` fails on `lib/hooks/useBarcodeScanner.test.ts:385`; `npm run lint` reports 1 error and 10 warnings (§13).
+- Not run locally: `hadolint`, `ruff` and `gitleaks` are not installed (CI T17 covers them).
+- Branch audit: one Conventional Commit per task, each followed by a `docs:` commit; no AI attribution in any commit message; working tree clean before this closure.
+- Open carry-overs: T12 (migrations race, backend `start-period`, live healthcheck), T17 (entrypoint smoke test, enforce `tsc`/`lint` baseline).
+- Risk: none (docs only).
+
+## 17. T11 Notes & Outcome
+
+- Files: new executable `docker/mariadb/01-init-dbs.sh` (spec §5.3 body verbatim); `docker/mariadb/init-dbs.sql` removed so MariaDB cannot run it and create the user with the literal `${MARIADB_APP_PASSWORD}`.
+- Spec inconsistency: the spec problem text says `01-init-dbs.sql`, the solution and `tasks.md` say `.sh`; `.sh` used.
+- Verified: RED (`bash -n` on the missing file, exit 127), then GREEN (`bash -n` and `test -x` pass).
+- Not verified: real password expansion (S9) needs a clean `mariadb_data` volume; covered once T12 composes `with-db`.
+- Known limitation: a `'` in `MARIADB_APP_PASSWORD` or `DB_USER` breaks the SQL string (spec body is verbatim); candidate hardening follow-up.
+- Risk: item 1 (DB init / credentials), low impact.
+
+## 18. T12 Notes & Outcome
+
+- Files (`e8493e1`): `docker-compose.yml` rewritten (nginx removed). Services: `proxy` (builds `docker/caddy`, ports `80`, `443`, `${HTTP_PORT:-8080}:8080`, `caddy_data`/`caddy_config` volumes so certificates persist), `backend`, `web`; profile `with-db` adds `mariadb`; `demo` adds `seed`; `tunnel` adds `cloudflared`.
+- `backend` and `seed` share a `x-backend-env` anchor with `ENVIRONMENT: ${ENVIRONMENT:-production}`, `SECRET_KEY`, `DATABASE_URL` family, `DB_*`, `DB_SSL_*`, `RUN_MIGRATIONS`. `SECRET_KEY` has no `:?required` guard so `docker compose config -q` passes without a `.env`; the T3 lifespan check stays the single enforcement point.
+- `mariadb` publishes `127.0.0.1:${MARIADB_PORT:-3306}:3306` only (S8) and mounts `01-init-dbs.sh` (T11). `backend` depends on it with `required: false`, so the default profile starts without it.
+- T7 carry-overs: (1) migrations race: only `backend` runs Alembic; `seed` passes a non-`serve` command, which the entrypoint exec's without migrations. (2) `backend` healthcheck overridden in compose with `start_period: 90s`. (3) live healthcheck not observed (needs a reachable database and a `.env`); deferred to staging or the T17 smoke test.
+- Spec deviations: all services share `backend-net` (the spec's "mariadb on backend-net" would otherwise isolate it from `backend`); `DB_HOST` defaults to `mariadb`; `extra_hosts: host.docker.internal:host-gateway` added to `backend`/`seed` for a host-installed database; `proxy` has no compose healthcheck because `/caddy-health` listens on `:8080` only when `SERVER_NAME=:8080`.
+- Gotcha for T14: Compose pre-sets `COMPOSE_PROJECT_NAME` from the directory name, so the spec's `:-saas-stock` default only applies if `.env` sets `COMPOSE_PROJECT_NAME=saas-stock`. Without it local image names render as `<dirname>-backend`. `.env.example` must set it (and `GHCR_OWNER`).
+- Verified: `docker compose config -q` for default, `with-db`, `demo`, `tunnel`; scratch assertions (not committed) for service sets per profile (S7), localhost-only MariaDB binding (S8), `ENVIRONMENT` default `production`, and GHCR image default. RED observed first (old file: `mariadb nginx` only).
+- Not verified: `docker compose up` end to end, S9 password expansion on a clean volume, Caddy-to-backend proxying.
+- Risk: item 5 (delivery/compose), item 1 (MariaDB exposure, mitigated by localhost binding).
+
+## 19. T13 Notes & Outcome
+
+- Files: `docker-compose.dev.yml`. `backend` gets `ENVIRONMENT: development`, mount `./backend:/app/backend` and `uvicorn ... --reload` (the entrypoint exec's non-`serve` commands, so no migrations run in dev). `web` gets `ENVIRONMENT: development`, mount `./frontend-web:/app` with anonymous `/app/node_modules` and `/app/.next`, and `npm run dev`.
+- Spec-challenge finding: the production `web` image is a standalone bundle without `node_modules`, so the override builds the Dockerfile `deps` stage (`build.target: deps`, image tagged `...-web-dev:local` so it never shadows the release tag). That stage has no `HEALTHCHECK`, and `proxy` waits for `web` to be healthy, so the override defines a `wget` healthcheck.
+- Verified: RED (scratch assertions, missing file), then GREEN; `docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q` passes, also combined with `with-db`, `demo`, `tunnel`; base `config -q` unchanged.
+- Not verified: live `up` and actual hot reload (S10), `next dev` behind Caddy, file-watch events through the bind mount.
+- Risk: none (dev-only override).
+
+## 20. T14 Notes & Outcome
+
+- Files (`9a5aeb8`): `.env.example` rewritten, grouped by concern (images, ingress, application, database, MariaDB, tunnel) with a header documenting the four profiles and the dev override. Every `${VAR}` referenced by `docker-compose.yml` is now defined or documented.
+- Invariants documented: `COMPOSE_PROJECT_NAME=saas-stock` (T12 gotcha), `GHCR_OWNER`, `IMAGE_TAG`, `SERVER_NAME` (`:8080` plain HTTP vs public domain for automatic TLS), `ACME_EMAIL_OPTION` as a full directive (commented), `DB_SSL_MODE=disable` with `require`/`verify-ca` explained and `DB_SSL_CA` (commented), `ENVIRONMENT=production`, empty `SECRET_KEY` with a generation hint (T3 remains the only enforcer).
+- The `*DATABASE_URL` variables are commented out on purpose: they take precedence over `DB_*` (T4/T5), and the old example set them to `localhost`, which would silently override `DB_HOST=mariadb` in containers. `NGINX_PORT` removed (Nginx was replaced by Caddy).
+- Secrets are empty placeholders (`SECRET_KEY`, `DB_PASSWORD`, `MARIADB_*`, `CLOUDFLARE_TUNNEL_TOKEN`), so a copied `.env` fails fast instead of running with `changeme` defaults.
+- Verified: RED (scratch check, not committed, failed with 13 undocumented compose variables); GREEN (check passes); `docker compose --env-file .env.example config -q` passes for default, `with-db`, `demo` and `tunnel`; `git diff --check` clean.
+- Not verified: `gitleaks` is not installed locally (file contains only placeholders); a live `up` with a filled `.env`. `CORS_ORIGINS` and `ACCESS_TOKEN_EXPIRE_MINUTES` are kept from the old file but compose does not forward them to the backend container.
+- Environment note: the session's `.env.*` Read/Edit deny rules were removed and an `Edit(env.*)` ask rule was added through `/permissions`; untracked `.claude/` in the working tree is not part of this change.
+- Risk: none (documentation template; no runtime change).
+
+## 21. T15 Notes & Outcome
+
+- Files (`8defca4`): new `frontend-mobile/src/utils/serverUrl.ts` (`normalizeServerUrl`, `getServerUrl`, `setServerUrl`, `checkServerHealth`) and `frontend-mobile/src/components/ServerSettingsModal.tsx`; edited `LoginScreen.tsx`, `src/adapters/apiMobileDataClient.ts` and `src/utils/constants.ts` (`STORAGE_KEYS.SERVER_URL = '@stock_server_url'`).
+- Spec-challenge deviations from `tasks.md` T15: `src/services/api/httpClient.ts` does not exist; the mobile client is `src/adapters/apiMobileDataClient.ts`, which now resolves its base URL per call through `getServerUrl()` (memory cache, then AsyncStorage `@stock_server_url`, then `EXPO_PUBLIC_API_URL`, then `http://localhost:8000`). Its constructor now takes an optional fixed override instead of a default URL. URL logic lives in the extra `serverUrl.ts` so it stays pure and testable.
+- UI: "Configuración del Servidor" link under the login card opens the modal; "Probar Conexión" calls `<url>/api/v1/health` (8s timeout, green only on HTTP 200, red otherwise); "Guardar" is enabled only after a successful test (spec §5.5.6) and persists the normalized URL (http(s) only, trailing slashes stripped).
+- Verified: RED (`tsc` failed on the missing modal), then GREEN (`npx tsc --noEmit` clean). `npx expo-doctor` reports 2 failed checks (Hermes V1 regressions, package patch versions: `expo`, `expo-status-bar`, `react-native`); identical on the pre-T15 baseline, so not caused by T15.
+- Not verified: behaviour on a device or emulator (S15 persistence across restarts, S16 green/red states). The mobile app has no test runner, so no automated test covers the new logic.
+- Known limitation: a session restored from AsyncStorage stays valid after the server URL changes; switching servers should be done from the login screen (logged out).
+- Risk: item 3 (client runtime config consumed by the API client).
+
+## 22. T15 Review Follow-up
+
+`/code-review medium` on T15 raised two issues, fixed in `fix: allow cleartext servers and clear session on server change`:
+
+- **Cleartext HTTP:** `http://` and `https://` stay accepted (on-premise LAN servers). `app.json` now sets `ios.infoPlist.NSAppTransportSecurity.NSAllowsArbitraryLoads: true` and, through the new `expo-build-properties` plugin (`~57.0.22`, approved as a new dependency), `android.usesCleartextTraffic: true`. `NSAllowsArbitraryLoads` was chosen over `NSAllowsLocalNetworking` because an internal DNS name would not be covered by the latter; App Store review may ask for a justification. `npx expo config` resolves both settings.
+- **Stale session:** `setServerUrl()` removes `STORAGE_KEYS.JWT_TOKEN` and all `STORAGE_KEYS.SESSION_PREFIX` keys from AsyncStorage when the normalized URL differs from the active one. Saving the same URL keeps the session.
+- Verified: `npx tsc --noEmit` clean; `npx expo-doctor` shows the same 2 baseline failures as before. Not verified: cleartext on a release build or device; no mobile test runner for the session-clearing logic.
+- Other review findings triaged by the human: before T17 (DB credential URL-encoding in `connection.py`, `seed.py` on `resolve_database_url` + SSL, dev migrations under `docker-compose.dev.yml`); fold into T16/T17 (configurable proxy ports 80/443, `MARIADB_APP_PASSWORD` fallback to `DB_PASSWORD`); non-blocking (`SECRET_KEY` on non-`production` names, lazy health-probe pools and injected-provider edge cases, `verify-full` TLS mode, web dev proxy outside Docker).
+- Risk: item 5 (new dependency, app permissions config) and item 2 (auth token handling).
+
+## 23. Pre-T17 Fixes (from the T15 code review)
+
+Three defects in earlier slices that the T17 `migrations-smoke` job would hit. One commit each:
+
+- **DB credential encoding (`d9a112f`):** the `DB_*` fallback in `resolve_database_url` now builds the URL with `urllib.parse.quote(..., safe="")` for user and password. Deviation from the review suggestion: `quote_plus` is wrong here because SQLAlchemy decodes with `unquote`, so a space would become a literal `+`. Tests round-trip `p@ss/w#rd:1%x+y?` and a username with a space through `make_url`, and through `escape_for_configparser` + Alembic `Config`. Alembic shares the code path via `resolve_alembic_url`.
+- **Seed URLs (`b86f67b`):** new pure helper `resolve_seed_urls()` in `backend/scripts/seed.py`. Precedence: explicit per-database URLs, then the `--db-url` override (sqlite handling unchanged), then `resolve_database_url`, so `DATABASE_URL` and `*_DATABASE_URL` are honoured (same fan-out as T4, see §10). Correction to the review: the seed already got `DB_SSL_*` because `SQLAlchemyConnectionProvider` applies it to any URL; only URL resolution was missing. `tests/db/test_seed_urls.py` added (7 tests).
+- **Dev migrations:** `docker-entrypoint.sh` forwards extra arguments of `serve` to uvicorn, so the dev override runs `command: ["serve", "--reload"]` with `UVICORN_WORKERS: "1"` and migrations still run on a fresh volume. Non-`serve` commands are still exec'd untouched (T7 behaviour preserved). `cd /app` became `cd "${APP_DIR:-/app}"` so the script is testable on the host. `tests/unit/test_docker_entrypoint.py` (6 tests, stub `alembic`/`uvicorn` on `PATH`) covers: `serve --reload`, no argument, `UVICORN_WORKERS`, `RUN_MIGRATIONS=false`, migration failure aborts before uvicorn, passthrough command. This satisfies the T17 carry-over "smoke test for the entrypoint branches"; CI can simply run pytest.
+- **Verified:** backend `pytest` full suite green (see commit run); `bash -n` OK; `docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q` OK and the dev backend command renders as `serve --reload`. Live check in an isolated project (`pdc-livecheck`, only `mariadb` + `backend`, non-default port, torn down with `down -v`, the existing `saas-stock-nginx` container untouched): the three Alembic configs ran on a fresh volume, `db_articles` 11 / `db_users` 6 / `db_analytics` 6 tables, backend reached `healthy` with all three databases `connected`. Side effects of that run: the dev healthcheck/migration timing under `start_period: 90s` was observed live (T12 carry-over 3, for the dev path), and S9 held in practice (the backend connected as `app_user` with the password expanded by `01-init-dbs.sh`).
+- **Not verified:** the production-profile path with the proxy, `seed` against MariaDB (covered by T17), `ruff` (not installed locally, baseline violations per §9).
+- **Behaviour changes:** `seed.py` now honours `DATABASE_URL` / `*_DATABASE_URL`; `serve` accepts extra uvicorn arguments.
+- **Still deferred to T16/T17:** configurable proxy ports 80/443 (a running host service on 80/443 makes `up` fail even for plain-HTTP deployments) and `MARIADB_APP_PASSWORD` falling back to `DB_PASSWORD`.
+- **Non-blocking follow-ups (human triage):** `SECRET_KEY` check only fires for `ENVIRONMENT=production` and `get_token_provider` keeps its dev default; `/health` lazily builds pools for users/analytics and an injected provider can report other databases than it uses; `verify-ca` does not check the hostname (a `verify-full` mode would); `npm run dev` outside Docker has no `/api/v1` proxy (§13).
+- Risk: item 1 (DB connection config), item 5 (entrypoint / compose).
+
+
+## 24. T16 Notes & Outcome
+
+- Files (`571f077`): `scripts/devops/deploy.sh` (rewritten), `docs/deploy/README.md` (rewritten; it still described the Nginx/host-backend stack), new `backend/tests/unit/test_deploy_script.py` (13 tests, stub `docker`/`curl`/`sleep` on `PATH`, same pattern as `test_docker_entrypoint.py`). Deviation from `tasks.md` T16: the test file is an extra file. The slice is above the 400-line heuristic (592 added / 191 removed) because both listed files were full rewrites.
+- Spec-challenge invariants applied: `.previous_tag` is the only rollback record (the `.current_tag` of spec §5.6 is not written); the rollback window is `HEALTH_TIMEOUT` (default `60`, `HEALTH_INTERVAL` default `5`; spec §5.6 says 45s, §8 says 60s, human decision: 60 via variable). Probes run at 0, 5, ..., 60 s (13 attempts), then rollback.
+- `update [tag]`: validates the tag (Docker grammar, safe for `sed`), pulls with `IMAGE_TAG` set only in that command's environment (a failed pull changes neither `.env` nor `.previous_tag`), writes `.previous_tag` only when the tag differs from the running one (a re-deploy never overwrites the rollback target), sets `IMAGE_TAG` in `.env`, runs `up -d --remove-orphans` and waits for health; `up` failure or timeout triggers `perform_rollback` and a non-zero exit. `rollback` fails without changing anything when `.previous_tag` is missing, and fails if the previous tag is not healthy either.
+- Health: HTTP 200 and `"status":"healthy"` in the body via `curl -fsS -m 5` (`-k` for https). URL from `HEALTH_URL`, else derived from `SERVER_NAME` (`:8080` -> `http://127.0.0.1:${HTTP_PORT}`, domain -> `https://<domain>`).
+- `backup`: bundled MariaDB through `compose exec ... sh -c 'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb-dump ...'` (no secret in host argv); otherwise a host `mariadb-dump`/`mysqldump` with `DB_*` and `DB_SSL_*` from `.env` and the password in `MYSQL_PWD`. The archive is written through a `mktemp` file (mode 600) and renamed on success, so a failed dump leaves nothing behind. `DATABASE_URL` is not parsed for backups (documented).
+- Scope note: the existing `up`/`health` still targeted Nginx and a `mariadb` container that always existed, so they were adapted to the Caddy proxy and the deep `/api/v1/health` probe (`up [with-db]`); `wait_for_mariadb`/`wait_for_nginx` removed. `pull` pulls `backend` and `web` only because `proxy` is built from `docker/caddy`; T18 must decide how the release bundle delivers the proxy.
+- Carry-overs from §22/§23: configurable proxy ports 80/443 and `MARIADB_APP_PASSWORD` falling back to `DB_PASSWORD` were NOT implemented (they need `docker-compose.yml` / `01-init-dbs.sh` changes outside T16 files); both are documented as limitations in `docs/deploy/README.md`. Still open for the human to schedule.
+- Verified: RED (10 of 13 failed against the old script; the 3 passing were negative cases), GREEN 13 passed; `bash -n scripts/devops/deploy.sh docker/mariadb/01-init-dbs.sh` OK; `./scripts/devops/deploy.sh help` exits 0; full backend `pytest` 372 passed (359 + 13); `ruff check` and `ruff format --check` clean on the new test file; `git diff --check` clean.
+- Not verified: a live `update`/`rollback`/`backup` against real Docker and MariaDB (tests use stubs); `docker compose exec ... sh -c` quoting on the real container; `shellcheck` (not installed); the runbooks on Oracle/Cloudflare/on-premise hosts.
+- Risk: item 5 (delivery/deploy script), item 1 (database dump handling).

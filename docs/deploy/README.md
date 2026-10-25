@@ -1,135 +1,118 @@
-# 🚀 Container Infrastructure & NGINX Ingress Deployment Runbook
+# Deployment Runbooks
 
-This runbook documents the deployment, configuration, and day-to-day operation of the containerized infrastructure stack (**MariaDB 10.11 LTS** multi-database engine + **NGINX Alpine** ingress reverse proxy) managed via [`docker-compose.yml`](../../docker-compose.yml) and [`scripts/devops/deploy.sh`](../../scripts/devops/deploy.sh).
-
----
-
-## 1. Infrastructure Architecture Overview
-
-The container stack runs two coordinated services connected to the `backend-net` bridge network:
+The same container images run on every target; only `.env` changes. The stack is defined in [`docker-compose.yml`](../../docker-compose.yml) and operated with [`scripts/devops/deploy.sh`](../../scripts/devops/deploy.sh). Run every command from a repository checkout, at the repository root.
 
 ```mermaid
 flowchart LR
-    Client["Browser / Mobile App<br/>http://localhost:8080"] --> NGINX["saas-stock-nginx<br/>(nginx:alpine :8080)"]
-    NGINX -->|"/api/*"| FastAPI["FastAPI Backend<br/>(host.docker.internal:8000)"]
-    NGINX -->|"/ & /_next/webpack-hmr"| NextJS["Next.js Web Frontend<br/>(host.docker.internal:3000)"]
-    FastAPI -->|"TCP :3306 (aiomysql)"| MariaDB[("saas-stock-mariadb<br/>(mariadb:10.11 :3306)<br/>db_articles | db_users | db_analytics")]
+    Client["Browser / Mobile App"] --> Caddy["proxy (Caddy)<br/>80/443 or :8080"]
+    Caddy -->|"/api/*"| Backend["backend :8000"]
+    Caddy -->|"everything else"| Web["web :3000"]
+    Backend --> DB[("db_articles | db_users | db_analytics<br/>external DB or 'with-db' MariaDB")]
 ```
 
-### 1.1 Consolidated MariaDB 10.11 LTS (`saas-stock-mariadb`)
-
-To minimize RAM footprint and share a single InnoDB buffer pool, three independent logical databases are consolidated inside one `mariadb:10.11` container instance:
-
-| Logical Database | Declarative Base | Purpose & Key Tables | Environment Variables |
-|:-----------------|:-----------------|:---------------------|:----------------------|
-| `db_articles` | `BaseArticles` | Operational catalog, warehouse stock positions (`stock_por_deposito`), FEFO lots (`lotes_por_deposito`), and barcodes (`codigos_barra_articulo`) | `DB_NAME_ARTICLES` / `DATABASE_URL` / `ARTICLES_DATABASE_URL` |
-| `db_users` | `BaseUsers` | Multi-tenant enterprises (`enterprises`), branches (`branches`), user accounts (`users`), and RBAC roles (`roles`, `user_roles`) | `DB_NAME_USERS` / `USERS_DATABASE_URL` |
-| `db_analytics` | `BaseAnalytics` | Tenant audit ledger (`audit_records`), active branch work sessions (`work_sessions`), daily reports (`daily_reports`), and alerts (`critical_shrinkage_alerts`) | `DB_NAME_ANALYTICS` / `ANALYTICS_DATABASE_URL` |
-
-- **Automated Initialization**: On first boot, [`docker/mariadb/init-dbs.sql`](../../docker/mariadb/init-dbs.sql) is mounted at `/docker-entrypoint-initdb.d/01-init-dbs.sql:ro` to create `db_articles`, `db_users`, and `db_analytics` with `utf8mb4_unicode_ci` collation and grant least-privilege access to `app_user`.
-- **Persistent Storage**: Database files are persisted across container restarts in the local Docker volume `mariadb_data` (`/var/lib/mysql`).
-- **Healthcheck**: Container readiness is verified via `mariadb-admin ping -h 127.0.0.1 --silent` (compatible with MariaDB's built-in `healthcheck.sh` / `mariadb-admin` probes).
-
-### 1.2 NGINX Ingress Reverse Proxy (`saas-stock-nginx`)
-
-The `nginx:alpine` container exposes a unified HTTP entry point on `NGINX_PORT` (default `8080`) using [`docker/nginx/nginx.conf`](../../docker/nginx/nginx.conf) and `extra_hosts: ["host.docker.internal:host-gateway"]`:
-
-| Location Path | Upstream Target | Behavior & Headers |
-|:--------------|:----------------|:-------------------|
-| `/nginx-health` | Internal NGINX responder | Returns HTTP `200` (`healthy\n`) for Docker healthcheck probes (`wget --spider http://127.0.0.1:8080/nginx-health`). |
-| `/api/` | `http://host.docker.internal:8000` | Proxies REST API requests to FastAPI with `X-Real-IP`, `X-Forwarded-For`, `X-Forwarded-Proto`, `120s` read timeout, and `20M` max body size. |
-| `/_next/webpack-hmr` | `http://host.docker.internal:3000/_next/webpack-hmr` | Proxies Next.js Hot Module Replacement over WebSockets (`Upgrade: websocket`, `Connection: upgrade`). |
-| `/_next/static/` | `http://host.docker.internal:3000/_next/static/` | Proxies Next.js static build assets. |
-| `/` | `http://host.docker.internal:3000` | Proxies all web UI routes to the Next.js App Router server. |
-
----
-
-## 2. Quick Start & Single-File Deployment
-
-All container lifecycle operations are automated by [`scripts/devops/deploy.sh`](../../scripts/devops/deploy.sh) (strict Bash `set -euo pipefail`, supports both `docker compose` v2 and `docker-compose` v1).
-
-### Step 1: Configure `.env`
-
-Copy `.env.example` to `.env` at the repository root (if `.env` is missing, `deploy.sh up` will automatically copy `.env.example` and warn you):
+## 1. Common Setup
 
 ```bash
-cp .env.example .env
+cp .env.example .env     # then fill the secrets below
 ```
 
-Verify key infrastructure settings in `.env`:
+| Variable | Requirement |
+|:---|:---|
+| `SECRET_KEY` | At least 32 characters, not `changeme`/`secret`. The backend refuses to start in `ENVIRONMENT=production` otherwise. Generate with `python3 -c "import secrets; print(secrets.token_urlsafe(48))"`. |
+| `DB_PASSWORD` | Password of the application database user. |
+| `MARIADB_ROOT_PASSWORD`, `MARIADB_APP_PASSWORD` | Only for the bundled `with-db` MariaDB. `MARIADB_APP_PASSWORD` has no fallback: set it explicitly (to the same value as `DB_PASSWORD`). |
+| `IMAGE_TAG`, `GHCR_OWNER`, `COMPOSE_PROJECT_NAME` | Which GHCR image runs. Keep `COMPOSE_PROJECT_NAME=saas-stock`. |
+| `SERVER_NAME` | `:8080` for plain HTTP, or a public domain for automatic HTTPS. |
 
-```env
-MARIADB_ROOT_PASSWORD=changeme_root_password
-MARIADB_APP_PASSWORD=changeme_app_password
-MARIADB_PORT=3306
-NGINX_PORT=8080
-```
+Migrations run automatically when the `backend` container starts (`RUN_MIGRATIONS=true`); a failed migration stops the start-up.
 
-### Step 2: Start the Container Stack
+The images are pulled from GHCR. For a private repository log in first with a token that has `read:packages`: `docker login ghcr.io -u <user>`.
 
-```bash
-./scripts/devops/deploy.sh up
-```
+## 2. Runbook: Client On-Premise Server (external MariaDB/MySQL)
 
-What `./scripts/devops/deploy.sh up` does:
-1. **Pre-flight Checks**: Verifies Docker CLI, Docker daemon permissions, `.env` file, and `docker-compose.yml`.
-2. **Container Startup**: Runs `docker compose up -d --remove-orphans` for `mariadb` and `nginx`.
-3. **MariaDB Health Gate**: Polls `mariadb-admin ping` (up to `60s`) and prints `SHOW DATABASES LIKE 'db_%';` to confirm `db_articles`, `db_users`, and `db_analytics` exist.
-4. **NGINX Health Gate**: Polls `http://127.0.0.1:8080/nginx-health` (up to `30s`) to confirm ingress readiness.
+1. Install Docker Engine with the Compose plugin and `curl` on the server.
+2. In `.env`: `SERVER_NAME=<client-domain>` (public IP and DNS) or `:8080` (LAN only), `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_SSL_MODE` (see section 6), a strong `SECRET_KEY`, and a fixed release `IMAGE_TAG` such as `v1.2.0`.
+3. Create the three databases and grant the user (see the compatibility notes in section 6), then start:
 
-### Step 3: Run Multi-Database Alembic Migrations & Seed Data
+   ```bash
+   ./scripts/devops/deploy.sh up
+   ```
 
-Once the containers are healthy, apply Alembic migrations to all three logical databases and optionally seed initial data:
+4. Verify: `./scripts/devops/deploy.sh health`.
 
-```bash
-# Activate Python virtual environment
-source .venv/bin/activate
+Known limitation: the proxy publishes host ports `80` and `443` unconditionally. If the host already serves those ports, `up` fails even for plain-HTTP deployments; stop the other service until the ports become configurable.
 
-# Apply schema migrations for each logical database
-alembic -c backend/migrations/alembic.ini upgrade head
-alembic -c backend/migrations/alembic_users.ini upgrade head
-alembic -c backend/migrations/alembic_analytics.ini upgrade head
+## 3. Runbook: Oracle Cloud Always Free VM (Ampere A1, arm64)
 
-# Optional: Seed multi-tenant demo data (all users: 123456)
-python -m backend.scripts.seed
-```
+1. Create the VM (Ubuntu, arm64). Open TCP `80` and `443` in the VCN security list **and** in the VM firewall (`sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT`, same for `443`, then persist).
+2. Point a free dynamic DNS name (DuckDNS) or `<ip>.sslip.io` at the VM's public IP.
+3. Install Docker Engine and the Compose plugin. The GHCR images are multi-arch, so nothing is built on the VM.
+4. In `.env`: `SERVER_NAME=<your-hostname>`, `ACME_EMAIL_OPTION="email you@domain"` (optional full Caddy directive), `COMPOSE_PROFILES=with-db` to use the bundled MariaDB, `IMAGE_TAG=edge`, secrets.
+5. `./scripts/devops/deploy.sh up`. Caddy obtains the Let's Encrypt certificate on the first request; HTTPS is also what browsers require for the camera barcode scanner.
 
----
+If Let's Encrypt rate-limits the shared dynamic-DNS domain, use a dedicated subdomain.
 
-## 3. `./scripts/devops/deploy.sh` CLI Reference
+## 4. Runbook: Developer Machine + Cloudflare Tunnel (zero open ports)
+
+1. Create a tunnel in the Cloudflare Zero Trust dashboard pointing its public hostname at `http://proxy:8080`.
+2. In `.env`: `SERVER_NAME=:8080`, `CLOUDFLARE_TUNNEL_TOKEN=<token>` (never commit it), `COMPOSE_PROFILES=with-db,demo,tunnel` (bundled DB, seed data, tunnel).
+3. `./scripts/devops/deploy.sh up`. The demo data (all users: `123456`) is loaded by the one-shot `seed` service; the app is reachable on the tunnel hostname.
+
+For hot reload use the development override: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`.
+
+## 5. Release Lifecycle with `deploy.sh`
 
 | Command | Description |
-|:--------|:------------|
-| `./scripts/devops/deploy.sh up` | Runs pre-flight checks, starts `saas-stock-mariadb` and `saas-stock-nginx` in detached mode, and waits for both health gates to pass. |
-| `./scripts/devops/deploy.sh down` | Gracefully stops and removes containers while **preserving** the `mariadb_data` persistent volume. |
-| `./scripts/devops/deploy.sh status` | Displays `docker compose ps` output with container state, health status, and host port bindings. |
-| `./scripts/devops/deploy.sh health` | Runs instant health probes against: (1) MariaDB internal ping, (2) NGINX internal `/nginx-health`, (3) host port `http://127.0.0.1:${NGINX_PORT}/nginx-health`, and (4) backend proxy `http://127.0.0.1:${NGINX_PORT}/api/v1/health`. |
-| `./scripts/devops/deploy.sh logs [service]` | Tails the last 50 lines of container logs (`-f`). Pass `mariadb` or `nginx` to filter a single service. |
-| `./scripts/devops/deploy.sh help` | Prints CLI usage instructions. |
+|:---|:---|
+| `up [with-db]` | Starts the services (`with-db` adds the bundled MariaDB) and waits for `/api/v1/health`. |
+| `down` / `status` / `logs [service]` | Stop (the `mariadb_data` volume is preserved), inspect, and tail logs. |
+| `health` | Probes `/api/v1/health` through the proxy: HTTP 200 only when `articles`, `users` and `analytics` are all connected. |
+| `pull` | Pulls the `backend` and `web` images for the current `IMAGE_TAG`. |
+| `update [tag]` | Pulls the new tag, records the running tag in `.previous_tag`, sets `IMAGE_TAG` in `.env`, restarts and waits for health. If it is not healthy within `HEALTH_TIMEOUT` seconds (default `60`), it rolls back to `.previous_tag` and exits non-zero. Without a tag it re-pulls the current one. |
+| `rollback` | Sets `IMAGE_TAG` to the tag in `.previous_tag`, restarts and verifies health. |
+| `backup` | Dumps `db_articles`, `db_users` and `db_analytics` to `backups/backup_YYYYMMDD_HHMMSS.sql.gz` (mode `600`). |
 
----
+Settings (environment variables of the command): `HEALTH_TIMEOUT` (default `60`), `HEALTH_INTERVAL` (default `5`), `HEALTH_URL` (default derived from `SERVER_NAME`/`HTTP_PORT`).
 
-## 4. Troubleshooting & Maintenance
+Notes:
 
-### Backend Proxy Shows `BACKEND OFFLINE` During `deploy.sh health`
-- `saas-stock-nginx` forwards `/api/` traffic to `host.docker.internal:8000`.
-- Ensure the FastAPI server is running on your host machine (`uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload`) so NGINX can reach it across the Docker bridge gateway.
+- `.previous_tag` is the only rollback record. Updating to the tag that is already deployed leaves it untouched, so a re-pull never overwrites the rollback target.
+- With a bundled database, keep `COMPOSE_PROFILES=with-db` in `.env` so `update` and `rollback` manage the same profile as `up`.
+- Back up before updating a release that includes migrations; a schema change that drops or rewrites columns is not guaranteed to be reversible by an image rollback.
+- `backup` uses the bundled MariaDB container when it is running. Otherwise it needs `mariadb-dump` or `mysqldump` on the host and reads `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` (and `DB_SSL_*`) from `.env`; it does not parse `DATABASE_URL`. Passwords are passed through the environment, never on a command line. Restore with `gunzip -c backups/<file>.sql.gz | mariadb -u root -p`.
+- Backups are stored locally and are not rotated or replicated; copy them off the host.
 
-### Port Conflicts (`3306` or `8080` Already in Use)
-- Update `MARIADB_PORT` (and `DB_PORT`) or `NGINX_PORT` in `.env`, then re-run `./scripts/devops/deploy.sh up`.
+## 6. Database Connection Security and Compatibility
 
-### `app_user` Authentication Failure After Changing Passwords
-- `docker/mariadb/init-dbs.sql` only executes when the `mariadb_data` volume is initialized for the first time.
-- If you change `MARIADB_APP_PASSWORD` in `.env` after initialization, either update the password inside MariaDB manually or reset the volume (see below).
+Choose the connection in this order of preference:
 
-### Reset Database Volume (Destructive Action)
+1. **Same private network / VPC (best):** the app host and the database server talk over a private IP (`10.x.x.x`, `192.168.x.x`); nothing is exposed publicly.
+2. **Encrypted mesh or tunnel:** Tailscale, WireGuard, or a persistent SSH tunnel (`ssh -L 3306:127.0.0.1:3306 user@db-host`). Point `DB_HOST` at the tunnel endpoint.
+3. **Public IP with TLS and allowlist:** restrict the database port in the client firewall to the app server's static egress IP, set `DB_SSL_MODE=verify-ca` with the client CA in `DB_SSL_CA`, and limit the user's privileges to the three databases.
 
-> [!CAUTION]
-> The following command permanently deletes all data stored in the `mariadb_data` Docker volume across `db_articles`, `db_users`, and `db_analytics`.
+`DB_SSL_MODE`: `disable` (default, internal Docker network), `require` (encrypted, certificate not verified), `verify-ca` (chain verified against `DB_SSL_CA`; the hostname is not checked).
+
+`DATABASE_URL`, `ARTICLES_DATABASE_URL`, `USERS_DATABASE_URL` and `ANALYTICS_DATABASE_URL`, when set, take precedence over the `DB_*` components. Leave them unset (as in `.env.example`) when using `DB_HOST`.
+
+| Topic | MariaDB 10.11 | MySQL 8 |
+|:---|:---|:---|
+| Collation | `utf8mb4_unicode_ci` | Create the databases with `utf8mb4_unicode_ci` (the default `utf8mb4_0900_ai_ci` differs). |
+| Authentication | `mysql_native_password` | Create the user with `IDENTIFIED WITH mysql_native_password BY '...'` (`aiomysql` does not use `caching_sha2_password` over plain connections). |
+| Privileges | Granted by `docker/mariadb/01-init-dbs.sh` | `SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES` on `db_articles.*`, `db_users.*`, `db_analytics.*`. |
+
+## 7. Troubleshooting
+
+| Symptom | Check |
+|:---|:---|
+| `up` / `update` ends with "Health check failed" | `./scripts/devops/deploy.sh logs backend`. The first start may need longer while migrations run: raise `HEALTH_TIMEOUT`. |
+| Health is 503 | At least one database is unreachable; check `DB_*`, `DB_SSL_MODE` and the database firewall. |
+| Backend exits immediately in production | `SECRET_KEY` is empty, trivial or shorter than 32 characters. |
+| No certificate on a public domain | Ports `80`/`443` must be reachable from the internet and `SERVER_NAME` must resolve to this host. |
+| `app_user` authentication fails after changing `MARIADB_APP_PASSWORD` | `01-init-dbs.sh` only runs on an empty `mariadb_data` volume; change the password inside MariaDB or reset the volume. |
+
+Reset the bundled database (destructive, deletes all three databases):
 
 ```bash
-docker compose down -v
-./scripts/devops/deploy.sh up
+docker compose --profile with-db down -v
+./scripts/devops/deploy.sh up with-db
 ```
-
-After resetting the volume, re-run the three `alembic upgrade head` commands and `python -m backend.scripts.seed` as shown in Step 3.
