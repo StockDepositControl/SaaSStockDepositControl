@@ -11,10 +11,10 @@
   },
   "dependencies": {
     "html5-qrcode": "^2.3.8",
-    "lucide-react": "^1.32.0",
+    "lucide-react": "^1.61.0",
     "next": "^16.4.3",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
