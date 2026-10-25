@@ -35,10 +35,11 @@ RUN chmod 0755 /app/backend/docker-entrypoint.sh
 
 USER appuser
 
+# Port 8000 is shared with docker-entrypoint.sh, the HEALTHCHECK below and the Caddy upstream.
 EXPOSE 8000
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -f http://127.0.0.1:8000/api/v1/health || exit 1
 
 ENTRYPOINT ["/app/backend/docker-entrypoint.sh"]
-CMD ["uvicorn"]
+CMD ["serve"]

@@ -3,8 +3,9 @@
 # SECRET_KEY validation is intentionally NOT done here; the FastAPI lifespan owns it.
 set -eo pipefail
 
-# Any command other than the default one (e.g. `python -c ...`) runs as-is.
-if [ "${1:-uvicorn}" != "uvicorn" ]; then
+# `serve` (the image default) starts the API. Any other command, including a
+# custom `uvicorn ...` invocation, is exec'd untouched and skips migrations.
+if [ "${1:-serve}" != "serve" ]; then
     exec "$@"
 fi
 
@@ -16,6 +17,9 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
     done
 fi
 
+# Port 8000 is shared with EXPOSE and HEALTHCHECK in the Dockerfile and with the
+# Caddy upstream; change them together. Access logs are off because the Caddy
+# ingress already logs every request.
 exec uvicorn backend.api.main:app \
     --host 0.0.0.0 \
     --port 8000 \
