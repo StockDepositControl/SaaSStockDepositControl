@@ -118,7 +118,7 @@ flowchart TD
   - **Files:** `frontend-web/Dockerfile`, `frontend-web/.dockerignore`
   - **Verify:** `docker build -t test-web frontend-web/ && docker run --rm -p 3000:3000 test-web node server.js & sleep 3 && curl -f http://127.0.0.1:3000/`
 
-- [x] **T10: Implement Caddy ingress gateway configuration** *(commit `PENDING`)*
+- [x] **T10: Implement Caddy ingress gateway configuration** *(commit `ab51f1a`)*
   - **S#:** `S4`, `S5`, `S6`
   - **Risk Tier:** Medium
   - **Description:** Author `docker/caddy/Caddyfile` with `/api/*` reverse proxy to `backend:8000`, root reverse proxy to `web:3000`, single-line `respond /caddy-health "healthy" 200` endpoint, automatic HTTPS for public domains, and `:8080` HTTP fallback. Omit invalid fake ACME email defaults.
