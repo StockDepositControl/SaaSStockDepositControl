@@ -188,7 +188,7 @@ flowchart TD
   - **S#:** `S19`, `S20`, `S21`
   - **Risk Tier:** High
   - **Description:** Author `.github/workflows/ci.yml` featuring path filtering (`dorny/paths-filter`), `backend` (ruff + pytest from `backend/`), `migrations-smoke` with real MariaDB 10.11 container (apply 3 Alembic migrations, seed, probe `/health`, test downgrade/upgrade idempotency), `web` (lint, tsc, vitest, next build), `mobile` (tsc, expo-doctor), `docker` (hadolint, compose config, buildx test), `security` (gitleaks, pip-audit, npm audit, trivy), and `ci-success` aggregator. Author `.github/dependabot.yml`.
-  - **Carry-over from T7 review:** add a smoke test for the entrypoint branches (default `serve`, passthrough command, `RUN_MIGRATIONS=false`, migration failure aborts startup).
+  - **Carry-over from T7 review:** add a smoke test for the entrypoint branches (default `serve`, passthrough command, `RUN_MIGRATIONS=false`, migration failure aborts startup). *Done in the pre-T17 fixes: `backend/tests/unit/test_docker_entrypoint.py` (handoff §23); CI only needs to run pytest.*
   - **Files:** `.github/workflows/ci.yml`, `.github/dependabot.yml`
   - **Verify:** `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml')); yaml.safe_load(open('.github/dependabot.yml')); print('CI YAML schema parsed cleanly')"` && `hadolint backend/Dockerfile frontend-web/Dockerfile && docker compose config -q`
 
