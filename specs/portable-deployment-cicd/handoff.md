@@ -165,3 +165,12 @@ RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational fin
 - Verified: build OK; container runs as UID 1001; healthcheck reaches `healthy`; `GET /` returns 307 to `/login`, which returns 200 `text/html`; `npm test` 128 passed. The `tasks.md` verify command was adapted (named container, port 3100 because host port 3000 was already in use, cleanup with `docker rm -f`).
 - Not verified: `hadolint` is not installed locally (CI T17 covers it); `tsc --noEmit` and `npm run lint` still carry the baseline failures recorded in §13.
 - Risk: item 5 (delivery/installers).
+
+## 15. T10 Notes & Outcome
+
+- Files: `docker/caddy/Caddyfile` and `docker/caddy/Dockerfile` (`FROM caddy:2-alpine` + `COPY Caddyfile`).
+- Deviation from `spec.md` §5.2 (spec-challenge finding): Caddy orders `handle` before `respond`, so with the spec layout the catch-all `handle {}` proxied `/caddy-health` to `web:3000` (observed RED: 502 with no upstream). The site body is wrapped in `route { ... }`, which preserves declaration order; the single-line `respond /caddy-health "healthy" 200` is kept verbatim and now answers 200 `healthy`.
+- No ACME default: `{$ACME_EMAIL_OPTION}` expands to nothing when unset. T12/T14 must pass it as a full directive (`ACME_EMAIL_OPTION="email ops@domain"`) or leave it unset.
+- Verified: `caddy validate` OK; live run on `:8080` returns 200 `healthy` on `/caddy-health`, and `/api/*` and `/` reach the `backend`/`web` upstreams (502 here only because no upstreams exist); `caddy adapt` with the default shows `listen :8080` and no TLS/automatic-HTTPS config (S5); `docker build docker/caddy` OK.
+- Not verified: real ACME issuance (S4) needs a public domain and ports 80/443, deferred to staging; end-to-end proxying to live `backend`/`web` is covered once T12 composes them.
+- Risk: item 5 (delivery/installers).
