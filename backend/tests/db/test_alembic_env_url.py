@@ -2,6 +2,7 @@ import ssl
 
 import pytest
 from alembic.config import Config
+from backend.adapters.database.connection import DatabaseConfigError
 from backend.migrations.url_config import (
     alembic_engine_kwargs,
     escape_for_configparser,
@@ -94,4 +95,25 @@ class TestEngineKwargs:
 
     def test_sqlite_never_receives_ssl_args(self, monkeypatch):
         monkeypatch.setenv("DB_SSL_MODE", "require")
+        assert alembic_engine_kwargs(SQLITE_URL) == {}
+
+    def test_verify_ca_requires_certificate_validation(self, monkeypatch):
+        monkeypatch.setenv("DB_SSL_MODE", "verify-ca")
+        context = alembic_engine_kwargs(MYSQL_URL)["connect_args"]["ssl"]
+        assert context.verify_mode == ssl.CERT_REQUIRED
+        assert context.check_hostname is False
+
+    def test_invalid_ssl_mode_fails_fast(self, monkeypatch):
+        monkeypatch.setenv("DB_SSL_MODE", "bogus")
+        with pytest.raises(DatabaseConfigError, match="DB_SSL_MODE"):
+            alembic_engine_kwargs(MYSQL_URL)
+
+    def test_unreadable_ca_fails_fast(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("DB_SSL_MODE", "verify-ca")
+        monkeypatch.setenv("DB_SSL_CA", str(tmp_path / "missing-ca.pem"))
+        with pytest.raises(DatabaseConfigError, match="DB_SSL_CA"):
+            alembic_engine_kwargs(MYSQL_URL)
+
+    def test_invalid_ssl_mode_is_ignored_for_sqlite(self, monkeypatch):
+        monkeypatch.setenv("DB_SSL_MODE", "bogus")
         assert alembic_engine_kwargs(SQLITE_URL) == {}
