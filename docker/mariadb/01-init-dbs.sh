@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+mariadb -u root -p"${MARIADB_ROOT_PASSWORD}" <<EOSQL
+CREATE DATABASE IF NOT EXISTS \`db_articles\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS \`db_users\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS \`db_analytics\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS '${DB_USER:-app_user}'@'%' IDENTIFIED BY '${MARIADB_APP_PASSWORD}';
+
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES ON \`db_articles\`.* TO '${DB_USER:-app_user}'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES ON \`db_users\`.* TO '${DB_USER:-app_user}'@'%';
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX, REFERENCES ON \`db_analytics\`.* TO '${DB_USER:-app_user}'@'%';
+
+FLUSH PRIVILEGES;
+EOSQL
