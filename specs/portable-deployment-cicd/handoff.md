@@ -146,3 +146,12 @@ RDD review of T7 (`review-0c6029439ef8dbf5`) was approved with informational fin
 - **Deferred to T17:** automated smoke test of the entrypoint branches. Recorded under T17 in `tasks.md`.
 - **Not changed:** digest-pinning the base image and pinning `curl`. Spec §5.1 mandates `python:3.12-slim`, Dependabot docker updates arrive in T17, and a pinned `curl` version breaks when Debian drops it.
 - Risk: item 5 (delivery/installers).
+
+## 13. T8 Notes & Outcome
+
+- Files (`cdeb636`): `frontend-web/next.config.ts` (`output: "standalone"`, `rewrites()` removed, `192.168.1.x` hosts dropped from `allowedDevOrigins`) and new `frontend-web/next.config.test.ts` (3 behavioural assertions, RED then GREEN). Deviation from `tasks.md` T8: the test file is an extra file.
+- `lib/adapters/httpClient.ts` unchanged: it already defaults to `NEXT_PUBLIC_API_URL ?? ""` and `httpClient.test.ts` already covers relative URLs with and without params.
+- Verified: `npm test` 128 passed; `npm run build` succeeds and `.next/standalone/server.js` exists.
+- Known baseline, not caused by T8: `npx tsc --noEmit` fails on `lib/hooks/useBarcodeScanner.test.ts:385` (confirmed identical with T8 stashed); `npm run lint` reports 1 error in `app/users/page.tsx:35` (setState in effect) plus 10 warnings. Both gates need a fix before T17 can enforce `tsc` and `lint` in CI.
+- Behaviour change: `npm run dev` no longer proxies `/api/v1/*` to `127.0.0.1:8000`. The proxy is Caddy (T10) or the dev compose override (T13); until then, local dev needs an external proxy or `NEXT_PUBLIC_API_URL` set.
+- Risk: item 3 (shared public contract / dev workflow).

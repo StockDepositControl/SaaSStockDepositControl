@@ -104,7 +104,7 @@ flowchart TD
   - **Files:** `backend/Dockerfile`, `backend/docker-entrypoint.sh`, `.dockerignore`
   - **Verify:** `docker build -t test-backend backend/ && docker run --rm test-backend python -c "import fastapi"`
 
-- [ ] **T8: Configure Next.js standalone output and clean relative routing**
+- [x] **T8: Configure Next.js standalone output and clean relative routing** *(commit `cdeb636`)*
   - **S#:** `S2`, `S6`
   - **Risk Tier:** Medium
   - **Description:** In `frontend-web/next.config.ts`, set `output: "standalone"`. Remove hardcoded rewrite to `http://127.0.0.1:8000` and LAN IPs in `allowedDevOrigins`. Verify `frontend-web/lib/adapters/httpClient.ts` preserves relative URLs with empty `NEXT_PUBLIC_API_URL`.
