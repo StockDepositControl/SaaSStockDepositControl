@@ -1,20 +1,95 @@
-version: "3.8"
+# Profiles:
+#   (default)  proxy + backend + web        -> external database (DB_HOST / DATABASE_URL)
+#   with-db    + mariadb                    -> bundled MariaDB 10.11, bound to 127.0.0.1
+#   demo       + seed                       -> one-shot demo data load, then exits
+#   tunnel     + cloudflared                -> Cloudflare Tunnel, no open ports needed
+#
+# Only `backend` runs Alembic (entrypoint, RUN_MIGRATIONS). Any other command
+# run from the backend image (e.g. `seed`) skips migrations, so there is no race.
+
+x-backend-env: &backend-env
+  # Production by default: SECRET_KEY must be set (validated by the backend lifespan).
+  ENVIRONMENT: ${ENVIRONMENT:-production}
+  SECRET_KEY: ${SECRET_KEY:-}
+  DATABASE_URL: ${DATABASE_URL:-}
+  ARTICLES_DATABASE_URL: ${ARTICLES_DATABASE_URL:-}
+  USERS_DATABASE_URL: ${USERS_DATABASE_URL:-}
+  ANALYTICS_DATABASE_URL: ${ANALYTICS_DATABASE_URL:-}
+  DB_HOST: ${DB_HOST:-mariadb}
+  DB_PORT: ${DB_PORT:-3306}
+  DB_USER: ${DB_USER:-app_user}
+  DB_PASSWORD: ${DB_PASSWORD:-}
+  DB_SSL_MODE: ${DB_SSL_MODE:-disable}
+  DB_SSL_CA: ${DB_SSL_CA:-}
+  RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+  UVICORN_WORKERS: ${UVICORN_WORKERS:-2}
 
 services:
-  mariadb:
-    image: mariadb:10.11
-    container_name: saas-stock-mariadb
+  proxy:
+    build:
+      context: ./docker/caddy
+    image: ghcr.io/${GHCR_OWNER:-stockdeposit}/${COMPOSE_PROJECT_NAME:-saas-stock}-proxy:${IMAGE_TAG:-latest}
     restart: unless-stopped
-    ports:
-      - "${MARIADB_PORT:-3306}:3306"
     environment:
-      MARIADB_ROOT_PASSWORD: "${MARIADB_ROOT_PASSWORD}"
-      MARIADB_APP_PASSWORD: "${MARIADB_APP_PASSWORD}"
-    env_file:
-      - .env
+      SERVER_NAME: ${SERVER_NAME:-:8080}
+      ACME_EMAIL_OPTION: ${ACME_EMAIL_OPTION:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "${HTTP_PORT:-8080}:8080"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    networks:
+      - backend-net
+
+  backend:
+    image: ghcr.io/${GHCR_OWNER:-stockdeposit}/${COMPOSE_PROJECT_NAME:-saas-stock}-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      <<: *backend-env
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+        required: false
+    # First boot runs 3 Alembic migrations before uvicorn listens; the image
+    # start-period (20s) is too short for that.
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8000/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+    networks:
+      - backend-net
+
+  web:
+    image: ghcr.io/${GHCR_OWNER:-stockdeposit}/${COMPOSE_PROJECT_NAME:-saas-stock}-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    networks:
+      - backend-net
+
+  mariadb:
+    profiles: ["with-db"]
+    image: mariadb:10.11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-}
+      MARIADB_APP_PASSWORD: ${MARIADB_APP_PASSWORD:-}
+      DB_USER: ${DB_USER:-app_user}
+    # Localhost only, never 0.0.0.0 (S8).
+    ports:
+      - "127.0.0.1:${MARIADB_PORT:-3306}:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
-      - ./docker/mariadb/init-dbs.sql:/docker-entrypoint-initdb.d/01-init-dbs.sql:ro
+      - ./docker/mariadb/01-init-dbs.sh:/docker-entrypoint-initdb.d/01-init-dbs.sh:ro
     healthcheck:
       test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "--silent"]
       interval: 10s
@@ -24,30 +99,39 @@ services:
     networks:
       - backend-net
 
-  nginx:
-    image: nginx:alpine
-    container_name: saas-stock-nginx
-    restart: unless-stopped
-    ports:
-      - "${NGINX_PORT:-8080}:8080"
-    volumes:
-      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  seed:
+    profiles: ["demo"]
+    image: ghcr.io/${GHCR_OWNER:-stockdeposit}/${COMPOSE_PROJECT_NAME:-saas-stock}-backend:${IMAGE_TAG:-latest}
+    restart: "no"
+    command: ["python", "-m", "backend.scripts.seed"]
+    environment:
+      <<: *backend-env
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      mariadb:
+      backend:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --spider http://127.0.0.1:8080/nginx-health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
+    networks:
+      - backend-net
+
+  cloudflared:
+    profiles: ["tunnel"]
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - proxy
     networks:
       - backend-net
 
 volumes:
   mariadb_data:
+    driver: local
+  caddy_data:
+    driver: local
+  caddy_config:
     driver: local
 
 networks:
