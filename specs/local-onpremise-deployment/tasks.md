@@ -60,7 +60,7 @@
     6. Verification commands (`./scripts/devops/deploy.sh health`, `curl http://localhost:8080/api/v1/health`).
     7. Auditor mobile app connection instructions via Wi-Fi LAN.
 - **Verification Command:** `test -f docs/deploy/local-onpremise-runbook.md`
-- **Status:** `[x] completed` (2026-10-26, commit: `PENDING_SHA`). Hybrid wiring (`ARTICLES_DATABASE_URL` + `RUN_MIGRATIONS_ARTICLES=false`) documented; README §2 links the runbook.
+- **Status:** `[x] completed` (2026-10-26, commit: `d81a143`). Hybrid wiring (`ARTICLES_DATABASE_URL` + `RUN_MIGRATIONS_ARTICLES=false`) documented; README §2 links the runbook.
 
 ---
 
