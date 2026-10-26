@@ -41,7 +41,7 @@ env:
   # Self-contained bundle for target hosts. The proxy is built on the host from
   # docker/caddy, and the with-db profile needs the MariaDB init script.
   DEPLOY_FILES: >-
-    docker-compose.yml docker/caddy/Caddyfile docker/caddy/Dockerfile
+    docker-compose.yml docker-compose.public.yml docker/caddy/Caddyfile docker/caddy/Dockerfile
     docker/mariadb/01-init-dbs.sh .env.example scripts/devops/deploy.sh
     docs/deploy/README.md
 

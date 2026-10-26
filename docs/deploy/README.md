@@ -4,7 +4,7 @@ The same container images run on every target; only `.env` changes. The stack is
 
 ```mermaid
 flowchart LR
-    Client["Browser / Mobile App"] --> Caddy["proxy (Caddy)<br/>80/443 or :8080"]
+    Client["Browser / Mobile App"] --> Caddy["proxy (Caddy)<br/>:8080, or 80/443 with the public override"]
     Caddy -->|"/api/*"| Backend["backend :8000"]
     Caddy -->|"everything else"| Web["web :3000"]
     Backend --> DB[("db_articles | db_users | db_analytics<br/>external DB or 'with-db' MariaDB")]
@@ -23,6 +23,8 @@ cp .env.example .env     # then fill the secrets below
 | `MARIADB_ROOT_PASSWORD`, `MARIADB_APP_PASSWORD` | Only for the bundled `with-db` MariaDB. `MARIADB_APP_PASSWORD` has no fallback: set it explicitly (to the same value as `DB_PASSWORD`). |
 | `IMAGE_TAG`, `GHCR_OWNER`, `COMPOSE_PROJECT_NAME` | Which GHCR image runs. Keep `COMPOSE_PROJECT_NAME=saas-stock`. |
 | `SERVER_NAME` | `:8080` for plain HTTP, or a public domain for automatic HTTPS. |
+| `HTTP_PORT` | Host port for plain HTTP (default `8080`). The only port published by default. |
+| `COMPOSE_FILE` | Public domain only: `docker-compose.yml:docker-compose.public.yml` publishes host ports `80`/`443`. `deploy.sh` refuses `up`, `update` and `rollback` for a domain `SERVER_NAME` without it. |
 
 Migrations run automatically when the `backend` container starts (`RUN_MIGRATIONS=true`); a failed migration stops the start-up.
 
@@ -31,7 +33,7 @@ The images are pulled from GHCR. For a private repository log in first with a to
 ## 2. Runbook: Client On-Premise Server (external MariaDB/MySQL)
 
 1. Install Docker Engine with the Compose plugin and `curl` on the server.
-2. In `.env`: `SERVER_NAME=<client-domain>` (public IP and DNS) or `:8080` (LAN only), `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_SSL_MODE` (see section 6), a strong `SECRET_KEY`, and a fixed release `IMAGE_TAG` such as `v1.2.0`.
+2. In `.env`: `SERVER_NAME=<client-domain>` (public IP and DNS; also set `COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml`) or `:8080` (LAN only), `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_SSL_MODE` (see section 6), a strong `SECRET_KEY`, and a fixed release `IMAGE_TAG` such as `v1.2.0`.
 3. Create the three databases and grant the user (see the compatibility notes in section 6), then start:
 
    ```bash
@@ -40,14 +42,16 @@ The images are pulled from GHCR. For a private repository log in first with a to
 
 4. Verify: `./scripts/devops/deploy.sh health`.
 
-Known limitation: the proxy publishes host ports `80` and `443` unconditionally. If the host already serves those ports, `up` fails even for plain-HTTP deployments; stop the other service until the ports become configurable.
+By default the proxy publishes only `HTTP_PORT`, so a host that already serves `80`/`443` runs plain HTTP without port conflicts. Ports `80`/`443` are published only through `docker-compose.public.yml`.
+
+Upgrading an existing public-domain install: add `COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml` to `.env` before the next `update`, otherwise `deploy.sh` refuses to continue (and a plain `docker compose up` would drop `80`/`443`).
 
 ## 3. Runbook: Oracle Cloud Always Free VM (Ampere A1, arm64)
 
 1. Create the VM (Ubuntu, arm64). Open TCP `80` and `443` in the VCN security list **and** in the VM firewall (`sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT`, same for `443`, then persist).
 2. Point a free dynamic DNS name (DuckDNS) or `<ip>.sslip.io` at the VM's public IP.
 3. Install Docker Engine and the Compose plugin. The GHCR images are multi-arch, so nothing is built on the VM.
-4. In `.env`: `SERVER_NAME=<your-hostname>`, `ACME_EMAIL_OPTION="email you@domain"` (optional full Caddy directive), `COMPOSE_PROFILES=with-db` to use the bundled MariaDB, `IMAGE_TAG=edge`, secrets.
+4. In `.env`: `SERVER_NAME=<your-hostname>`, `ACME_EMAIL_OPTION="email you@domain"` (optional full Caddy directive), `COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml` (publishes `80`/`443`), `COMPOSE_PROFILES=with-db` to use the bundled MariaDB, `IMAGE_TAG=edge`, secrets.
 5. `./scripts/devops/deploy.sh up`. Caddy obtains the Let's Encrypt certificate on the first request; HTTPS is also what browsers require for the camera barcode scanner.
 
 If Let's Encrypt rate-limits the shared dynamic-DNS domain, use a dedicated subdomain.
@@ -107,7 +111,8 @@ Choose the connection in this order of preference:
 | `up` / `update` ends with "Health check failed" | `./scripts/devops/deploy.sh logs backend`. The first start may need longer while migrations run: raise `HEALTH_TIMEOUT`. |
 | Health is 503 | At least one database is unreachable; check `DB_*`, `DB_SSL_MODE` and the database firewall. |
 | Backend exits immediately in production | `SECRET_KEY` is empty, trivial or shorter than 32 characters. |
-| No certificate on a public domain | Ports `80`/`443` must be reachable from the internet and `SERVER_NAME` must resolve to this host. |
+| No certificate on a public domain | `COMPOSE_FILE` must include `docker-compose.public.yml`, ports `80`/`443` must be reachable from the internet, and `SERVER_NAME` must resolve to this host. |
+| `deploy.sh` says `SERVER_NAME=... needs ports 80/443` | Add `COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml` to `.env`, or use `SERVER_NAME=:8080` for plain HTTP. |
 | `app_user` authentication fails after changing `MARIADB_APP_PASSWORD` | `01-init-dbs.sh` only runs on an empty `mariadb_data` volume; change the password inside MariaDB or reset the volume. |
 
 Reset the bundled database (destructive, deletes all three databases):
