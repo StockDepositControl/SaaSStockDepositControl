@@ -73,8 +73,8 @@
   - `backend/tests/api/test_health.py`
   - `scripts/devops/verify-local-package.sh`
 - **Acceptance Criteria:**
-  - [ ] Add / verify backend health endpoint tests for multi-database status.
-  - [ ] Provide lightweight verification script `scripts/devops/verify-local-package.sh` that checks `.env` syntax, validates Docker Compose configuration, tests database reachability, and verifies `/api/v1/health`.
-  - [ ] Verification script passes syntax check: `bash -n scripts/devops/verify-local-package.sh`.
+  - [x] Add / verify backend health endpoint tests for multi-database status.
+  - [x] Provide lightweight verification script `scripts/devops/verify-local-package.sh` that checks `.env` syntax, validates Docker Compose configuration, tests database reachability, and verifies `/api/v1/health`.
+  - [x] Verification script passes syntax check: `bash -n scripts/devops/verify-local-package.sh`.
 - **Verification Command:** `pytest tests/api/test_health.py && bash -n scripts/devops/verify-local-package.sh`
-- **Status:** `[ ] pending`
+- **Status:** `[x] completed` (2026-10-26, commit: `a84bf3a`). Health AC satisfied by the existing `test_health.py` (no change); script covered by `backend/tests/unit/test_verify_local_package.py` (scope addition).

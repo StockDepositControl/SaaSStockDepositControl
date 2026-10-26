@@ -73,6 +73,14 @@
 4. **Assumption:** the pharmacy DB already has the schema the app expects (no migration runs on it). Stated as a prerequisite.
 5. §4b.4 `COMPOSE_FILE` note: covered in README §1–2 and in the runbook troubleshooting.
 
+## 4d. Spec-Challenge Notes (T4, Claude Code, 2026-10-26)
+
+1. **Health tests:** `backend/tests/api/test_health.py` already covers all-connected, each DB down (503), probe error and legacy provider; verified, not modified. Assertions use `status` + `databases` only (§4c.2).
+2. **Reachability:** the script uses the per-database values from `/api/v1/health` plus a TCP probe of the `ARTICLES_DATABASE_URL` host:port (skipped with a warning for `host.docker.internal`). No credentials are read or printed.
+3. **Limits:** S1/S3 are verified statically (migration switch values, `HTTP_PORT`, `docker compose config -q`); real port collisions and entrypoint execution are not exercised.
+4. **Scope addition:** `backend/tests/unit/test_verify_local_package.py` (not listed in T4), following the `test_deploy_script.py` stub pattern. Commit `a84bf3a`.
+5. `shellcheck` and `gitleaks` are not installed here; not run.
+
 ## 5. Open Questions & Blockers
 
 - None. All open questions resolved and specification approved by human engineer.
@@ -81,5 +89,4 @@
 
 ## 6. Next Action
 
-- **Claude Code (Build Agent)**: Execute vertical slice `T4` (health tests + `scripts/devops/verify-local-package.sh`; see §4c.2).
-
+- All tasks (T1–T4) complete. Human: review the diff against `spec.md` (S1–S5) and open the PR.
