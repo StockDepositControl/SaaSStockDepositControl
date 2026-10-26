@@ -42,7 +42,7 @@ The images are pulled from GHCR. For a private repository log in first with a to
    ./scripts/devops/deploy.sh up
    ```
 
-4. Verify: `./scripts/devops/deploy.sh health`.
+4. Verify: `./scripts/devops/deploy.sh health` and `./scripts/devops/verify-local-package.sh` (for full manual QA and demo verification, see [`../MANUAL_TESTING_AND_DEMO_GUIDE.md`](../MANUAL_TESTING_AND_DEMO_GUIDE.md)).
 
 By default the proxy publishes only `HTTP_PORT`, so a host that already serves `80`/`443` runs plain HTTP without port conflicts. Ports `80`/`443` are published only through `docker-compose.public.yml`.
 

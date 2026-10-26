@@ -8,12 +8,12 @@ Enterprise Next.js web console for **Audit Global (SaaS Stock Deposit Control)**
 
 | Layer | Technology | Version |
 |---|---|---|
-| **Framework** | Next.js (App Router) | `16.2.10` |
+| **Framework** | Next.js (App Router, `output: "standalone"`) | `^16.4.3` |
 | **UI Library** | React / React DOM | `19.2.4` |
 | **Language** | TypeScript | `^5` |
 | **Styling** | Tailwind CSS v4 (`@tailwindcss/postcss`) | `^4` |
 | **Icons** | `lucide-react` | `^1.32.0` |
-| **Barcode Scanner** | `html5-qrcode` | `^2.3.8` |
+| **Barcode Scanner** | `html5-qrcode` + Native `BarcodeDetector` | `^2.3.8` |
 | **Test Runner** | Vitest + React Testing Library (`jsdom`) | `^2.1.8` / `^16.3.3` |
 
 ---
@@ -70,10 +70,14 @@ Defines the TypeScript interface consumed across hooks and screens:
 - Provides `MockDataProvider` backed by `lib/mocks/seed-data.ts`.
 - Replicates backend domain rules in memory: role-based cost stripping (`projectArticleForRole`), VAT calculation (`0%` for `Medicamentos`, `21%` for other families), audit delta classification, and anti-lockout / self-demotion invariants in `updateUserStatus` and `updateUserRole`.
 
-### 4. Provider Switching (`app/providers.tsx`)
+### 4. Provider Switching & Single-Origin Routing (`app/providers.tsx`)
 Controlled via environment variables:
 - `NEXT_PUBLIC_DATA_SOURCE`: Set to `api` (default) to mount `ApiDataProvider`, or `mock` to mount `MockDataProvider`.
-- `NEXT_PUBLIC_API_URL`: Base URL for backend API requests (e.g. `http://localhost:8000`).
+- `NEXT_PUBLIC_API_URL`: Defaults to `""` (empty string) so requests use relative `/api/v1/*` paths behind the Caddy single-origin reverse proxy (set `http://localhost:8000` only when running `npm run dev` on the host without a reverse proxy).
+
+### 5. Camera Barcode Scanner Lifecycle (`lib/hooks/`)
+- **`useCameraPermissions.ts`**: Uses `navigator.permissions.query({ name: "camera" })` fast-path to avoid redundant stream probes when permission is already granted, requests `{ facingMode: { ideal: "environment" } }`, and enforces a `150ms` hardware abstraction layer (HAL) release delay after stopping stream tracks.
+- **`useBarcodeScanner.ts`**: Leverages native `BarcodeDetector` when supported, restricts scan formats to `EAN_13`, `EAN_8`, `CODE_128`, and `QR_CODE` at `10 fps`, clamps `computeQrbox` dimensions on narrow viewports, and serializes start/stop transitions with a promise mutex (`startPromiseRef` / `stopPromiseRef`).
 
 ---
 
@@ -91,7 +95,7 @@ Visual foundations are shared across web and mobile via [`../shared/design-token
 ### 1. Install Dependencies
 ```bash
 cd frontend-web
-npm install
+npm ci
 ```
 
 ### 2. Configure Environment Variables
@@ -102,8 +106,8 @@ cp .env.example .env.local
 
 Configure the variables in `.env.local`:
 ```env
-# Base URL of the FastAPI backend (leave empty if using a reverse proxy, or point to port 8000)
-NEXT_PUBLIC_API_URL=http://localhost:8000
+# Leave empty behind the Caddy single-origin reverse proxy, or set to http://localhost:8000 for direct host dev
+NEXT_PUBLIC_API_URL=
 
 # Data adapter mode: "api" (live FastAPI backend) or "mock" (in-memory demo store)
 NEXT_PUBLIC_DATA_SOURCE=api
@@ -113,7 +117,7 @@ NEXT_PUBLIC_DATA_SOURCE=api
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) (or [http://localhost:8080](http://localhost:8080) when running behind Caddy) in your browser.
 
 ---
 
@@ -122,13 +126,16 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | Command | Description |
 |---|---|
 | `npm run dev` | Start the Next.js development server on port `3000` |
-| `npm run build` | Compile and verify the production Next.js build |
+| `npm run build` | Compile the standalone Next.js production build (`.next/standalone/server.js`) |
 | `npm start` | Start the production server after `npm run build` |
+| `npx tsc --noEmit` | Run strict TypeScript typechecking |
 | `npm run lint` | Run ESLint across the project |
 | `npm test` / `npx vitest run` | Run the Vitest unit and component integration test suite |
+| `npm audit --audit-level=high` | Audit dependencies for high/critical vulnerabilities |
 
 ### Test Suite Coverage
 Automated tests run in `jsdom` via Vitest (`vitest.config.ts`) and cover:
-- **HTTP & Adapter Layer**: `lib/adapters/httpClient.test.ts`, `lib/adapters/ApiDataClient.test.ts`, `lib/adapters/mappers.test.ts`, `lib/utils/jwt.test.ts`
+- **HTTP, Config & Adapter Layer**: `next.config.test.ts`, `lib/adapters/httpClient.test.ts`, `lib/adapters/ApiDataClient.test.ts`, `lib/adapters/mappers.test.ts`, `lib/utils/jwt.test.ts`
+- **Camera & Scanner Hooks**: `lib/hooks/useCameraPermissions.test.ts`, `lib/hooks/useBarcodeScanner.test.ts`
 - **Context & Session Providers**: `lib/context/ApiDataContext.test.tsx`, `lib/mocks/__tests__/MockDataClient.test.tsx`
 - **UI Pages & Workflows**: `app/users/page.test.tsx` (RBAC access guard, status toggles, single-role assignment, anti-lockout guards, optimistic rollback), `app/audit/__tests__/AuditPage.test.tsx`, `components/scanner/__tests__/BarcodeScannerModal.test.tsx`

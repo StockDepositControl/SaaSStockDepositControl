@@ -39,7 +39,7 @@ FastAPI provides automated interactive web interfaces powered by OpenAPI:
 To access the interactive Swagger UI locally:
 ```bash
 cd backend
-source venv/bin/activate
+source .venv/bin/activate
 uvicorn api.main:app --reload
 # Navigate to: http://localhost:8000/docs
 ```
@@ -48,7 +48,7 @@ uvicorn api.main:app --reload
 
 ## 🌐 Base URLs & Versioning
 
-- **Root Host**: `http://localhost:8000` (development) / `https://api.yourdomain.com` (production)
+- **Root Host**: `http://localhost:8000` (direct backend dev) / `http://localhost:8080` (behind Caddy reverse proxy) / `https://<domain>` (production)
 - **API Version 1 Prefix**: `/api/v1`
 - **Default Content-Type**: `application/json`
 
@@ -149,7 +149,7 @@ The backend returns standardized JSON structures for both validation errors and 
 ### 1. Infrastructure & Health Probes
 
 #### `GET /health` & `GET /api/v1/health`
-Probes database connectivity through the underlying `ConnectionProvider` port.
+Probes database connectivity across all three logical databases (`db_articles`, `db_users`, `db_analytics`) through `ConnectionProvider.check_databases()`. Returns HTTP `200 OK` only when all three databases respond to `SELECT 1`.
 
 - **Authentication**: None (Public)
 - **Query Parameters**: None
@@ -158,7 +158,13 @@ Probes database connectivity through the underlying `ConnectionProvider` port.
 ```json
 {
   "status": "healthy",
-  "database": "connected"
+  "database": "connected",
+  "databases": {
+    "articles": "connected",
+    "users": "connected",
+    "analytics": "connected"
+  },
+  "version": "1.0.0"
 }
 ```
 
@@ -167,6 +173,12 @@ Probes database connectivity through the underlying `ConnectionProvider` port.
 {
   "status": "unhealthy",
   "database": "disconnected",
+  "databases": {
+    "articles": "connected",
+    "users": "disconnected",
+    "analytics": "connected"
+  },
+  "version": "1.0.0",
   "detail": "Database connectivity probe failed"
 }
 ```

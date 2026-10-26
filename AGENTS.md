@@ -5,18 +5,18 @@
 
 ## Commands
 
-Monorepo: run each block from the directory shown. Commands marked *(after T1)* need `backend/requirements-dev.txt`, which task T1 of `portable-deployment-cicd` creates.
+Monorepo: run each block from the directory shown.
 
 ### Backend (`cd backend`, venv at `backend/.venv`)
 
 `pytest.ini` lives in `backend/` (`pythonpath = . ..`, `testpaths = tests`), so pytest runs from `backend/`.
 
-- **Install / Setup:** `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt` (+ `-r requirements-dev.txt` *(after T1)*)
+- **Install / Setup:** `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt -r requirements-dev.txt`
 - **Test (All):** `pytest`
-- **Test (Coverage):** `pytest --cov=backend --cov-report=term-missing tests/` *(after T1; needs `pytest-cov`)*
+- **Test (Coverage):** `pytest --cov=backend --cov-report=term-missing tests/`
 - **Test (Single / Focused):** `pytest tests/<path>::<test_name>` or `pytest tests/<path> -k <expr>`
-- **Lint / Format Check:** `ruff check . && ruff format --check .` *(after T1)*
-- **Dependency audit:** `pip-audit -r requirements.txt` *(after T1)*
+- **Lint / Format Check:** `ruff check . && ruff format --check .`
+- **Dependency audit:** `pip-audit -r requirements.txt`
 
 ### Database migrations (repo root; three logical DBs)
 
@@ -44,9 +44,10 @@ No test or lint scripts exist; verification is typecheck + Expo health.
 
 ### Infrastructure (repo root)
 
-- **Compose validation:** `docker compose config -q` (and per profile: `docker compose --profile with-db config -q`, `--profile demo`, `--profile tunnel`)
+- **Compose validation:** `docker compose config -q` (and per profile: `docker compose --profile with-db config -q`, `--profile demo`, `--profile tunnel`, plus `-f docker-compose.yml -f docker-compose.public.yml config -q`)
+- **On-premise package verification:** `./scripts/devops/verify-local-package.sh`
 - **Dockerfile lint:** `hadolint backend/Dockerfile frontend-web/Dockerfile`
-- **Shell syntax:** `bash -n scripts/devops/deploy.sh docker/mariadb/01-init-dbs.sh`
+- **Shell syntax:** `bash -n scripts/devops/deploy.sh scripts/devops/verify-local-package.sh docker/mariadb/01-init-dbs.sh`
 - **Secret scan:** `gitleaks detect --source . -v`
 
 ## Structure

@@ -27,9 +27,13 @@ The mobile application enforces strict operational and security boundaries tailo
 2. **Zero Financial Leakage (`stripFinancialFields`)**:
    - In addition to backend RBAC filtering, `ApiMobileDataClient` runs a recursive defensive sanitizer (`stripFinancialFields`) on every incoming JSON payload (`searchArticles`, `getArticleCatalog`, `getArticleStockPosition`, `registerAudit`).
    - Any occurrence of `pcio_com_siva`, `monto_valorizado`, or `applied_unit_cost` is stripped before data enters React state or UI components.
-3. **Tenant-Scoped Session Persistence**:
+3. **Tenant-Scoped Session Persistence & Server Change Protection**:
    - Authenticated sessions (`ActiveTenantSession`) are stored in `AsyncStorage` under the composite key `audit_global:session:{tenantId}:{branchId}` (`STORAGE_KEYS.SESSION_PREFIX`).
    - On app startup, `restoreSession()` validates the stored token's expiration timestamp (`expiresAtMs > Date.now()`) before restoring the operator's session.
+   - Changing the server URL via [`ServerSettingsModal.tsx`](src/components/ServerSettingsModal.tsx) automatically clears stored JWT and session keys so credentials are never sent to a different server.
+4. **Dynamic Runtime Server Discovery & LAN Cleartext Support**:
+   - [`src/utils/serverUrl.ts`](src/utils/serverUrl.ts) resolves the backend URL dynamically per call: in-memory cache $\rightarrow$ `AsyncStorage` (`@stock_server_url`) $\rightarrow$ `EXPO_PUBLIC_API_URL` $\rightarrow$ `http://localhost:8000`.
+   - `app.json` enables `android.usesCleartextTraffic: true` (via `expo-build-properties`) and `ios.infoPlist.NSAppTransportSecurity.NSAllowsArbitraryLoads: true` so devices can connect to on-premise pharmacy servers over plain HTTP Wi-Fi LAN (`http://<lan-ip>:8080`) while using native camera permissions.
 
 ---
 
@@ -37,12 +41,12 @@ The mobile application enforces strict operational and security boundaries tailo
 
 Navigation is managed by a lightweight, state-driven navigator in [`src/navigation/AppNavigator.tsx`](src/navigation/AppNavigator.tsx) paired with [`src/context/AuthContext.tsx`](src/context/AuthContext.tsx):
 
-- **Unauthenticated Flow**: Renders [`LoginScreen.tsx`](src/screens/LoginScreen.tsx) when no valid `ActiveTenantSession` is active.
+- **Unauthenticated Flow**: Renders [`LoginScreen.tsx`](src/screens/LoginScreen.tsx) when no valid `ActiveTenantSession` is active, including the **Configuración del Servidor** link that opens [`ServerSettingsModal.tsx`](src/components/ServerSettingsModal.tsx).
 - **Authenticated Shell**: Wraps active screens with [`TopAppBar.tsx`](src/components/layout/TopAppBar.tsx) and the slide-over [`SidebarDrawer.tsx`](src/components/layout/SidebarDrawer.tsx), switching across three primary `ScreenRoute` states (`'Dashboard' | 'AuditArticle' | 'Catalog'`):
 
 | Route / Screen | Source File | Key Capabilities |
 |---|---|---|
-| **Login** | `src/screens/LoginScreen.tsx` | Email/password authentication, inline validation, role-restriction feedback banner, and session persistence. |
+| **Login & Server Setup** | `src/screens/LoginScreen.tsx`<br/>`src/components/ServerSettingsModal.tsx` | Email/password authentication, role-restriction feedback banner, and runtime server URL configuration (**Probar Conexión** probes `/api/v1/health` with an 8s timeout before enabling **Guardar**). |
 | **`Dashboard`** | `src/screens/DashboardScreen.tsx` | Operator greeting, pull-to-refresh daily audit progress card (`getDailyProgress`: audited, pending, total, completion `%`), and quick navigation cards to start auditing or browse the catalog. |
 | **`AuditArticle`** | `src/screens/AuditArticleScreen.tsx` | Barcode/text search bar (`SearchScannerBar`), camera barcode scanner modal (`BarcodeScannerModal`), article & FEFO lot inspection card (`ArticleInspectionCard`), physical count stepper (`CountedQuantityInput`), conditional discrepancy motive selector (`MotiveSelectSheet`), and audit submission (`registerAudit`). |
 | **`Catalog`** | `src/screens/CatalogScreen.tsx` | Searchable warehouse catalog (`CatalogItemCard`) with status filters (`all`, `pending`, `audited`) and critical out-of-stock filtering (`stock_real === 0`) via `CatalogFilterSheet`. Selecting an item opens it directly in `AuditArticle`. |
@@ -63,9 +67,9 @@ Defines the boundary between React Native screens and data sources:
 - `registerAudit(request: AuditEntryRequest): Promise<AuditEntryResult>`
 
 ### 2. Adapters (`src/adapters/`) & Context Wiring (`src/context/DataContext.tsx`)
-- **`apiMobileDataClient.ts`**: Live HTTP adapter communicating with the FastAPI backend (`/api/v1/auth/login`, `/api/v1/articles`, `/api/v1/articles/search`, `/api/v1/stock/position`, `/api/v1/stock/audit`) with Bearer JWT headers and financial field sanitization.
+- **`apiMobileDataClient.ts`**: Live HTTP adapter communicating with the FastAPI backend (`/api/v1/auth/login`, `/api/v1/articles`, `/api/v1/articles/search`, `/api/v1/stock/position`, `/api/v1/stock/audit`) using `getServerUrl()`, Bearer JWT headers, and financial field sanitization.
 - **`mockMobileDataClient.ts`**: Offline-ready, stateful in-memory adapter seeded with pharmaceutical inventory items and FEFO lots for standalone field demos and testing.
-- **`DataContext.tsx` & `src/utils/constants.ts`**: `DataProvider` selects `mockMobileDataClient` when `EXPO_PUBLIC_USE_MOCK === 'true'`, or `apiMobileDataClient` targeting `EXPO_PUBLIC_API_URL` (default `http://localhost:8000`).
+- **`DataContext.tsx` & `src/utils/constants.ts`**: `DataProvider` selects `mockMobileDataClient` when `EXPO_PUBLIC_USE_MOCK === 'true'`, or `apiMobileDataClient` resolving its URL dynamically via `getServerUrl()`.
 
 ### 3. Pure Domain Services (`src/services/domain/`)
 - **`DeltaCalculator.ts`**: Computes `deltaStock`, `affectedQuantity`, `actionType` (`'Alta' | 'Baja' | 'Sin Acción'`), and `requiresMotive` (`deltaStock !== 0`) from baseline stock and counted quantity.
@@ -79,23 +83,25 @@ Defines the boundary between React Native screens and data sources:
 ### 1. Install Dependencies
 ```bash
 cd frontend-mobile
-npm install
+npm ci
 ```
 
 ### 2. Environment Configuration
-You can configure the backend URL and mock mode via environment variables (or `.env`):
+You can configure the fallback backend URL and mock mode via environment variables (or configure the server URL at runtime on the Login screen via **Configuración del Servidor**):
 ```env
-# Base URL of the FastAPI backend (use your LAN IP when testing on a physical device)
+# Fallback base URL of the FastAPI backend (overridden at runtime by @stock_server_url in AsyncStorage)
 EXPO_PUBLIC_API_URL=http://localhost:8000
 
 # Set to "true" to use the offline in-memory MockMobileDataClient
 EXPO_PUBLIC_USE_MOCK=false
 ```
 
-### 3. Run the Application
+### 3. Verify & Run the Application
 
 | Command | Description |
 |---|---|
+| `npx tsc --noEmit` | Run strict TypeScript typechecking |
+| `npx expo-doctor` | Verify Expo SDK package compatibility and project health |
 | `npx expo start` / `npm start` | Start the Expo Metro bundler and interactive CLI |
 | `npx expo start --android` / `npm run android` | Launch on an Android emulator or connected device |
 | `npx expo start --ios` / `npm run ios` | Launch on an iOS simulator or connected device |

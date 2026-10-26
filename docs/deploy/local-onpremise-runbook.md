@@ -128,6 +128,7 @@ The command pulls the images if needed, starts proxy, backend, web and MariaDB, 
 On the server:
 
 ```bash
+./scripts/devops/verify-local-package.sh
 ./scripts/devops/deploy.sh health
 curl -f http://localhost:8080/api/v1/health
 ```
