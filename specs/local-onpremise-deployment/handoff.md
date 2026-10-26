@@ -13,6 +13,7 @@
 - **Last Updated By:** `Claude Code`
 - **Completed Tasks:** `T1` (2026-10-26, commit `3874ece`; Gentle-AI RDD review approved, lineage `review-ffd0184cf226bb44`), `T2` (completed 2026-10-26, commits `655aff4` + follow-up `80d16cc`; Gentle-AI RDD reviews approved, lineages `review-b80fe3863c525c65` (T2), `review-9b4536d03cf6c9d1` (T1+T2), `review-de7172b99765d4a7` (guard), `review-f2c5aefcd7f2625b` (branch))
 - **Pending Tasks:** `T3`, `T4`
+- **Delivery:** PR #38 (`feat/onprem-02-migration-flags` → `main`, stacked-to-main position 1 of 3, 357 changed lines). Includes CD bundle + README fix `3b3f045` (adds `docker-compose.public.yml` to `DEPLOY_FILES`; not RDD-reviewed, declined).
 
 ---
 
