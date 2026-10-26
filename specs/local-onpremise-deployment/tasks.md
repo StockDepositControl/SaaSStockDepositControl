@@ -51,7 +51,7 @@
   - `docs/deploy/README.md`
   - `docs/deploy/local-onpremise-runbook.md`
 - **Acceptance Criteria:**
-  - [ ] Add complete end-to-end On-Premise Pharmacy Runbook detailing:
+  - [x] Add complete end-to-end On-Premise Pharmacy Runbook detailing:
     1. Host pre-requisites (Docker Engine, memory, storage).
     2. Read-only user creation on the client's pharmacy database (`GRANT SELECT ON db_articles.* TO 'ro_user'@'%' ...`).
     3. Bundled MariaDB initialization for `db_users` and `db_analytics`.
@@ -60,7 +60,7 @@
     6. Verification commands (`./scripts/devops/deploy.sh health`, `curl http://localhost:8080/api/v1/health`).
     7. Auditor mobile app connection instructions via Wi-Fi LAN.
 - **Verification Command:** `test -f docs/deploy/local-onpremise-runbook.md`
-- **Status:** `[ ] pending`
+- **Status:** `[x] completed` (2026-10-26, commit: `PENDING_SHA`). Hybrid wiring (`ARTICLES_DATABASE_URL` + `RUN_MIGRATIONS_ARTICLES=false`) documented; README §2 links the runbook.
 
 ---
 

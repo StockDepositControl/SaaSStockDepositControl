@@ -2,7 +2,7 @@
 
 - **Spec:** `specs/local-onpremise-deployment/spec.md`
 - **Tasks:** `specs/local-onpremise-deployment/tasks.md`
-- **Current Phase:** `Build (T1, T2 done)`
+- **Current Phase:** `Build (T1, T2, T3 done)`
 - **Engram Topic Key:** `spec/local-onpremise-deployment/decisions`
 
 ---
@@ -12,7 +12,8 @@
 - **Spec Status:** `Approved` (Approved by fede on 2026-10-25)
 - **Last Updated By:** `Claude Code`
 - **Completed Tasks:** `T1` (2026-10-26, commit `3874ece`; Gentle-AI RDD review approved, lineage `review-ffd0184cf226bb44`), `T2` (completed 2026-10-26, commits `655aff4` + follow-up `80d16cc`; Gentle-AI RDD reviews approved, lineages `review-b80fe3863c525c65` (T2), `review-9b4536d03cf6c9d1` (T1+T2), `review-de7172b99765d4a7` (guard), `review-f2c5aefcd7f2625b` (branch))
-- **Pending Tasks:** `T3`, `T4`
+- **Pending Tasks:** `T4`
+- **T3:** completed 2026-10-26 (commit `PENDING_SHA`, branch `feat/onprem-03-runbook`), docs only: `docs/deploy/local-onpremise-runbook.md` + README §2 links.
 - **Delivery:** PR #38 (`feat/onprem-02-migration-flags` → `main`, stacked-to-main position 1 of 3, 357 changed lines). Includes CD bundle + README fix `3b3f045` (adds `docker-compose.public.yml` to `DEPLOY_FILES`; not RDD-reviewed, declined).
 
 ---
@@ -64,6 +65,14 @@
 5. **RDD advisories (non-blocking, follow-up candidates):** (a) ~~R1/R3/R4: `deploy.sh` does not warn when `SERVER_NAME` is a domain but `COMPOSE_FILE` lacks the public override~~ fixed in `80d16cc` (`check_ingress_ports`, RDD `review-de7172b99765d4a7` approved); (b) R3: `compose_files` runs via process substitution, so its failure is not propagated under `set -e`; (c) R2: `COMPOSE_FILES` array not declared `local`, and the preflight comment implies `docker-compose.yml` is always included (COMPOSE_FILE replaces it); (d) R3: no tests for absolute-path / empty-segment `COMPOSE_FILE` entries.
 6. **Ingress guard advisories (RDD `review-de7172b99765d4a7`, non-blocking):** (a) R3-001: any `SERVER_NAME` not starting with `:` is treated as needing 80/443, so `host:8080` / `IP:8080` values that worked before are now refused; (b) R4: the guard only recognises the basename `docker-compose.public.yml`; (c) R4: `rollback` (the recovery path) is hard-gated by the guard; consider warn-only there; (d) R3: rollback test does not assert the stderr message; no explicit `SERVER_NAME=:8080` test.
 
+## 4c. Spec-Challenge Notes (T3, Claude Code, 2026-10-26)
+
+1. **Hybrid wiring (S4):** not listed in T3, but required. The runbook uses `DB_HOST=mariadb` for users/analytics and `ARTICLES_DATABASE_URL` (existing per-database precedence) for the pharmacy `db_articles`, plus `RUN_MIGRATIONS_ARTICLES=false`. No code change. Template validated with `docker compose config`.
+2. **Health with a `SELECT`-only user:** the probe is `SELECT 1`, so `ro_user` reports `connected`. S4's JSON omits the `database`/`version` keys the endpoint actually returns; the runbook shows the real body. T4 should assert on `status` + `databases` only.
+3. **Bundled MariaDB still creates an empty `db_articles`** (`01-init-dbs.sh`); harmless, documented.
+4. **Assumption:** the pharmacy DB already has the schema the app expects (no migration runs on it). Stated as a prerequisite.
+5. §4b.4 `COMPOSE_FILE` note: covered in README §1–2 and in the runbook troubleshooting.
+
 ## 5. Open Questions & Blockers
 
 - None. All open questions resolved and specification approved by human engineer.
@@ -72,5 +81,5 @@
 
 ## 6. Next Action
 
-- **Claude Code (Build Agent)**: Execute vertical slice `T3` (on-premise runbook; include the `COMPOSE_FILE` public-override note from §4b.4).
+- **Claude Code (Build Agent)**: Execute vertical slice `T4` (health tests + `scripts/devops/verify-local-package.sh`; see §4c.2).
 
