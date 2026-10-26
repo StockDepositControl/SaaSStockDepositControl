@@ -89,6 +89,55 @@ def test_run_migrations_false_skips_alembic(sandbox):
     assert calls[0].startswith("uvicorn ")
 
 
+def test_articles_switch_off_skips_only_articles_migrations(sandbox):
+    _, calls = run_entrypoint(
+        sandbox,
+        "serve",
+        env={
+            "RUN_MIGRATIONS": "true",
+            "RUN_MIGRATIONS_ARTICLES": "false",
+            "RUN_MIGRATIONS_USERS": "true",
+            "RUN_MIGRATIONS_ANALYTICS": "true",
+        },
+    )
+
+    assert calls[:2] == MIGRATIONS[1:]
+    assert calls[2].startswith("uvicorn backend.api.main:app")
+    assert len(calls) == 3
+
+
+@pytest.mark.parametrize(
+    ("switch", "skipped"),
+    [
+        ("RUN_MIGRATIONS_ARTICLES", 0),
+        ("RUN_MIGRATIONS_USERS", 1),
+        ("RUN_MIGRATIONS_ANALYTICS", 2),
+    ],
+)
+def test_each_database_switch_skips_its_own_config(sandbox, switch, skipped):
+    _, calls = run_entrypoint(sandbox, "serve", env={switch: "false"})
+
+    expected = [m for i, m in enumerate(MIGRATIONS) if i != skipped]
+    assert calls[:2] == expected
+    assert calls[2].startswith("uvicorn ")
+
+
+def test_run_migrations_false_overrides_database_switches(sandbox):
+    _, calls = run_entrypoint(
+        sandbox,
+        "serve",
+        env={
+            "RUN_MIGRATIONS": "false",
+            "RUN_MIGRATIONS_ARTICLES": "true",
+            "RUN_MIGRATIONS_USERS": "true",
+            "RUN_MIGRATIONS_ANALYTICS": "true",
+        },
+    )
+
+    assert len(calls) == 1
+    assert calls[0].startswith("uvicorn ")
+
+
 def test_failed_migration_aborts_before_uvicorn(sandbox):
     _, make_stub = sandbox
     make_stub("alembic", "exit 3")

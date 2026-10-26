@@ -12,12 +12,23 @@ if [ "${1:-serve}" != "serve" ]; then
 fi
 shift || true
 
+# $1 = per-database switch value, $2 = Alembic config file.
+migrate() {
+    if [ "$1" != "true" ]; then
+        echo "Skipping migrations: $2"
+        return 0
+    fi
+    echo "Applying migrations: $2"
+    alembic -c "backend/migrations/$2" upgrade head
+}
+
+# RUN_MIGRATIONS is the master switch; the per-database switches only narrow it.
+# Set RUN_MIGRATIONS_ARTICLES=false when db_articles is an external read-only DB.
 if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
     cd "${APP_DIR:-/app}"
-    for cfg in alembic.ini alembic_users.ini alembic_analytics.ini; do
-        echo "Applying migrations: ${cfg}"
-        alembic -c "backend/migrations/${cfg}" upgrade head
-    done
+    migrate "${RUN_MIGRATIONS_ARTICLES:-true}" alembic.ini
+    migrate "${RUN_MIGRATIONS_USERS:-true}" alembic_users.ini
+    migrate "${RUN_MIGRATIONS_ANALYTICS:-true}" alembic_analytics.ini
 fi
 
 # Port 8000 is shared with EXPOSE and HEALTHCHECK in the Dockerfile and with the
