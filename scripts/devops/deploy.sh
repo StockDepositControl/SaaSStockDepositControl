@@ -168,6 +168,23 @@ check_prerequisites() {
     log_info "Pre-flight checks passed."
 }
 
+# A domain SERVER_NAME needs 80/443 (ACME + HTTPS), which only the public
+# override publishes. Without it the proxy comes up unreachable, so refuse
+# before anything is pulled or recreated.
+check_ingress_ports() {
+    local server_name file
+    server_name="$(env_get SERVER_NAME)"
+    case "${server_name:-:8080}" in
+        :*) return 0 ;;
+    esac
+    while IFS= read -r file; do
+        [ "${file##*/}" = "docker-compose.public.yml" ] && return 0
+    done < <(compose_files)
+    log_error "SERVER_NAME=${server_name} needs ports 80/443, but docker-compose.public.yml is not enabled."
+    log_error "Add to ${ENV_FILE}: COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml"
+    exit 1
+}
+
 # --- Image Tag Helpers ---
 validate_tag() {
     local tag="$1"
@@ -252,6 +269,7 @@ action_up() {
     fi
 
     check_prerequisites
+    check_ingress_ports
     log_info "Starting services..."
     compose ${profile_args[@]+"${profile_args[@]}"} up -d --remove-orphans
     wait_for_api_health
@@ -327,12 +345,14 @@ perform_rollback() {
 
 action_rollback() {
     check_prerequisites
+    check_ingress_ports
     perform_rollback
     log_info "Rollback completed."
 }
 
 action_update() {
     check_prerequisites
+    check_ingress_ports
 
     local current new_tag
     current="$(current_tag)"
