@@ -11,7 +11,7 @@
 
 - **Spec Status:** `Approved` (Approved by fede on 2026-10-25)
 - **Last Updated By:** `Claude Code`
-- **Completed Tasks:** `T1` (2026-10-26, commit `3874ece`; Gentle-AI RDD review approved, lineage `review-ffd0184cf226bb44`), `T2` (2026-10-26, commit `655aff4`)
+- **Completed Tasks:** `T1` (2026-10-26, commit `3874ece`; Gentle-AI RDD review approved, lineage `review-ffd0184cf226bb44`), `T2` (2026-10-26, commit `655aff4`; Gentle-AI RDD reviews approved, lineages `review-b80fe3863c525c65` (T2) and `review-9b4536d03cf6c9d1` (T1+T2))
 - **Pending Tasks:** `T3`, `T4`
 
 ---
@@ -41,6 +41,8 @@
 | 2026-10-25 | Antigravity | Parameterize Compose ingress host ports | Prevents `bind: address already in use` crashes on client servers with existing web services on 80/443. | `specs/local-onpremise-deployment/spec.md` §6 |
 | 2026-10-26 | fede / Claude Code | `.env.example` ships `RUN_MIGRATIONS_ARTICLES=true` (not `false` as in spec §5.1), with a comment telling on-prem installs to set it to `false` | Script default must be `true` for S2. The template's default `DB_HOST=mariadb` (with-db/demo) needs `db_articles` migrated; `false` would leave it with no schema. | Spec-Challenge Note 1 (T1); commit `3874ece` |
 | 2026-10-26 | Claude Code | Per-database switches accept only the literal `true`; any other value skips that config and logs `Skipping migrations: <cfg>` | Matches the existing `RUN_MIGRATIONS` contract and fails safe for the external read-only `db_articles`. Advisory (RDD R4): a typo in `RUN_MIGRATIONS_USERS`/`_ANALYTICS` lets uvicorn start against an unmigrated schema; consider rejecting non-`true`/`false` values in a follow-up. | RDD lineage `review-ffd0184cf226bb44`; Engram `spec/local-onpremise-deployment/decisions` |
+| 2026-10-26 | fede / Claude Code | 80/443 published only by opt-in `docker-compose.public.yml`, selected via `COMPOSE_FILE` in `.env`; base file publishes only `HTTP_PORT` | Replaces spec §5.1 `BIND_HOST_PORTS` (Compose cannot drop a port entry from a boolean). Safe on-prem default. BREAKING: public-domain installs must set `COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml`. | Spec-Challenge Notes (T2); commit `655aff4` |
+| 2026-10-26 | fede / Claude Code | `deploy.sh` expands `.env` `COMPOSE_FILE` (colon-separated, relative to project root) into explicit `-f` flags and fails fast on a missing file | Its hardcoded `-f docker-compose.yml` would otherwise silently drop the public override. | commit `655aff4` |
 
 ---
 
@@ -51,15 +53,13 @@
 3. **Semantics:** only the literal `true` enables a switch, matching the existing `RUN_MIGRATIONS` contract. Each skipped config is logged as `Skipping migrations: <cfg>`.
 4. **Format:** spec §5.1 uses inline `# ...` comments; `.env.example` keeps comments on their own lines.
 
-| 2026-10-26 | fede / Claude Code | 80/443 published only by opt-in `docker-compose.public.yml`, selected via `COMPOSE_FILE` in `.env`; base file publishes only `HTTP_PORT` | Replaces spec §5.1 `BIND_HOST_PORTS` (Compose cannot drop a port entry from a boolean). Safe on-prem default. BREAKING: public-domain installs must set `COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml`. | Spec-Challenge Notes (T2); commit `655aff4` |
-| 2026-10-26 | fede / Claude Code | `deploy.sh` expands `.env` `COMPOSE_FILE` (colon-separated, relative to project root) into explicit `-f` flags and fails fast on a missing file | Its hardcoded `-f docker-compose.yml` would otherwise silently drop the public override. | commit `655aff4` |
-
 ## 4b. Spec-Challenge Notes (T2, Claude Code, 2026-10-26)
 
 1. **Target files:** the build prompt listed `backend/docker-entrypoint.sh`; tasks.md T2 lists `docker-compose.yml`. The entrypoint was left untouched (no port logic).
 2. **Resolved:** `BIND_HOST_PORTS=false` (spec §5.1) is not expressible in Compose. The human chose an opt-in `docker-compose.public.yml` (new file).
 3. **Resolved:** `deploy.sh` forced `-f docker-compose.yml`, ignoring `COMPOSE_FILE`. The human approved extending scope to `scripts/devops/deploy.sh` + `backend/tests/unit/test_deploy_script.py`.
 4. **T3 must document** the `COMPOSE_FILE` line for public-domain installs (breaking change for existing domain deployments).
+5. **RDD advisories (non-blocking, follow-up candidates):** (a) R1/R3/R4: `deploy.sh` does not warn when `SERVER_NAME` is a domain but `COMPOSE_FILE` lacks the public override, so domain installs silently lose 80/443 on update; (b) R3: `compose_files` runs via process substitution, so its failure is not propagated under `set -e`; (c) R2: `COMPOSE_FILES` array not declared `local`, and the preflight comment implies `docker-compose.yml` is always included (COMPOSE_FILE replaces it); (d) R3: no tests for absolute-path / empty-segment `COMPOSE_FILE` entries.
 
 ## 5. Open Questions & Blockers
 
