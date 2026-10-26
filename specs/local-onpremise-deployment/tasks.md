@@ -51,7 +51,7 @@
   - `docs/deploy/README.md`
   - `docs/deploy/local-onpremise-runbook.md`
 - **Acceptance Criteria:**
-  - [ ] Add complete end-to-end On-Premise Pharmacy Runbook detailing:
+  - [x] Add complete end-to-end On-Premise Pharmacy Runbook detailing:
     1. Host pre-requisites (Docker Engine, memory, storage).
     2. Read-only user creation on the client's pharmacy database (`GRANT SELECT ON db_articles.* TO 'ro_user'@'%' ...`).
     3. Bundled MariaDB initialization for `db_users` and `db_analytics`.
@@ -60,7 +60,7 @@
     6. Verification commands (`./scripts/devops/deploy.sh health`, `curl http://localhost:8080/api/v1/health`).
     7. Auditor mobile app connection instructions via Wi-Fi LAN.
 - **Verification Command:** `test -f docs/deploy/local-onpremise-runbook.md`
-- **Status:** `[ ] pending`
+- **Status:** `[x] completed` (2026-10-26, commit: `d81a143`). Hybrid wiring (`ARTICLES_DATABASE_URL` + `RUN_MIGRATIONS_ARTICLES=false`) documented; README §2 links the runbook.
 
 ---
 
@@ -73,8 +73,8 @@
   - `backend/tests/api/test_health.py`
   - `scripts/devops/verify-local-package.sh`
 - **Acceptance Criteria:**
-  - [ ] Add / verify backend health endpoint tests for multi-database status.
-  - [ ] Provide lightweight verification script `scripts/devops/verify-local-package.sh` that checks `.env` syntax, validates Docker Compose configuration, tests database reachability, and verifies `/api/v1/health`.
-  - [ ] Verification script passes syntax check: `bash -n scripts/devops/verify-local-package.sh`.
+  - [x] Add / verify backend health endpoint tests for multi-database status.
+  - [x] Provide lightweight verification script `scripts/devops/verify-local-package.sh` that checks `.env` syntax, validates Docker Compose configuration, tests database reachability, and verifies `/api/v1/health`.
+  - [x] Verification script passes syntax check: `bash -n scripts/devops/verify-local-package.sh`.
 - **Verification Command:** `pytest tests/api/test_health.py && bash -n scripts/devops/verify-local-package.sh`
-- **Status:** `[ ] pending`
+- **Status:** `[x] completed` (2026-10-26, commit: `a84bf3a`). Health AC satisfied by the existing `test_health.py` (no change); script covered by `backend/tests/unit/test_verify_local_package.py` (scope addition).

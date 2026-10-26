@@ -32,6 +32,8 @@ The images are pulled from GHCR. For a private repository log in first with a to
 
 ## 2. Runbook: Client On-Premise Server (external MariaDB/MySQL)
 
+**Pharmacy branch with its own product database:** follow [local-onpremise-runbook.md](local-onpremise-runbook.md) instead. It keeps the pharmacy `db_articles` read-only (`RUN_MIGRATIONS_ARTICLES=false`), hosts `db_users`/`db_analytics` in the bundled MariaDB, and explains how auditors connect the mobile app over the Wi-Fi LAN.
+
 1. Install Docker Engine with the Compose plugin and `curl` on the server.
 2. In `.env`: `SERVER_NAME=<client-domain>` (public IP and DNS; also set `COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml`) or `:8080` (LAN only), `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_SSL_MODE` (see section 6), a strong `SECRET_KEY`, and a fixed release `IMAGE_TAG` such as `v1.2.0`.
 3. Create the three databases and grant the user (see the compatibility notes in section 6), then start:
@@ -40,9 +42,11 @@ The images are pulled from GHCR. For a private repository log in first with a to
    ./scripts/devops/deploy.sh up
    ```
 
-4. Verify: `./scripts/devops/deploy.sh health`.
+4. Verify: `./scripts/devops/deploy.sh health` and `./scripts/devops/verify-local-package.sh` (for full manual QA and demo verification, see [`../MANUAL_TESTING_AND_DEMO_GUIDE.md`](../MANUAL_TESTING_AND_DEMO_GUIDE.md)).
 
 By default the proxy publishes only `HTTP_PORT`, so a host that already serves `80`/`443` runs plain HTTP without port conflicts. Ports `80`/`443` are published only through `docker-compose.public.yml`.
+
+Camera scanning over plain HTTP (`http://<lan-ip>:8080`): browsers block the camera outside `https://` or `localhost`, so auditing devices must use the native mobile app (see [the pharmacy runbook, step 7](local-onpremise-runbook.md#7-auditor-mobile-app-over-wi-fi-lan)).
 
 Upgrading an existing public-domain install: add `COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml` to `.env` before the next `update`, otherwise `deploy.sh` refuses to continue (and a plain `docker compose up` would drop `80`/`443`).
 

@@ -14,38 +14,38 @@ The backend service implements the core application logic for inventory audits, 
 
 ## Local Setup
 
-1. **Activate the virtual environment**:
+1. **Create and activate the virtual environment**:
    ```bash
    cd backend
-   source venv/bin/activate
+   python -m venv .venv
+   source .venv/bin/activate
    ```
 
-2. **Install dependencies**:
+2. **Install runtime and development dependencies**:
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements.txt -r requirements-dev.txt
    ```
 
-3. **Configure environment variables** in `.env`:
+3. **Configure environment variables** in `.env` (at the repository root):
    ```env
-   DB_USER=root
-   DB_PASSWORD=your_password
-   DB_HOST=localhost
+   ENVIRONMENT=production
+   SECRET_KEY=<generate-32+-char-secret-via-python-secrets.token_urlsafe(48)>
+   ACCESS_TOKEN_EXPIRE_MINUTES=480
+   CORS_ORIGINS=http://localhost:3000,http://localhost:8080
+
+   DB_HOST=127.0.0.1
    DB_PORT=3306
+   DB_USER=app_user
+   DB_PASSWORD=your_password
+   DB_SSL_MODE=disable
 
    DB_NAME_ARTICLES=db_articles
    DB_NAME_USERS=db_users
    DB_NAME_ANALYTICS=db_analytics
-
-   ARTICLES_DATABASE_URL=mysql+aiomysql://root:your_password@localhost:3306/db_articles
-   USERS_DATABASE_URL=mysql+aiomysql://root:your_password@localhost:3306/db_users
-   ANALYTICS_DATABASE_URL=mysql+aiomysql://root:your_password@localhost:3306/db_analytics
-
-   SECRET_KEY=your_jwt_signing_key_here
-   ACCESS_TOKEN_EXPIRE_MINUTES=480
-   CORS_ORIGINS=http://localhost:3000,http://localhost:3001
    ```
+   *(Note: Specific URLs `ARTICLES_DATABASE_URL`, `USERS_DATABASE_URL`, `ANALYTICS_DATABASE_URL` or `DATABASE_URL` take precedence over `DB_*` when set. In `ENVIRONMENT=production`, startup fails fast if `SECRET_KEY` is shorter than 32 characters or set to a weak value like `changeme` or `secret`.)*
 
-4. **Run database migrations** (see [Multi-Database Alembic Migrations](#multi-database-alembic-migrations) below):
+4. **Run database migrations** (from the repository root):
    ```bash
    alembic -c backend/migrations/alembic.ini upgrade head
    alembic -c backend/migrations/alembic_users.ini upgrade head
@@ -208,7 +208,7 @@ python -m backend.scripts.seed \
 
 | Router | Method & Path | Service / Use Case | Role Access |
 | :--- | :--- | :--- | :--- |
-| **Health** | `GET /health`<br>`GET /api/v1/health` | `ConnectionProvider.check_connectivity` | Public |
+| **Health** | `GET /health`<br>`GET /api/v1/health` | `ConnectionProvider.check_databases` (probes `articles`, `users`, `analytics`) | Public |
 | **Auth** | `POST /api/v1/auth/login` | `AuthService.authenticate` | Public |
 | **Articles** | `GET /api/v1/articles`<br>`GET /api/v1/articles/search`<br>`GET /api/v1/articles/{id_articulo}` | `ArticleCatalogOrchestrator`<br>`ArticleSearchService` | Authenticated (Admin sees `pcio_com_siva`; Supervisor/Auditor receive `ArticuloPublicOut`) |
 | **Stock & Audit** | `POST /api/v1/stock/audit`<br>`POST /api/v1/stock/audit/batch`<br>`GET /api/v1/stock/position`<br>`GET /api/v1/stock/kpis` | `AuditService.register_single_audit`<br>`AuditService.register_batch_audit`<br>`StockLookupService.get_effective_stock`<br>`StockKPIService.get_dashboard_kpis` | `administrador`, `supervisor`, `auditor` (Financial KPIs & `pcio_com_siva` restricted to `administrador`) |
@@ -219,37 +219,42 @@ python -m backend.scripts.seed \
 
 ---
 
-## Testing Suite (`backend/tests/`)
+## Testing, Linting & Security Audit (`backend/tests/`)
 
-The test suite is organized by architectural layer and concern:
+The test suite is organized by architectural layer and concern (`pytest.ini` configures `pythonpath = . ..` and `testpaths = tests`, so run pytest from inside `backend/`):
 
 ```text
 backend/tests/
 ├── adapters/   # Repository integration tests (article, stock, audit, user, report, work_session)
-├── api/        # FastAPI endpoint, RBAC, financial privacy, and middleware tests
-├── db/         # Multi-database schema, ORM constraints, and seed script verification tests
+├── api/        # FastAPI endpoint, RBAC, CORS, financial privacy, and middleware tests
+├── db/         # Multi-database schema, URL precedence, ORM constraints, and seed script verification tests
 ├── domain/     # Pure domain unit tests (DeltaCalculator, VatClassifier, AuditService, StockKPIService, UserService, orchestrator)
 ├── reports/    # Shrinkage, goods received, and daily inventory balance calculation tests
-└── unit/       # Security adapters (JWT, Bcrypt), health probes, and isolated unit tests
+└── unit/       # Security adapters (JWT, Bcrypt), health probes, entrypoint flags, deploy.sh, and verify-local-package.sh tests
 ```
 
-### Running Tests
+### Running Tests, Coverage & Linting (`cd backend`)
 
-Run the full backend test suite from the project root:
 ```bash
-./backend/venv/bin/pytest backend/tests
-```
+cd backend
+source .venv/bin/activate
 
-Or run a specific test directory or file:
-```bash
-# Pure domain tests only
-./backend/venv/bin/pytest backend/tests/domain
+# Run the full backend test suite
+pytest
 
-# API integration and RBAC tests
-./backend/venv/bin/pytest backend/tests/api
+# Run with coverage report
+pytest --cov=backend --cov-report=term-missing tests/
 
-# User administration and RBAC guard tests
-./backend/venv/bin/pytest backend/tests/domain/test_user_service.py backend/tests/api/test_users_router.py
+# Run focused test suites
+pytest tests/domain
+pytest tests/api
+pytest tests/unit/test_docker_entrypoint.py tests/unit/test_deploy_script.py tests/unit/test_verify_local_package.py
+
+# Lint and format check with Ruff (configured in pyproject.toml)
+ruff check . && ruff format --check .
+
+# Audit production dependencies for known vulnerabilities
+pip-audit -r requirements.txt
 ```
 
 ---
