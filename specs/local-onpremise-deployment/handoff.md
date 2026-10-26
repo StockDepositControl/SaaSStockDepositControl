@@ -2,7 +2,7 @@
 
 - **Spec:** `specs/local-onpremise-deployment/spec.md`
 - **Tasks:** `specs/local-onpremise-deployment/tasks.md`
-- **Current Phase:** `Build (T1 done)`
+- **Current Phase:** `Build (T1, T2 done)`
 - **Engram Topic Key:** `spec/local-onpremise-deployment/decisions`
 
 ---
@@ -11,8 +11,8 @@
 
 - **Spec Status:** `Approved` (Approved by fede on 2026-10-25)
 - **Last Updated By:** `Claude Code`
-- **Completed Tasks:** `T1` (2026-10-26, commit `3874ece`; Gentle-AI RDD review approved, lineage `review-ffd0184cf226bb44`)
-- **Pending Tasks:** `T2`, `T3`, `T4`
+- **Completed Tasks:** `T1` (2026-10-26, commit `3874ece`; Gentle-AI RDD review approved, lineage `review-ffd0184cf226bb44`), `T2` (2026-10-26, commit `655aff4`)
+- **Pending Tasks:** `T3`, `T4`
 
 ---
 
@@ -51,6 +51,16 @@
 3. **Semantics:** only the literal `true` enables a switch, matching the existing `RUN_MIGRATIONS` contract. Each skipped config is logged as `Skipping migrations: <cfg>`.
 4. **Format:** spec §5.1 uses inline `# ...` comments; `.env.example` keeps comments on their own lines.
 
+| 2026-10-26 | fede / Claude Code | 80/443 published only by opt-in `docker-compose.public.yml`, selected via `COMPOSE_FILE` in `.env`; base file publishes only `HTTP_PORT` | Replaces spec §5.1 `BIND_HOST_PORTS` (Compose cannot drop a port entry from a boolean). Safe on-prem default. BREAKING: public-domain installs must set `COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml`. | Spec-Challenge Notes (T2); commit `655aff4` |
+| 2026-10-26 | fede / Claude Code | `deploy.sh` expands `.env` `COMPOSE_FILE` (colon-separated, relative to project root) into explicit `-f` flags and fails fast on a missing file | Its hardcoded `-f docker-compose.yml` would otherwise silently drop the public override. | commit `655aff4` |
+
+## 4b. Spec-Challenge Notes (T2, Claude Code, 2026-10-26)
+
+1. **Target files:** the build prompt listed `backend/docker-entrypoint.sh`; tasks.md T2 lists `docker-compose.yml`. The entrypoint was left untouched (no port logic).
+2. **Resolved:** `BIND_HOST_PORTS=false` (spec §5.1) is not expressible in Compose. The human chose an opt-in `docker-compose.public.yml` (new file).
+3. **Resolved:** `deploy.sh` forced `-f docker-compose.yml`, ignoring `COMPOSE_FILE`. The human approved extending scope to `scripts/devops/deploy.sh` + `backend/tests/unit/test_deploy_script.py`.
+4. **T3 must document** the `COMPOSE_FILE` line for public-domain installs (breaking change for existing domain deployments).
+
 ## 5. Open Questions & Blockers
 
 - None. All open questions resolved and specification approved by human engineer.
@@ -59,5 +69,5 @@
 
 ## 6. Next Action
 
-- **Claude Code (Build Agent)**: Execute vertical slice `T2` (configurable 80/443 host port bindings in `docker-compose.yml` and `.env.example`).
+- **Claude Code (Build Agent)**: Execute vertical slice `T3` (on-premise runbook; include the `COMPOSE_FILE` public-override note from §4b.4).
 
