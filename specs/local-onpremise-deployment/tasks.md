@@ -21,7 +21,7 @@
   - [x] If `RUN_MIGRATIONS_ARTICLES=false`, `alembic.ini` is skipped, protecting read-only external pharmacy databases.
   - [x] Shell script passes syntax check: `bash -n backend/docker-entrypoint.sh`.
 - **Verification Command:** `bash -n backend/docker-entrypoint.sh`
-- **Status:** `[x] done` (commit: `3874ece`)
+- **Status:** `[x] completed` (2026-10-26, commit: `3874ece`)
 
 ---
 
