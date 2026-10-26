@@ -20,7 +20,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${DEPLOY_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 ENV_FILE="${PROJECT_ROOT}/.env"
 ENV_EXAMPLE="${PROJECT_ROOT}/.env.example"
-COMPOSE_FILE="${PROJECT_ROOT}/docker-compose.yml"
 PREVIOUS_TAG_FILE="${PROJECT_ROOT}/.previous_tag"
 BACKUP_DIR="${PROJECT_ROOT}/backups"
 
@@ -68,8 +67,27 @@ get_compose_cmd() {
 
 COMPOSE_CMD=$(get_compose_cmd)
 
+# COMPOSE_FILE in .env (colon-separated, relative to PROJECT_ROOT) selects the
+# compose files, e.g. adding docker-compose.public.yml for 80/443. Explicit -f
+# flags would otherwise make Compose ignore it.
+compose_files() {
+    local list file
+    list="$(env_get COMPOSE_FILE)"
+    IFS=':' read -r -a COMPOSE_FILES <<< "${list:-docker-compose.yml}"
+    for file in "${COMPOSE_FILES[@]}"; do
+        case "${file}" in
+            /*) printf '%s\n' "${file}" ;;
+            *) printf '%s\n' "${PROJECT_ROOT}/${file}" ;;
+        esac
+    done
+}
+
 compose() {
-    ${COMPOSE_CMD} -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" "$@"
+    local args=() file
+    while IFS= read -r file; do
+        args+=(-f "${file}")
+    done < <(compose_files)
+    ${COMPOSE_CMD} "${args[@]}" --env-file "${ENV_FILE}" "$@"
 }
 
 # --- .env Helpers (never `source` the file: values are data, not shell) ---
@@ -138,13 +156,33 @@ check_prerequisites() {
         fi
     fi
 
-    # Check compose file
-    if [ ! -f "${COMPOSE_FILE}" ]; then
-        log_error "docker-compose.yml not found at ${COMPOSE_FILE}."
-        exit 1
-    fi
+    # Check compose files (docker-compose.yml, plus any listed in COMPOSE_FILE)
+    local file
+    while IFS= read -r file; do
+        if [ ! -f "${file}" ]; then
+            log_error "Compose file not found at ${file}."
+            exit 1
+        fi
+    done < <(compose_files)
 
     log_info "Pre-flight checks passed."
+}
+
+# A domain SERVER_NAME needs 80/443 (ACME + HTTPS), which only the public
+# override publishes. Without it the proxy comes up unreachable, so refuse
+# before anything is pulled or recreated.
+check_ingress_ports() {
+    local server_name file
+    server_name="$(env_get SERVER_NAME)"
+    case "${server_name:-:8080}" in
+        :*) return 0 ;;
+    esac
+    while IFS= read -r file; do
+        [ "${file##*/}" = "docker-compose.public.yml" ] && return 0
+    done < <(compose_files)
+    log_error "SERVER_NAME=${server_name} needs ports 80/443, but docker-compose.public.yml is not enabled."
+    log_error "Add to ${ENV_FILE}: COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml"
+    exit 1
 }
 
 # --- Image Tag Helpers ---
@@ -231,6 +269,7 @@ action_up() {
     fi
 
     check_prerequisites
+    check_ingress_ports
     log_info "Starting services..."
     compose ${profile_args[@]+"${profile_args[@]}"} up -d --remove-orphans
     wait_for_api_health
@@ -306,12 +345,14 @@ perform_rollback() {
 
 action_rollback() {
     check_prerequisites
+    check_ingress_ports
     perform_rollback
     log_info "Rollback completed."
 }
 
 action_update() {
     check_prerequisites
+    check_ingress_ports
 
     local current new_tag
     current="$(current_tag)"

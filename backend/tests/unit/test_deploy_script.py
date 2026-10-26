@@ -234,3 +234,104 @@ def test_help_lists_lifecycle_commands(sandbox):
     assert result.returncode == 0
     for command in ("pull", "update", "rollback", "backup"):
         assert command in result.stdout
+
+
+def pull_calls(calls):
+    return [c for c in calls if " pull backend web" in c]
+
+
+def test_compose_uses_only_base_file_without_compose_file_in_env(sandbox):
+    _, root, _ = sandbox
+
+    result, calls = run_deploy(sandbox, "pull")
+
+    assert result.returncode == 0, result.stderr
+    [pull] = pull_calls(calls)
+    assert f"-f {root}/docker-compose.yml --env-file" in pull
+
+
+def test_compose_file_in_env_adds_public_override(sandbox):
+    _, root, _ = sandbox
+    (root / "docker-compose.public.yml").write_text("services: {}\n")
+    with (root / ".env").open("a") as env:
+        env.write("COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml\n")
+
+    result, calls = run_deploy(sandbox, "pull")
+
+    assert result.returncode == 0, result.stderr
+    [pull] = pull_calls(calls)
+    assert (
+        f"-f {root}/docker-compose.yml -f {root}/docker-compose.public.yml --env-file"
+        in pull
+    )
+
+
+def test_missing_compose_file_from_env_fails_before_compose_runs(sandbox):
+    _, root, _ = sandbox
+    with (root / ".env").open("a") as env:
+        env.write("COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml\n")
+
+    result, calls = run_deploy(sandbox, "pull")
+
+    assert result.returncode != 0
+    assert "docker-compose.public.yml" in result.stderr
+    assert not pull_calls(calls)
+
+
+def use_domain(root, with_public_override):
+    lines = ["SERVER_NAME=stock.example.com\n"]
+    if with_public_override:
+        (root / "docker-compose.public.yml").write_text("services: {}\n")
+        lines.append("COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml\n")
+    with (root / ".env").open("a") as env:
+        env.writelines(lines)
+
+
+def test_up_refuses_domain_without_public_override(sandbox):
+    _, root, _ = sandbox
+    use_domain(root, with_public_override=False)
+
+    result, calls = run_deploy(sandbox, "up")
+
+    assert result.returncode != 0
+    assert "docker-compose.public.yml" in result.stderr
+    assert not up_calls(calls)
+
+
+def test_update_refuses_domain_without_public_override_before_changing_anything(
+    sandbox,
+):
+    _, root, _ = sandbox
+    use_domain(root, with_public_override=False)
+    before = (root / ".env").read_text()
+
+    result, calls = run_deploy(sandbox, "update", "v2")
+
+    assert result.returncode != 0
+    assert (root / ".env").read_text() == before
+    assert not (root / ".previous_tag").exists()
+    assert not pull_calls(calls)
+    assert not up_calls(calls)
+
+
+def test_rollback_refuses_domain_without_public_override(sandbox):
+    _, root, _ = sandbox
+    use_domain(root, with_public_override=False)
+    (root / ".previous_tag").write_text("v0\n")
+
+    result, calls = run_deploy(sandbox, "rollback")
+
+    assert result.returncode != 0
+    assert "IMAGE_TAG=v1" in (root / ".env").read_text()
+    assert not up_calls(calls)
+
+
+def test_up_accepts_domain_with_public_override(sandbox):
+    _, root, _ = sandbox
+    use_domain(root, with_public_override=True)
+
+    result, calls = run_deploy(sandbox, "up")
+
+    assert result.returncode == 0, result.stderr
+    [up] = up_calls(calls)
+    assert f"-f {root}/docker-compose.public.yml" in up
