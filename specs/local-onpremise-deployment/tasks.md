@@ -16,12 +16,12 @@
   - `backend/docker-entrypoint.sh`
   - `.env.example`
 - **Acceptance Criteria:**
-  - [ ] Support `RUN_MIGRATIONS_ARTICLES` (default `true`), `RUN_MIGRATIONS_USERS` (default `true`), `RUN_MIGRATIONS_ANALYTICS` (default `true`).
-  - [ ] If `RUN_MIGRATIONS=false`, all migrations are skipped.
-  - [ ] If `RUN_MIGRATIONS_ARTICLES=false`, `alembic.ini` is skipped, protecting read-only external pharmacy databases.
-  - [ ] Shell script passes syntax check: `bash -n backend/docker-entrypoint.sh`.
+  - [x] Support `RUN_MIGRATIONS_ARTICLES` (default `true`), `RUN_MIGRATIONS_USERS` (default `true`), `RUN_MIGRATIONS_ANALYTICS` (default `true`).
+  - [x] If `RUN_MIGRATIONS=false`, all migrations are skipped.
+  - [x] If `RUN_MIGRATIONS_ARTICLES=false`, `alembic.ini` is skipped, protecting read-only external pharmacy databases.
+  - [x] Shell script passes syntax check: `bash -n backend/docker-entrypoint.sh`.
 - **Verification Command:** `bash -n backend/docker-entrypoint.sh`
-- **Status:** `[ ] pending`
+- **Status:** `[x] done` (commit: pending)
 
 ---
 
