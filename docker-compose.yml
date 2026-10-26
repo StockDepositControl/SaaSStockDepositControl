@@ -4,6 +4,9 @@
 #   demo       + seed                       -> one-shot demo data load, then exits
 #   tunnel     + cloudflared                -> Cloudflare Tunnel, no open ports needed
 #
+# The proxy publishes only HTTP_PORT, so hosts with 80/443 taken still start.
+# Public-domain HTTPS adds 80/443 via docker-compose.public.yml (COMPOSE_FILE in .env).
+#
 # Only `backend` runs Alembic (entrypoint, RUN_MIGRATIONS). Any other command
 # run from the backend image (e.g. `seed`) skips migrations, so there is no race.
 
@@ -37,8 +40,6 @@ services:
       SERVER_NAME: ${SERVER_NAME:-:8080}
       ACME_EMAIL_OPTION: ${ACME_EMAIL_OPTION:-}
     ports:
-      - "80:80"
-      - "443:443"
       - "${HTTP_PORT:-8080}:8080"
     volumes:
       - caddy_data:/data

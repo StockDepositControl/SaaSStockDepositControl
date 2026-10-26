@@ -234,3 +234,45 @@ def test_help_lists_lifecycle_commands(sandbox):
     assert result.returncode == 0
     for command in ("pull", "update", "rollback", "backup"):
         assert command in result.stdout
+
+
+def pull_calls(calls):
+    return [c for c in calls if " pull backend web" in c]
+
+
+def test_compose_uses_only_base_file_without_compose_file_in_env(sandbox):
+    _, root, _ = sandbox
+
+    result, calls = run_deploy(sandbox, "pull")
+
+    assert result.returncode == 0, result.stderr
+    [pull] = pull_calls(calls)
+    assert f"-f {root}/docker-compose.yml --env-file" in pull
+
+
+def test_compose_file_in_env_adds_public_override(sandbox):
+    _, root, _ = sandbox
+    (root / "docker-compose.public.yml").write_text("services: {}\n")
+    with (root / ".env").open("a") as env:
+        env.write("COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml\n")
+
+    result, calls = run_deploy(sandbox, "pull")
+
+    assert result.returncode == 0, result.stderr
+    [pull] = pull_calls(calls)
+    assert (
+        f"-f {root}/docker-compose.yml -f {root}/docker-compose.public.yml --env-file"
+        in pull
+    )
+
+
+def test_missing_compose_file_from_env_fails_before_compose_runs(sandbox):
+    _, root, _ = sandbox
+    with (root / ".env").open("a") as env:
+        env.write("COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml\n")
+
+    result, calls = run_deploy(sandbox, "pull")
+
+    assert result.returncode != 0
+    assert "docker-compose.public.yml" in result.stderr
+    assert not pull_calls(calls)

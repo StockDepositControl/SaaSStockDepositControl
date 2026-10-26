@@ -1,0 +1,9 @@
+# Public-domain HTTPS override: publishes 80/443 for Caddy's automatic HTTPS
+# (SERVER_NAME=stock.example.com). Enable it in .env with
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml
+# Leave it out on hosts where 80/443 are already taken (on-premise, LAN, tunnel).
+services:
+  proxy:
+    ports:
+      - "80:80"
+      - "443:443"

@@ -20,7 +20,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${DEPLOY_ROOT:-$(cd "${SCRIPT_DIR}/../.." && pwd)}"
 ENV_FILE="${PROJECT_ROOT}/.env"
 ENV_EXAMPLE="${PROJECT_ROOT}/.env.example"
-COMPOSE_FILE="${PROJECT_ROOT}/docker-compose.yml"
 PREVIOUS_TAG_FILE="${PROJECT_ROOT}/.previous_tag"
 BACKUP_DIR="${PROJECT_ROOT}/backups"
 
@@ -68,8 +67,27 @@ get_compose_cmd() {
 
 COMPOSE_CMD=$(get_compose_cmd)
 
+# COMPOSE_FILE in .env (colon-separated, relative to PROJECT_ROOT) selects the
+# compose files, e.g. adding docker-compose.public.yml for 80/443. Explicit -f
+# flags would otherwise make Compose ignore it.
+compose_files() {
+    local list file
+    list="$(env_get COMPOSE_FILE)"
+    IFS=':' read -r -a COMPOSE_FILES <<< "${list:-docker-compose.yml}"
+    for file in "${COMPOSE_FILES[@]}"; do
+        case "${file}" in
+            /*) printf '%s\n' "${file}" ;;
+            *) printf '%s\n' "${PROJECT_ROOT}/${file}" ;;
+        esac
+    done
+}
+
 compose() {
-    ${COMPOSE_CMD} -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" "$@"
+    local args=() file
+    while IFS= read -r file; do
+        args+=(-f "${file}")
+    done < <(compose_files)
+    ${COMPOSE_CMD} "${args[@]}" --env-file "${ENV_FILE}" "$@"
 }
 
 # --- .env Helpers (never `source` the file: values are data, not shell) ---
@@ -138,11 +156,14 @@ check_prerequisites() {
         fi
     fi
 
-    # Check compose file
-    if [ ! -f "${COMPOSE_FILE}" ]; then
-        log_error "docker-compose.yml not found at ${COMPOSE_FILE}."
-        exit 1
-    fi
+    # Check compose files (docker-compose.yml, plus any listed in COMPOSE_FILE)
+    local file
+    while IFS= read -r file; do
+        if [ ! -f "${file}" ]; then
+            log_error "Compose file not found at ${file}."
+            exit 1
+        fi
+    done < <(compose_files)
 
     log_info "Pre-flight checks passed."
 }
