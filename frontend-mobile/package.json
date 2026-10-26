@@ -4,12 +4,12 @@
   "main": "index.ts",
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
-    "expo": "~57.0.2",
+    "expo": "~57.0.31",
     "expo-build-properties": "~57.0.22",
-    "expo-status-bar": "~57.0.0",
+    "expo-status-bar": "~57.0.1",
     "nativewind": "^4.2.6",
     "react": "19.2.3",
-    "react-native": "0.86.0"
+    "react-native": "0.86.3"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
