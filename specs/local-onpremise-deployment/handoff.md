@@ -11,7 +11,7 @@
 
 - **Spec Status:** `Approved` (Approved by fede on 2026-10-25)
 - **Last Updated By:** `Claude Code`
-- **Completed Tasks:** `T1` (2026-10-26, commit `3874ece`; Gentle-AI RDD review approved, lineage `review-ffd0184cf226bb44`), `T2` (2026-10-26, commit `655aff4`; Gentle-AI RDD reviews approved, lineages `review-b80fe3863c525c65` (T2) and `review-9b4536d03cf6c9d1` (T1+T2))
+- **Completed Tasks:** `T1` (2026-10-26, commit `3874ece`; Gentle-AI RDD review approved, lineage `review-ffd0184cf226bb44`), `T2` (completed 2026-10-26, commits `655aff4` + follow-up `80d16cc`; Gentle-AI RDD reviews approved, lineages `review-b80fe3863c525c65` (T2), `review-9b4536d03cf6c9d1` (T1+T2), `review-de7172b99765d4a7` (guard), `review-f2c5aefcd7f2625b` (branch))
 - **Pending Tasks:** `T3`, `T4`
 
 ---
@@ -43,6 +43,7 @@
 | 2026-10-26 | Claude Code | Per-database switches accept only the literal `true`; any other value skips that config and logs `Skipping migrations: <cfg>` | Matches the existing `RUN_MIGRATIONS` contract and fails safe for the external read-only `db_articles`. Advisory (RDD R4): a typo in `RUN_MIGRATIONS_USERS`/`_ANALYTICS` lets uvicorn start against an unmigrated schema; consider rejecting non-`true`/`false` values in a follow-up. | RDD lineage `review-ffd0184cf226bb44`; Engram `spec/local-onpremise-deployment/decisions` |
 | 2026-10-26 | fede / Claude Code | 80/443 published only by opt-in `docker-compose.public.yml`, selected via `COMPOSE_FILE` in `.env`; base file publishes only `HTTP_PORT` | Replaces spec §5.1 `BIND_HOST_PORTS` (Compose cannot drop a port entry from a boolean). Safe on-prem default. BREAKING: public-domain installs must set `COMPOSE_FILE=docker-compose.yml:docker-compose.public.yml`. | Spec-Challenge Notes (T2); commit `655aff4` |
 | 2026-10-26 | fede / Claude Code | `deploy.sh` expands `.env` `COMPOSE_FILE` (colon-separated, relative to project root) into explicit `-f` flags and fails fast on a missing file | Its hardcoded `-f docker-compose.yml` would otherwise silently drop the public override. | commit `655aff4` |
+| 2026-10-26 | fede / Claude Code | `deploy.sh` `check_ingress_ports` refuses `up`/`update`/`rollback` when `SERVER_NAME` does not start with `:` and `docker-compose.public.yml` is not listed in `COMPOSE_FILE`; runs before any pull or `.env` change | Prevents domain installs from silently losing HTTPS/ACME after the T2 breaking change. Known limits (§4b.6): `host:port` values are refused, and rollback is hard-gated. Both are follow-up candidates. | commit `80d16cc`; RDD `review-de7172b99765d4a7` |
 
 ---
 

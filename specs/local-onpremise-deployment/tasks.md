@@ -38,7 +38,7 @@
   - [x] Default `HTTP_PORT=8080` remains functional for plain HTTP LAN access.
   - [x] Docker Compose passes validation across profiles.
 - **Verification Command:** `docker compose config -q && docker compose --profile with-db config -q`
-- **Status:** `[x] completed` (2026-10-26, commit: `655aff4`). Opt-in `docker-compose.public.yml` via `COMPOSE_FILE`; scope extended to `scripts/devops/deploy.sh` + its tests (human-approved).
+- **Status:** `[x] completed` (2026-10-26, commits: `655aff4` feature, `80d16cc` ingress guard follow-up). Opt-in `docker-compose.public.yml` via `COMPOSE_FILE`; scope extended to `scripts/devops/deploy.sh` + its tests (human-approved).
 
 ---
 
