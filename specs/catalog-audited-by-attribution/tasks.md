@@ -91,11 +91,11 @@
   - `frontend-web/components/ui/DataTable.tsx`
   - `frontend-web/app/catalog/page.test.tsx`
 - **Acceptance Criteria:**
-  - [ ] RED test: add test in `frontend-web/app/catalog/page.test.tsx` verifying that under `UserRole.SUPERVISOR`, an article with `fue_auditado: true` and `audited_by: "Carlos Auditor"` renders `"Carlos Auditor"` (with avatar `"CA"`) in the "AUDITADO POR" column, even when the logged-in supervisor is `"Silvia Supervisora"`.
-  - [ ] GREEN: remove `getAuditorForArticle` in `DataTable.tsx`. Render avatar and name from `art.audited_by` for desktop table and mobile card view.
-  - [ ] Regression check: all tests in `frontend-web` pass.
+  - [x] RED test: add test in `frontend-web/app/catalog/page.test.tsx` verifying that under `UserRole.SUPERVISOR`, an article with `fue_auditado: true` and `audited_by: "Carlos Auditor"` renders `"Carlos Auditor"` (with avatar `"CA"`) in the "AUDITADO POR" column, even when the logged-in supervisor is `"Silvia Supervisora"`.
+  - [x] GREEN: remove `getAuditorForArticle` in `DataTable.tsx`. Render avatar and name from `art.audited_by` for desktop table and mobile card view.
+  - [x] Regression check: all tests in `frontend-web` pass.
 - **Verification Command:**
   ```bash
   cd frontend-web && npx vitest run app/catalog/page.test.tsx && npm test && npx tsc --noEmit && npm run lint
   ```
-- **Status:** `[ ] pending`
+- **Status:** `[x] done`

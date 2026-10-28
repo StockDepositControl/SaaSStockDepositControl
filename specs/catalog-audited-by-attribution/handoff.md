@@ -2,7 +2,7 @@
 
 - **Spec:** `specs/catalog-audited-by-attribution/spec.md`
 - **Tasks:** `specs/catalog-audited-by-attribution/tasks.md`
-- **Current Phase:** `Ready for Build (Approved)`
+- **Current Phase:** `Build complete (T1-T4)`
 - **Engram Topic Key:** `spec/catalog-audited-by-attribution/decisions`
 
 ---
@@ -10,9 +10,9 @@
 ## 1. Handoff Status
 
 - **Spec Status:** `Approved`
-- **Last Updated By:** `Antigravity (Gemini)`
-- **Completed Tasks:** `None`
-- **Pending Tasks:** `T1`, `T2`, `T3`, `T4`
+- **Last Updated By:** `Claude Code`
+- **Completed Tasks:** `T1`, `T2`, `T3`, `T4`
+- **Pending Tasks:** `None`
 
 ## 2. Spec-Challenge Notes (Filled by Claude Code in Plan Mode Before Coding)
 
@@ -49,6 +49,7 @@
 - Post-review hardening (RDD lineage `review-ccdaa6251f263218` advisory findings): auditor-name lookup failures degrade to `audited_by=None` with a logged warning; tenant claim coerced defensively (missing/null/non-numeric -> 1); latest-auditor window function tie-breaks on `audit_id DESC`. Full backend suite: 432 passed; ruff clean.
 - Second review (`review-81a0b23f432ae6d8`) follow-up: tenant claim is now strict. Absent defaults to 1 per §4.4; null/empty/non-numeric -> 401. Added a DI wiring test for `SQLAlchemyUserRepository`. Full backend suite: 436 passed.
 - `T3` done: `audited_by?: string | null` on `ArticuloBase`/`ApiArticuloBase`; `mapToArticuloPublicView` maps `raw.audited_by ?? null` (admin view inherits via spread); seeds ART-00101/102/103 carry `"Usuario Test (Auditor)"`; mock `registerAudit` sets `currentUser?.name || "Auditor"` and now lists `currentUser` in its `useCallback` deps (avoids a stale auditor name). Web suite: 151 passed; tsc clean; lint 0 errors.
+- `T4` done: removed `getAuditorForArticle` (and the now-unused `useDataClient` dependency) from `DataTable.tsx`; desktop and mobile supervisor views render `art.audited_by` with initials via a shared `getInitials` helper (`trim` + `split(/\s+/)`), `—` slate-400 when audited without a resolvable name, `—` slate-300 when not audited. S5 test in `app/catalog/page.test.tsx` scopes assertions to the table because the sidebar legitimately shows the logged-in supervisor's name. Web suite: 152 passed; tsc clean; lint 0 errors.
 
 ## 4. Open Questions & Blockers
 
@@ -56,4 +57,4 @@
 
 ## 5. Next Action
 
-- Ready for **Claude Code** (the Build Agent) to continue with `T4` using TDD (`Red -> Green -> Refactor`) following [`specs/catalog-audited-by-attribution/tasks.md`](file:///home/fede/Proyectos/SaaSStockDepositControl/specs/catalog-audited-by-attribution/tasks.md).
+- All tasks done. Optional: human-invoked Antigravity diff review against `spec.md` (S1..S6), then PR to `main`.
