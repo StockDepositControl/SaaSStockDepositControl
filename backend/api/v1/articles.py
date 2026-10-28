@@ -31,12 +31,17 @@ async def search_articles(
         min_length=1,
         description="Search query string (Article ID, barcode, or name token)",
     ),
+    id_deposito: int = Query(
+        1, ge=1, description="Deposit/Warehouse ID for stock resolution"
+    ),
     claims: dict = Depends(get_current_user_claims),
-    search_service: ArticleSearchService = Depends(get_article_search_service),
+    orchestrator: ArticleCatalogOrchestrator = Depends(
+        get_article_catalog_orchestrator
+    ),
     work_session_service: WorkSessionService = Depends(get_work_session_service),
 ) -> List[Any]:
     """
-    Search articles catalog.
+    Search articles catalog enriched with effective stock.
     """
     tenant_id = claims.get("tenant_id")
     branch_id = claims.get("branch_id") or 1
@@ -44,8 +49,8 @@ async def search_articles(
     session = await work_session_service.get_or_create_active_session(
         tenant_id=tenant_id, branch_id=branch_id
     )
-    results = await search_service.search_articles(
-        query, active_session_id=session.session_id
+    results = await orchestrator.search_and_enrich_articles(
+        query=query, deposit_id=id_deposito, active_session_id=session.session_id
     )
 
     user_role = claims.get("role", "").lower()

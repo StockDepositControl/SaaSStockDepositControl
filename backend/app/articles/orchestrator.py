@@ -96,3 +96,37 @@ class ArticleCatalogOrchestrator:
         )
 
         return article.model_copy(update={"stock_real": stock_map.get(id_articulo, 0)})
+
+    async def search_and_enrich_articles(
+        self,
+        query: str,
+        deposit_id: int = 1,
+        active_session_id: Optional[int] = None,
+    ) -> List[Articulo]:
+        """
+        Orchestrates:
+        1. Multi-field article search via ArticleSearchService.
+        2. Batch lookup of effective stock levels via StockLookupService
+           (skipped when the search yields no matches).
+        3. Enrichment of article entities with resolved stock_real without mutating
+           original instances.
+        Returns the list of enriched Articulo domain entities.
+        """
+        articles = await self.article_search_service.search_articles(
+            query=query,
+            active_session_id=active_session_id,
+        )
+
+        if not articles:
+            return []
+
+        stock_map = await self.stock_lookup_service.get_effective_stocks_batch(
+            article_ids=[art.id_articulo for art in articles],
+            deposit_id=deposit_id,
+            active_session_id=active_session_id,
+        )
+
+        return [
+            art.model_copy(update={"stock_real": stock_map.get(art.id_articulo, 0)})
+            for art in articles
+        ]
