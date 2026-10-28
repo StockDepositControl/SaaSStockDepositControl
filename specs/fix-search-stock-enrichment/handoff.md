@@ -49,3 +49,10 @@ Remember:
 - `ruff check .`: all checks passed; `ruff format --check .`: 127 files already formatted.
 - No source changes required. T1–T4 committed together as `fix(backend): enrich article search results with effective stock levels`.
 - **Status:** Change complete; all `S1`–`S4` verified.
+
+### Post-Build Review Follow-ups (RDD `review-f5e35a504bc996f1`, approved, non-blocking)
+Out of scope for this change; each needs its own spec before implementation.
+
+1. **[WARNING] Search availability depends on stock lookup** — `backend/app/articles/orchestrator.py:123-127`. Any exception from `StockLookupService.get_effective_stocks_batch` now fails `GET /api/v1/articles/search` with 5xx (previously returned `stock_real: null`). **Decision needed:** degrade gracefully (return articles with unresolved stock) vs. fail explicitly; add a test for the chosen behavior.
+2. **[SUGGESTION] Tautological route test for audit priority** — `backend/tests/api/test_articles_routes.py:210-225`. Stubbed orchestrator echoes `stock_real=195`/`fue_auditado=True`; does not exercise `S2`. Also no assertion for `fue_auditado: false` on non-audited items (`S1`). Consider an integration test against `StockLookupService` or renaming the test.
+3. **[SUGGESTION] Dependency override cleanup not guaranteed** — `backend/tests/api/test_articles_routes.py:163-174`. `app.dependency_overrides.clear()` runs only after passing assertions; move to a `yield` fixture to prevent order-dependent leakage.
