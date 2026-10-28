@@ -97,4 +97,4 @@
   - [ ] Verify pages 1 through 50 and search for "ART" items succeed.
   - [ ] All frontend test suites pass, TypeScript zero errors, ESLint zero errors.
 - **Verification Command:** `npm test && npx tsc --noEmit && npm run lint`
-- **Status:** `[ ] pending`
+- **Status:** `[x] done` (`e0156b7`)

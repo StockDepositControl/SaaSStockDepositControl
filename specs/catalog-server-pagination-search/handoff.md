@@ -2,7 +2,7 @@
 
 - **Spec:** `specs/catalog-server-pagination-search/spec.md`
 - **Tasks:** `specs/catalog-server-pagination-search/tasks.md`
-- **Current Phase:** `Ready for Build (Approved)`
+- **Current Phase:** `Completed`
 - **Engram Topic Key:** `spec/catalog-server-pagination-search/decisions`
 
 ---
@@ -11,8 +11,8 @@
 
 - **Spec Status:** `Approved`
 - **Last Updated By:** `Antigravity (Gemini)`
-- **Completed Tasks:** `T1, T2, T3`
-- **Pending Tasks:** `T4`
+- **Completed Tasks:** `T1, T2, T3, T4`
+- **Pending Tasks:** `None`
 
 ---
 
@@ -77,3 +77,11 @@
 - Families are fetched once per client/user in paginated mode. If the fetch fails, `families` falls back to `[]` without touching articles or `error`.
 - Extra return fields beyond the spec contract: `search`, `idFamilia`, `status` (current values for controlled inputs in T4).
 - Verification: `useArticles.test.ts` 16 passed; `tsc --noEmit` clean; eslint clean on touched files. Full suite: 140/141, the only failure is the pre-existing `app/reports/page.test.tsx` test (confirmed failing on baseline without T3).
+
+## T4 — Spec-Challenge Notes & Outcome (Claude Code)
+
+- `DataTable.tsx` converted to accept optional `server` controls (`DataTableServerControls`). When omitted, it gracefully preserves the legacy client-side in-memory slicing/filtering for backwards compatibility.
+- In server mode, page range counter computes `(page - 1) * limit + 1` to `min(page * limit, total)` of `total` items (e.g. `1-10 de 500 ítems`).
+- Search input, family dropdown, status dropdown, and pagination controls (`<`, `>`, `<<`, `>>`, numeric page buttons) bind directly to server callbacks (`onSearchChange`, `onFamilyChange`, `onStatusChange`, `onPageChange`).
+- `CatalogPage` (`app/catalog/page.tsx`) invokes `useArticles({ paginated: true })` and updates header subtitle to display true database item count (`${total} artículos`).
+- Verification: `page.test.tsx` 7 passed, full frontend unit suite clean; `tsc --noEmit` clean; ESLint clean. Commit: `e0156b7`.
