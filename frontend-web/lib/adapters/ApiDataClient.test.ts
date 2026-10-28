@@ -334,4 +334,72 @@ describe("ApiDataClient", () => {
       expect(updated.role).toBe(UserRole.SUPERVISOR);
     });
   });
+
+  describe("getPaginatedArticles", () => {
+    const pageResponse = {
+      items: [
+        {
+          id_articulo: "ART-00101",
+          des_articulo: "ART Shampoo",
+          stock_real: 10,
+          fue_auditado: false,
+          pcio_com_siva: "99.50",
+        },
+      ],
+      total: 500,
+      page: 11,
+      limit: 10,
+      pages: 50,
+    };
+
+    it("serializes query params and returns pagination metadata", async () => {
+      const getSpy = vi.spyOn(mockHttp, "get").mockResolvedValue(pageResponse);
+
+      const result = await client.getPaginatedArticles(
+        { page: 11, limit: 10, search: "ART", id_familia: "02", fue_auditado: false },
+        UserRole.AUDITOR
+      );
+
+      expect(getSpy).toHaveBeenCalledWith("/api/v1/articles", {
+        params: { page: 11, limit: 10, search: "ART", id_familia: "02", fue_auditado: false },
+      });
+      expect(result.total).toBe(500);
+      expect(result.page).toBe(11);
+      expect(result.limit).toBe(10);
+      expect(result.pages).toBe(50);
+      expect(result.items[0].id_articulo).toBe("ART-00101");
+      expect("pcio_com_siva" in result.items[0]).toBe(false);
+    });
+
+    it("defaults to page 1 / limit 10 and drops blank params", async () => {
+      const getSpy = vi.spyOn(mockHttp, "get").mockResolvedValue(pageResponse);
+
+      await client.getPaginatedArticles({ search: "   ", id_familia: "" }, UserRole.AUDITOR);
+
+      expect(getSpy).toHaveBeenCalledWith("/api/v1/articles", {
+        params: { page: 1, limit: 10 },
+      });
+    });
+
+    it("keeps pcio_com_siva as a number for ADMINISTRADOR", async () => {
+      vi.spyOn(mockHttp, "get").mockResolvedValue(pageResponse);
+
+      const result = await client.getPaginatedArticles({ page: 11 }, UserRole.ADMINISTRADOR);
+
+      expect((result.items[0] as { pcio_com_siva: number }).pcio_com_siva).toBe(99.5);
+    });
+  });
+
+  it("getFamilies fetches /api/v1/articles/families", async () => {
+    const families = [
+      { id_familia: "01", des_familia: "Medicamentos" },
+      { id_familia: "02", des_familia: "Perfumería" },
+    ];
+    const getSpy = vi.spyOn(mockHttp, "get").mockResolvedValue(families);
+
+    const result = await client.getFamilies();
+
+    expect(getSpy).toHaveBeenCalledWith("/api/v1/articles/families");
+    expect(result).toEqual(families);
+  });
 });

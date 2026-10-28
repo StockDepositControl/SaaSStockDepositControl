@@ -183,3 +183,8 @@ export interface ApiUserRoleAssignment {
   roles: string[];
 }
 
+
+export interface ApiFamilyOut {
+  id_familia: string;
+  des_familia: string;
+}

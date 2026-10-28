@@ -8,6 +8,9 @@ import {
   DashboardKPIsBase,
   DashboardKPIsAdmin,
   MockUser,
+  ArticleCatalogQuery,
+  PaginatedArticlesResult,
+  ArticleFamily,
 } from "../types/domain";
 import {
   ApiArticleListResponse,
@@ -17,6 +20,7 @@ import {
   ApiAuditEntryResult,
   ApiAuthToken,
   ApiDashboardKPIsResponse,
+  ApiFamilyOut,
   ApiUserResponse,
   ApiUserStatusUpdate,
   ApiUserRoleAssignment,
@@ -177,6 +181,29 @@ export class ApiDataClient implements DataClientPort {
     return (data.items || []).map((item) => mapArticleByRole(item, effectiveRole));
   }
 
+  public async getPaginatedArticles(
+    query: ArticleCatalogQuery = {},
+    role?: UserRole
+  ): Promise<PaginatedArticlesResult> {
+    const effectiveRole = role || this.getCurrentRole();
+    const data = await this.http.get<ApiArticleListResponse>("/api/v1/articles", {
+      params: buildCatalogParams(query),
+    });
+
+    return {
+      items: (data.items || []).map((item) => mapArticleByRole(item, effectiveRole)),
+      total: data.total,
+      page: data.page,
+      limit: data.limit,
+      pages: data.pages,
+    };
+  }
+
+  public async getFamilies(): Promise<ArticleFamily[]> {
+    const data = await this.http.get<ApiFamilyOut[]>("/api/v1/articles/families");
+    return data || [];
+  }
+
   public async getArticuloByBarcode(
     barcodeOrId: string,
     role?: UserRole
@@ -273,4 +300,28 @@ export class ApiDataClient implements DataClientPort {
       montoValorizadoBaja,
     };
   }
+}
+
+const DEFAULT_CATALOG_PAGE = 1;
+const DEFAULT_CATALOG_LIMIT = 10;
+
+/** Serializes a catalog query, dropping undefined and blank values. */
+function buildCatalogParams(
+  query: ArticleCatalogQuery
+): Record<string, string | number | boolean> {
+  const params: Record<string, string | number | boolean> = {
+    page: query.page ?? DEFAULT_CATALOG_PAGE,
+    limit: query.limit ?? DEFAULT_CATALOG_LIMIT,
+  };
+  const optional = {
+    search: query.search?.trim(),
+    id_familia: query.id_familia?.trim(),
+    id_grupo: query.id_grupo?.trim(),
+    fue_auditado: query.fue_auditado,
+    id_deposito: query.id_deposito,
+  };
+  for (const [key, value] of Object.entries(optional)) {
+    if (value !== undefined && value !== "") params[key] = value;
+  }
+  return params;
 }

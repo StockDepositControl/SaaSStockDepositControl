@@ -51,7 +51,7 @@
   - [ ] Implement `getPaginatedArticles` and `getFamilies` in `MockDataContext` for seamless mock parity.
   - [ ] GREEN tests and clean typecheck.
 - **Verification Command:** `npx vitest run lib/adapters/ApiDataClient.test.ts && npx tsc --noEmit`
-- **Status:** `[ ] pending`
+- **Status:** `[x] done`
 
 ---
 

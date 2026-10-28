@@ -12,6 +12,9 @@ import {
   DashboardKPIsBase,
   DashboardKPIsAdmin,
   MockUser,
+  ArticleCatalogQuery,
+  PaginatedArticlesResult,
+  ArticleFamily,
 } from "../types/domain";
 import { DataClientPort } from "../ports/DataClientPort";
 import {
@@ -247,6 +250,56 @@ export function MockDataProvider({
     [articles, currentRole]
   );
 
+  const getPaginatedArticles = useCallback(
+    async (
+      query: ArticleCatalogQuery = {},
+      role?: UserRole
+    ): Promise<PaginatedArticlesResult> => {
+      const activeRole = role ?? currentRole ?? UserRole.AUDITOR;
+      const page = Math.max(1, query.page ?? 1);
+      const limit = Math.max(1, query.limit ?? 10);
+      const term = query.search?.trim().toLowerCase() ?? "";
+
+      const filtered = articles.filter((a) => {
+        if (query.id_familia && a.id_familia !== query.id_familia) return false;
+        if (query.id_grupo && a.id_grupo !== query.id_grupo) return false;
+        if (query.fue_auditado !== undefined && a.fue_auditado !== query.fue_auditado) {
+          return false;
+        }
+        if (!term) return true;
+        return (
+          a.id_articulo.toLowerCase().includes(term) ||
+          a.des_articulo.toLowerCase().includes(term) ||
+          a.cod_barras.some((cb) => cb.toLowerCase().includes(term))
+        );
+      });
+
+      const start = (page - 1) * limit;
+      return {
+        items: filtered
+          .slice(start, start + limit)
+          .map((art) => projectArticleForRole(art, activeRole)),
+        total: filtered.length,
+        page,
+        limit,
+        pages: Math.ceil(filtered.length / limit),
+      };
+    },
+    [articles, currentRole]
+  );
+
+  const getFamilies = useCallback(async (): Promise<ArticleFamily[]> => {
+    const families = new Map<string, string>();
+    for (const a of articles) {
+      if (a.id_familia && !families.has(a.id_familia)) {
+        families.set(a.id_familia, a.des_familia ?? a.id_familia);
+      }
+    }
+    return [...families.entries()]
+      .map(([id_familia, des_familia]) => ({ id_familia, des_familia }))
+      .sort((x, y) => x.id_familia.localeCompare(y.id_familia));
+  }, [articles]);
+
   const getArticuloByBarcode = useCallback(
     async (
       barcodeOrId: string,
@@ -398,6 +451,8 @@ export function MockDataProvider({
   const client: DataClientPort = useMemo(
     () => ({
       getArticulos,
+      getPaginatedArticles,
+      getFamilies,
       getArticuloByBarcode,
       searchArticulos,
       registerAudit,
@@ -416,6 +471,8 @@ export function MockDataProvider({
     }),
     [
       getArticulos,
+      getPaginatedArticles,
+      getFamilies,
       getArticuloByBarcode,
       searchArticulos,
       registerAudit,
