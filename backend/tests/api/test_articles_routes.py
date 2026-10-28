@@ -721,3 +721,33 @@ def test_search_and_get_article_forward_tenant_id(
     assert mock_orchestrator.get_enriched_article.await_args.kwargs["tenant_id"] == 1
 
     app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("tenant_claim", [None, "tenant-01", "", "2"])
+def test_list_articles_coerces_tenant_claim_defensively(
+    tenant_claim, mock_orchestrator, mock_work_session_service
+):
+    from backend.api.dependencies.auth import get_current_user_claims
+
+    claims = {"sub": "auditor@example.com", "role": "auditor", "branch_id": 1}
+    if tenant_claim is not None:
+        claims["tenant_id"] = tenant_claim
+    app.dependency_overrides[get_current_user_claims] = lambda: claims
+    mock_orchestrator.get_enriched_catalog.return_value = ([], 0)
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
+        mock_orchestrator
+    )
+    app.dependency_overrides[get_work_session_service] = lambda: (
+        mock_work_session_service
+    )
+
+    response = TestClient(app).get("/api/v1/articles")
+
+    assert response.status_code == 200
+    expected = 2 if tenant_claim == "2" else 1
+    assert (
+        mock_orchestrator.get_enriched_catalog.await_args.kwargs["tenant_id"]
+        == expected
+    )
+
+    app.dependency_overrides.clear()

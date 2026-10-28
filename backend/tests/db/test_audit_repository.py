@@ -70,6 +70,24 @@ async def test_latest_audit_users_picks_most_recent_scan(analytics_factory):
 
 
 @pytest.mark.asyncio
+async def test_latest_audit_users_breaks_timestamp_ties_by_latest_audit_id(
+    analytics_factory,
+):
+    async with analytics_factory() as s:
+        s.add(_audit(10, "ART-001", 42, NOW))
+        await s.commit()
+        s.add(_audit(10, "ART-001", 7, NOW))
+        await s.commit()
+
+    repo = SQLAlchemyAuditRepository(analytics_factory)
+    result = await repo.get_latest_audit_users_for_articles(
+        session_id=10, article_ids=["ART-001"]
+    )
+
+    assert result == {"ART-001": 7}
+
+
+@pytest.mark.asyncio
 async def test_latest_audit_users_scoped_to_session_and_requested_ids(
     analytics_factory,
 ):

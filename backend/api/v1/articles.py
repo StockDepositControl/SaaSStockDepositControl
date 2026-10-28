@@ -16,6 +16,15 @@ from fastapi import APIRouter, Depends, Path, Query
 router = APIRouter()
 
 
+def _tenant_id_from_claims(claims: dict) -> int:
+    """Returns the numeric tenant_id claim, falling back to 1 when missing or
+    non-numeric."""
+    try:
+        return int(claims.get("tenant_id") or 1)
+    except (TypeError, ValueError):
+        return 1
+
+
 @router.get(
     "/search",
     response_model=List[Union[ArticuloAdminOut, ArticuloPublicOut]],
@@ -43,7 +52,7 @@ async def search_articles(
     """
     Search articles catalog enriched with effective stock.
     """
-    tenant_id = int(claims.get("tenant_id", 1))
+    tenant_id = _tenant_id_from_claims(claims)
     branch_id = claims.get("branch_id") or 1
 
     session = await work_session_service.get_or_create_active_session(
@@ -89,7 +98,7 @@ async def list_articles(
     ),
     work_session_service: WorkSessionService = Depends(get_work_session_service),
 ) -> dict:
-    tenant_id = int(claims.get("tenant_id", 1))
+    tenant_id = _tenant_id_from_claims(claims)
     branch_id = claims.get("branch_id") or 1
 
     session = await work_session_service.get_or_create_active_session(
@@ -163,7 +172,7 @@ async def get_article(
     ),
     work_session_service: WorkSessionService = Depends(get_work_session_service),
 ) -> Any:
-    tenant_id = int(claims.get("tenant_id", 1))
+    tenant_id = _tenant_id_from_claims(claims)
     branch_id = claims.get("branch_id", 1)
 
     session = await work_session_service.get_or_create_active_session(

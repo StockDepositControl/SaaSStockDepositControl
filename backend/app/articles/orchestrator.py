@@ -1,9 +1,12 @@
+import logging
 from typing import Dict, List, Optional, Tuple
 
 from backend.app.articles.models import Articulo
 from backend.app.articles.services import ArticleSearchService
 from backend.app.movements.services import StockLookupService
 from backend.app.users.ports import UserRepositoryPort
+
+logger = logging.getLogger(__name__)
 
 
 class ArticleCatalogOrchestrator:
@@ -32,7 +35,8 @@ class ArticleCatalogOrchestrator:
         """
         Resolves {article_code: auditor display name} for the latest audit of each
         article in the active session. Users are loaded once per call via
-        list_by_tenant; unresolvable user IDs are omitted.
+        list_by_tenant; unresolvable user IDs are omitted. Lookup failures degrade
+        to an empty mapping so the catalog is still served with audited_by=None.
         """
         if (
             self.user_repository is None
@@ -42,13 +46,21 @@ class ArticleCatalogOrchestrator:
         ):
             return {}
 
-        auditor_ids = await self.stock_lookup_service.get_session_auditors_batch(
-            session_id=active_session_id, article_ids=article_ids
-        )
-        if not auditor_ids:
+        try:
+            auditor_ids = await self.stock_lookup_service.get_session_auditors_batch(
+                session_id=active_session_id, article_ids=article_ids
+            )
+            if not auditor_ids:
+                return {}
+            users = await self.user_repository.list_by_tenant(tenant_id)
+        except Exception:
+            logger.warning(
+                "Auditor name resolution failed; serving catalog without audited_by",
+                extra={"tenant_id": tenant_id, "session_id": active_session_id},
+                exc_info=True,
+            )
             return {}
 
-        users = await self.user_repository.list_by_tenant(tenant_id)
         user_names = {u.user_id: f"{u.first_name} {u.last_name}".strip() for u in users}
         return {
             code: user_names[user_id]

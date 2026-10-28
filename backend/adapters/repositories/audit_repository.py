@@ -185,7 +185,10 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
                 func.row_number()
                 .over(
                     partition_by=AuditRecordORM.article_code,
-                    order_by=AuditRecordORM.scan_timestamp.desc(),
+                    order_by=(
+                        AuditRecordORM.scan_timestamp.desc(),
+                        AuditRecordORM.audit_id.desc(),
+                    ),
                 )
                 .label("rn")
             )

@@ -491,3 +491,46 @@ async def test_search_and_enrich_articles_resolves_auditor_name(
 
     assert [a.audited_by for a in articles] == ["Carlos Auditor", None]
     mock_user_repository.list_by_tenant.assert_awaited_once_with(1)
+
+
+@pytest.mark.asyncio
+async def test_get_enriched_catalog_degrades_when_user_repository_fails(
+    auditing_orchestrator,
+    mock_search_service,
+    mock_stock_lookup_service,
+    mock_user_repository,
+):
+    mock_search_service.list_articles.return_value = ([_article("ART-001", True)], 1)
+    mock_stock_lookup_service.get_effective_stocks_batch.return_value = {"ART-001": 7}
+    mock_stock_lookup_service.get_session_auditors_batch.return_value = {"ART-001": 42}
+    mock_user_repository.list_by_tenant.side_effect = ConnectionError("db_users down")
+
+    articles, total = await auditing_orchestrator.get_enriched_catalog(
+        active_session_id=10, tenant_id=1
+    )
+
+    assert total == 1
+    assert articles[0].stock_real == 7
+    assert articles[0].fue_auditado is True
+    assert articles[0].audited_by is None
+
+
+@pytest.mark.asyncio
+async def test_get_enriched_catalog_degrades_when_auditor_lookup_fails(
+    auditing_orchestrator,
+    mock_search_service,
+    mock_stock_lookup_service,
+    mock_user_repository,
+):
+    mock_search_service.list_articles.return_value = ([_article("ART-001", True)], 1)
+    mock_stock_lookup_service.get_effective_stocks_batch.return_value = {"ART-001": 7}
+    mock_stock_lookup_service.get_session_auditors_batch.side_effect = RuntimeError(
+        "db_analytics down"
+    )
+
+    articles, _ = await auditing_orchestrator.get_enriched_catalog(
+        active_session_id=10, tenant_id=1
+    )
+
+    assert articles[0].audited_by is None
+    mock_user_repository.list_by_tenant.assert_not_called()
