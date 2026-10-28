@@ -4,11 +4,13 @@ from unittest.mock import AsyncMock
 
 import pytest
 from backend.api.dependencies.services import (
+    get_article_catalog_orchestrator,
     get_article_search_service,
     get_work_session_service,
 )
 from backend.api.main import app
 from backend.app.articles.models import Articulo
+from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
 from backend.app.articles.services import ArticleSearchService
 from backend.app.work_sessions.models import WorkSession
 from fastapi.testclient import TestClient
@@ -18,6 +20,11 @@ from fastapi.testclient import TestClient
 def mock_search_service():
     service = AsyncMock(spec=ArticleSearchService)
     return service
+
+
+@pytest.fixture
+def mock_orchestrator():
+    return AsyncMock(spec=ArticleCatalogOrchestrator)
 
 
 @pytest.fixture
@@ -37,7 +44,7 @@ def mock_work_session_service():
 
 
 def test_search_articles_endpoint_as_admin(
-    mock_search_service, mock_work_session_service, monkeypatch
+    mock_orchestrator, mock_work_session_service
 ):
     from backend.api.dependencies.auth import get_current_user_claims
 
@@ -59,9 +66,12 @@ def test_search_articles_endpoint_as_admin(
         id_grupo="02",
         des_grupo="Analgésicos",
         pcio_com_siva=Decimal("150.00"),
+        stock_real=194,
     )
-    mock_search_service.search_articles.return_value = [mock_article]
-    app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
+    mock_orchestrator.search_and_enrich_articles.return_value = [mock_article]
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
+        mock_orchestrator
+    )
     app.dependency_overrides[get_work_session_service] = lambda: (
         mock_work_session_service
     )
@@ -77,12 +87,16 @@ def test_search_articles_endpoint_as_admin(
     # Admin gets cost field pcio_com_siva
     assert "pcio_com_siva" in data[0]
     assert Decimal(str(data[0]["pcio_com_siva"])) == Decimal("150.00")
+    assert data[0]["stock_real"] == 194
+    mock_orchestrator.search_and_enrich_articles.assert_awaited_once_with(
+        query="Ibuprofeno", deposit_id=1, active_session_id=1
+    )
 
     app.dependency_overrides.clear()
 
 
 def test_search_articles_endpoint_as_auditor(
-    mock_search_service, mock_work_session_service
+    mock_orchestrator, mock_work_session_service
 ):
     from backend.api.dependencies.auth import get_current_user_claims
 
@@ -104,9 +118,12 @@ def test_search_articles_endpoint_as_auditor(
         id_grupo="02",
         des_grupo="Analgésicos",
         pcio_com_siva=Decimal("150.00"),
+        stock_real=194,
     )
-    mock_search_service.search_articles.return_value = [mock_article]
-    app.dependency_overrides[get_article_search_service] = lambda: mock_search_service
+    mock_orchestrator.search_and_enrich_articles.return_value = [mock_article]
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
+        mock_orchestrator
+    )
     app.dependency_overrides[get_work_session_service] = lambda: (
         mock_work_session_service
     )
@@ -120,6 +137,123 @@ def test_search_articles_endpoint_as_auditor(
     assert data[0]["id_articulo"] == "1042"
     # Auditor must NOT get cost field pcio_com_siva
     assert "pcio_com_siva" not in data[0]
+    assert data[0]["stock_real"] == 194
+
+    app.dependency_overrides.clear()
+
+
+def test_search_articles_forwards_id_deposito(
+    mock_orchestrator, mock_work_session_service
+):
+    from backend.api.dependencies.auth import get_current_user_claims
+
+    app.dependency_overrides[get_current_user_claims] = lambda: {
+        "sub": "auditor@example.com",
+        "role": "auditor",
+        "tenant_id": "tenant-01",
+    }
+    mock_orchestrator.search_and_enrich_articles.return_value = []
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
+        mock_orchestrator
+    )
+    app.dependency_overrides[get_work_session_service] = lambda: (
+        mock_work_session_service
+    )
+
+    client = TestClient(app)
+    response = client.get("/api/v1/articles/search?query=Ibu&id_deposito=3")
+    invalid = client.get("/api/v1/articles/search?query=Ibu&id_deposito=0")
+
+    assert response.status_code == 200
+    assert response.json() == []
+    mock_orchestrator.search_and_enrich_articles.assert_awaited_once_with(
+        query="Ibu", deposit_id=3, active_session_id=1
+    )
+    assert invalid.status_code == 422
+
+    app.dependency_overrides.clear()
+
+
+def _override_search_deps(role, mock_orchestrator, mock_work_session_service):
+    from backend.api.dependencies.auth import get_current_user_claims
+
+    app.dependency_overrides[get_current_user_claims] = lambda: {
+        "sub": f"{role}@example.com",
+        "role": role,
+        "tenant_id": "tenant-01",
+    }
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
+        mock_orchestrator
+    )
+    app.dependency_overrides[get_work_session_service] = lambda: (
+        mock_work_session_service
+    )
+
+
+def _audited_article():
+    return Articulo(
+        id_articulo="ART-00002",
+        presentacion="Caja x 30",
+        des_articulo="MED Esasomeprazol 20mg",
+        id_marca=3,
+        des_marca="Roemmers",
+        id_familia="01",
+        des_familia="Medicamentos",
+        id_grupo="03",
+        des_grupo="Gastro",
+        pcio_com_siva=Decimal("90.00"),
+        stock_real=195,
+        fue_auditado=True,
+    )
+
+
+def test_search_articles_audited_article_returns_session_count(
+    mock_orchestrator, mock_work_session_service
+):
+    _override_search_deps("auditor", mock_orchestrator, mock_work_session_service)
+    mock_orchestrator.search_and_enrich_articles.return_value = [_audited_article()]
+
+    response = TestClient(app).get("/api/v1/articles/search?query=MED+Esa")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["stock_real"] == 195
+    assert data[0]["fue_auditado"] is True
+    assert "pcio_com_siva" not in data[0]
+
+    app.dependency_overrides.clear()
+
+
+def test_search_articles_endpoint_as_supervisor_masks_cost(
+    mock_orchestrator, mock_work_session_service
+):
+    _override_search_deps("supervisor", mock_orchestrator, mock_work_session_service)
+    mock_orchestrator.search_and_enrich_articles.return_value = [_audited_article()]
+
+    response = TestClient(app).get("/api/v1/articles/search?query=MED+Esa")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "pcio_com_siva" not in data[0]
+    assert data[0]["stock_real"] == 195
+
+    app.dependency_overrides.clear()
+
+
+def test_search_articles_no_matches_returns_empty_list(
+    mock_orchestrator, mock_work_session_service
+):
+    _override_search_deps("auditor", mock_orchestrator, mock_work_session_service)
+    mock_orchestrator.search_and_enrich_articles.return_value = []
+
+    response = TestClient(app).get("/api/v1/articles/search?query=nonexistent")
+
+    assert response.status_code == 200
+    assert response.json() == []
+    mock_orchestrator.search_and_enrich_articles.assert_awaited_once_with(
+        query="nonexistent", deposit_id=1, active_session_id=1
+    )
 
     app.dependency_overrides.clear()
 
