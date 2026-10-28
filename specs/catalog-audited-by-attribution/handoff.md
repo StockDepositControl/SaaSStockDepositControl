@@ -47,6 +47,7 @@
 - `T1` done: `get_latest_audit_users_for_articles` (port + SQLAlchemy adapter), `StockLookupService.get_session_auditors_batch`, `audited_by` on `ArticuloBase`/`ArticuloPublicOut` (inherited by `Articulo`/`ArticuloAdminOut`). Full backend suite: 415 passed; ruff clean.
 - `T2` done: `ArticleCatalogOrchestrator` takes optional `user_repository` and `tenant_id`, resolving `audited_by` in catalog, search, and single-article flows; `get_article_catalog_orchestrator` wires `SQLAlchemyUserRepository`; router forwards `tenant_id`. Full backend suite: 425 passed; ruff clean.
 - Post-review hardening (RDD lineage `review-ccdaa6251f263218` advisory findings): auditor-name lookup failures degrade to `audited_by=None` with a logged warning; tenant claim coerced defensively (missing/null/non-numeric -> 1); latest-auditor window function tie-breaks on `audit_id DESC`. Full backend suite: 432 passed; ruff clean.
+- Second review (`review-81a0b23f432ae6d8`) follow-up: tenant claim is now strict. Absent defaults to 1 per §4.4; null/empty/non-numeric -> 401. Added a DI wiring test for `SQLAlchemyUserRepository`. Full backend suite: 436 passed.
 
 ## 4. Open Questions & Blockers
 

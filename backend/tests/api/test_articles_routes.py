@@ -723,15 +723,9 @@ def test_search_and_get_article_forward_tenant_id(
     app.dependency_overrides.clear()
 
 
-@pytest.mark.parametrize("tenant_claim", [None, "tenant-01", "", "2"])
-def test_list_articles_coerces_tenant_claim_defensively(
-    tenant_claim, mock_orchestrator, mock_work_session_service
-):
+def _override_list_deps(claims, mock_orchestrator, mock_work_session_service):
     from backend.api.dependencies.auth import get_current_user_claims
 
-    claims = {"sub": "auditor@example.com", "role": "auditor", "branch_id": 1}
-    if tenant_claim is not None:
-        claims["tenant_id"] = tenant_claim
     app.dependency_overrides[get_current_user_claims] = lambda: claims
     mock_orchestrator.get_enriched_catalog.return_value = ([], 0)
     app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
@@ -741,13 +735,59 @@ def test_list_articles_coerces_tenant_claim_defensively(
         mock_work_session_service
     )
 
+
+@pytest.mark.parametrize("tenant_claim", [None, "tenant-01", "", "abc"])
+def test_list_articles_rejects_malformed_tenant_claim(
+    tenant_claim, mock_orchestrator, mock_work_session_service
+):
+    claims = {"sub": "a@example.com", "role": "auditor", "tenant_id": tenant_claim}
+    _override_list_deps(claims, mock_orchestrator, mock_work_session_service)
+
+    response = TestClient(app).get("/api/v1/articles")
+
+    assert response.status_code == 401
+    mock_orchestrator.get_enriched_catalog.assert_not_called()
+
+    app.dependency_overrides.clear()
+
+
+@pytest.mark.parametrize("tenant_claim,expected", [("2", 2), (3, 3)])
+def test_list_articles_accepts_numeric_tenant_claim(
+    tenant_claim, expected, mock_orchestrator, mock_work_session_service
+):
+    claims = {"sub": "a@example.com", "role": "auditor", "tenant_id": tenant_claim}
+    _override_list_deps(claims, mock_orchestrator, mock_work_session_service)
+
     response = TestClient(app).get("/api/v1/articles")
 
     assert response.status_code == 200
-    expected = 2 if tenant_claim == "2" else 1
-    assert (
-        mock_orchestrator.get_enriched_catalog.await_args.kwargs["tenant_id"]
-        == expected
-    )
+    kwargs = mock_orchestrator.get_enriched_catalog.await_args.kwargs
+    assert kwargs["tenant_id"] == expected
 
     app.dependency_overrides.clear()
+
+
+def test_list_articles_missing_tenant_claim_defaults_to_one(
+    mock_orchestrator, mock_work_session_service
+):
+    claims = {"sub": "a@example.com", "role": "auditor"}
+    _override_list_deps(claims, mock_orchestrator, mock_work_session_service)
+
+    response = TestClient(app).get("/api/v1/articles")
+
+    assert response.status_code == 200
+    assert mock_orchestrator.get_enriched_catalog.await_args.kwargs["tenant_id"] == 1
+
+    app.dependency_overrides.clear()
+
+
+def test_article_catalog_orchestrator_dependency_wires_user_repository():
+    from backend.adapters.repositories.user_repository import SQLAlchemyUserRepository
+
+    orchestrator = get_article_catalog_orchestrator(
+        search_service=AsyncMock(spec=ArticleSearchService),
+        stock_lookup_service=AsyncMock(),
+    )
+
+    assert isinstance(orchestrator, ArticleCatalogOrchestrator)
+    assert isinstance(orchestrator.user_repository, SQLAlchemyUserRepository)

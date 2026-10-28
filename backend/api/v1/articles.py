@@ -11,18 +11,22 @@ from backend.app.articles.models import ArticuloAdminOut, ArticuloPublicOut, Fam
 from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
 from backend.app.articles.services import ArticleSearchService
 from backend.app.work_sessions.services import WorkSessionService
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 router = APIRouter()
 
 
 def _tenant_id_from_claims(claims: dict) -> int:
-    """Returns the numeric tenant_id claim, falling back to 1 when missing or
-    non-numeric."""
+    """Returns the numeric tenant_id claim (defaulting to 1 when absent, per spec
+    section 4.4). A present but null or non-numeric claim is rejected with 401 so a
+    malformed token is never attached to another tenant's data."""
     try:
-        return int(claims.get("tenant_id") or 1)
+        return int(claims.get("tenant_id", 1))
     except (TypeError, ValueError):
-        return 1
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid tenant claim",
+        )
 
 
 @router.get(
