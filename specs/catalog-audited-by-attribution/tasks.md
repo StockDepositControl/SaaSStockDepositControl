@@ -69,16 +69,16 @@
   - `frontend-web/lib/mocks/seed-data.ts`
   - `frontend-web/lib/mocks/MockDataContext.tsx`
 - **Acceptance Criteria:**
-  - [ ] RED test: update `mappers.test.ts` to assert `raw.audited_by` is correctly mapped to `domain.audited_by`.
-  - [ ] GREEN: add `audited_by?: string | null;` to `ArticuloBase` and `ApiArticuloBase`.
-  - [ ] GREEN: map `audited_by: raw.audited_by ?? null` in `mapToArticuloPublicView`.
-  - [ ] GREEN: populate `audited_by: "Usuario Test (Auditor)"` for audited items in `seed-data.ts`.
-  - [ ] GREEN: update `MockDataContext.tsx` `registerAudit` to set `audited_by: currentUser?.name || "Auditor"`.
+  - [x] RED test: update `mappers.test.ts` to assert `raw.audited_by` is correctly mapped to `domain.audited_by`.
+  - [x] GREEN: add `audited_by?: string | null;` to `ArticuloBase` and `ApiArticuloBase`.
+  - [x] GREEN: map `audited_by: raw.audited_by ?? null` in `mapToArticuloPublicView`.
+  - [x] GREEN: populate `audited_by: "Usuario Test (Auditor)"` for audited items in `seed-data.ts`.
+  - [x] GREEN: update `MockDataContext.tsx` `registerAudit` to set `audited_by: currentUser?.name || "Auditor"`.
 - **Verification Command:**
   ```bash
   cd frontend-web && npx vitest run lib/adapters/mappers.test.ts && npx tsc --noEmit && npm run lint
   ```
-- **Status:** `[ ] pending`
+- **Status:** `[x] done`
 
 ---
 

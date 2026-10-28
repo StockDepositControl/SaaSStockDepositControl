@@ -48,6 +48,7 @@
 - `T2` done: `ArticleCatalogOrchestrator` takes optional `user_repository` and `tenant_id`, resolving `audited_by` in catalog, search, and single-article flows; `get_article_catalog_orchestrator` wires `SQLAlchemyUserRepository`; router forwards `tenant_id`. Full backend suite: 425 passed; ruff clean.
 - Post-review hardening (RDD lineage `review-ccdaa6251f263218` advisory findings): auditor-name lookup failures degrade to `audited_by=None` with a logged warning; tenant claim coerced defensively (missing/null/non-numeric -> 1); latest-auditor window function tie-breaks on `audit_id DESC`. Full backend suite: 432 passed; ruff clean.
 - Second review (`review-81a0b23f432ae6d8`) follow-up: tenant claim is now strict. Absent defaults to 1 per §4.4; null/empty/non-numeric -> 401. Added a DI wiring test for `SQLAlchemyUserRepository`. Full backend suite: 436 passed.
+- `T3` done: `audited_by?: string | null` on `ArticuloBase`/`ApiArticuloBase`; `mapToArticuloPublicView` maps `raw.audited_by ?? null` (admin view inherits via spread); seeds ART-00101/102/103 carry `"Usuario Test (Auditor)"`; mock `registerAudit` sets `currentUser?.name || "Auditor"` and now lists `currentUser` in its `useCallback` deps (avoids a stale auditor name). Web suite: 151 passed; tsc clean; lint 0 errors.
 
 ## 4. Open Questions & Blockers
 
@@ -55,4 +56,4 @@
 
 ## 5. Next Action
 
-- Ready for **Claude Code** (the Build Agent) to continue with `T3`/`T4` using TDD (`Red -> Green -> Refactor`) following [`specs/catalog-audited-by-attribution/tasks.md`](file:///home/fede/Proyectos/SaaSStockDepositControl/specs/catalog-audited-by-attribution/tasks.md).
+- Ready for **Claude Code** (the Build Agent) to continue with `T4` using TDD (`Red -> Green -> Refactor`) following [`specs/catalog-audited-by-attribution/tasks.md`](file:///home/fede/Proyectos/SaaSStockDepositControl/specs/catalog-audited-by-attribution/tasks.md).

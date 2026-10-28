@@ -402,6 +402,7 @@ export function MockDataProvider({
             return {
               ...art,
               fue_auditado: true,
+              audited_by: currentUser?.name || "Auditor",
               ultimo_conteo_fisico: entry.stock_fisico_contado,
               stock_real: entry.stock_fisico_contado,
             };
@@ -414,7 +415,7 @@ export function MockDataProvider({
 
       return newAuditResult;
     },
-    [articles, auditLogs.length]
+    [articles, auditLogs.length, currentUser]
   );
 
   const getKPIs = useCallback(
