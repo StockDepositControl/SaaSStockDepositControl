@@ -19,7 +19,7 @@ This change transitions the catalog module from a hardcoded client-side 100-item
 ## 2. Assumptions
 
 - `A1:` The backend endpoint `GET /api/v1/articles` already supports `page`, `limit`, `search`, `id_familia`, `id_grupo`, and `fue_auditado`, and returns `{ items, total, page, limit, pages }`.
-- `A2:` In MariaDB `db_articles`, articles are ordered by `id_articulo ASC`. Seed data generates 250 "MED" articles followed by 250 "ART" articles; fetching only the first 100 records was the sole reason "ART" articles never appeared.
+- `A2:` In MariaDB `db_articles`, all articles share the ID prefix `ART-` (`ART-00000`..`ART-00499`) and are ordered by `id_articulo ASC`. Seed data assigns description prefix `"MED "` to the first 250 articles (`ART-00000`..`ART-00249`) and description prefix `"ART "` to the remaining 250 articles (`ART-00250`..`ART-00499`). Fetching only the first 100 records was the sole reason articles with description prefix `"ART "` never appeared.
 - `A3:` Searching in the catalog should match article code (`id_articulo`), barcode (`cod_barra`), and description tokens (`des_articulo`), aligning catalog search capabilities with the audit search module.
 - `A4:` A catalog page size of 10 items per page matches the existing `DataTable` presentation, while the server pagination controls will reflect the true database total (e.g., 500 items across 50 pages).
 - `A5:` The report module (`app/reports/page.tsx`) consumes `useArticles()`, so backward compatibility or clean propagation of `useArticles` options must be preserved.
@@ -136,9 +136,9 @@ async def list_families(
   - **Then:** The catalog header indicates `500 artículos`, the pagination footer indicates `1-10 de 500 ítems`, `totalPages` is `50`, and navigating to page 11 requests `{ page: 11, limit: 10 }` and renders items 101–110.
 
 - **`S2` (Visibility of "ART" and Taxable Items):**
-  - **Given:** Articles `ART-00000` through `ART-00249` are "MED" and `ART-00250` through `ART-00499` are "ART".
-  - **When:** The user navigates to page 26 or searches for `"ART"`.
-  - **Then:** Articles with prefix `"ART "` are rendered in the catalog table with their corresponding descriptions and stocks.
+  - **Given:** All articles have ID prefix `ART-` (`ART-00000` through `ART-00499`). Articles `ART-00000` through `ART-00249` have description prefix `"MED "` and `ART-00250` through `ART-00499` have description prefix `"ART "`.
+  - **When:** The user navigates to page 26 or searches for description token `"ART"` (or exact ID `"ART-00250"`).
+  - **Then:** Articles with description prefix `"ART "` are rendered in the catalog table with their corresponding descriptions and stocks.
 
 - **`S3` (Server-Side Multi-Token & Barcode Search):**
   - **Given:** An article with barcode `"7791234567890"` and name `"Amoxicilina 500mg"`.

@@ -73,7 +73,7 @@
   - [ ] Backward compatibility preserved for unconfigured callers (e.g., reports tab).
   - [ ] GREEN tests and clean typecheck.
 - **Verification Command:** `npx vitest run lib/hooks/useArticles.test.ts && npx tsc --noEmit`
-- **Status:** `[ ] pending`
+- **Status:** `[x] done` (`57a5a2c`)
 
 ---
 
