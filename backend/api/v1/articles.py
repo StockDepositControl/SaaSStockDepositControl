@@ -43,14 +43,17 @@ async def search_articles(
     """
     Search articles catalog enriched with effective stock.
     """
-    tenant_id = claims.get("tenant_id")
+    tenant_id = int(claims.get("tenant_id", 1))
     branch_id = claims.get("branch_id") or 1
 
     session = await work_session_service.get_or_create_active_session(
         tenant_id=tenant_id, branch_id=branch_id
     )
     results = await orchestrator.search_and_enrich_articles(
-        query=query, deposit_id=id_deposito, active_session_id=session.session_id
+        query=query,
+        deposit_id=id_deposito,
+        active_session_id=session.session_id,
+        tenant_id=tenant_id,
     )
 
     user_role = claims.get("role", "").lower()
@@ -86,7 +89,7 @@ async def list_articles(
     ),
     work_session_service: WorkSessionService = Depends(get_work_session_service),
 ) -> dict:
-    tenant_id = claims.get("tenant_id")
+    tenant_id = int(claims.get("tenant_id", 1))
     branch_id = claims.get("branch_id") or 1
 
     session = await work_session_service.get_or_create_active_session(
@@ -101,6 +104,7 @@ async def list_articles(
         fue_auditado=fue_auditado,
         deposit_id=id_deposito,
         active_session_id=session.session_id,
+        tenant_id=tenant_id,
     )
 
     user_role = claims.get("role", "").lower()
@@ -159,7 +163,7 @@ async def get_article(
     ),
     work_session_service: WorkSessionService = Depends(get_work_session_service),
 ) -> Any:
-    tenant_id = claims.get("tenant_id")
+    tenant_id = int(claims.get("tenant_id", 1))
     branch_id = claims.get("branch_id", 1)
 
     session = await work_session_service.get_or_create_active_session(
@@ -169,6 +173,7 @@ async def get_article(
         id_articulo=id_articulo,
         deposit_id=id_deposito,
         active_session_id=session.session_id,
+        tenant_id=tenant_id,
     )
 
     user_role = claims.get("role", "").lower()

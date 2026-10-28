@@ -93,13 +93,17 @@ def get_article_catalog_orchestrator(
     stock_lookup_service: "StockLookupService" = Depends(get_stock_lookup_service),
 ) -> "ArticleCatalogOrchestrator":
     """
-    FastAPI dependency that instantiates and returns the ArticleCatalogOrchestrator.
+    FastAPI dependency that instantiates and returns the ArticleCatalogOrchestrator,
+    wired with the db_users repository for auditor-name resolution.
     """
+    from backend.adapters.database.connection import get_users_session_factory
+    from backend.adapters.repositories.user_repository import SQLAlchemyUserRepository
     from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
 
     return ArticleCatalogOrchestrator(
         article_search_service=search_service,
         stock_lookup_service=stock_lookup_service,
+        user_repository=SQLAlchemyUserRepository(get_users_session_factory()),
     )
 
 

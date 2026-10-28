@@ -44,15 +44,15 @@
   - `backend/tests/domain/test_article_catalog_orchestrator.py`
   - `backend/tests/api/test_articles_routes.py`
 - **Acceptance Criteria:**
-  - [ ] RED test: write tests in `test_article_catalog_orchestrator.py` asserting `audited_by` is enriched with auditor's full name from `user_repository`.
-  - [ ] RED test: write test in `test_articles_routes.py` verifying `GET /api/v1/articles` serializes `"audited_by"`.
-  - [ ] GREEN: inject `user_repository` into `ArticleCatalogOrchestrator` and resolve user names for audited articles.
-  - [ ] GREEN: wire `SQLAlchemyUserRepository` in `get_article_catalog_orchestrator` and pass `tenant_id` in `backend/api/v1/articles.py`.
+  - [x] RED test: write tests in `test_article_catalog_orchestrator.py` asserting `audited_by` is enriched with auditor's full name from `user_repository`.
+  - [x] RED test: write test in `test_articles_routes.py` verifying `GET /api/v1/articles` serializes `"audited_by"`.
+  - [x] GREEN: inject `user_repository` into `ArticleCatalogOrchestrator` and resolve user names for audited articles.
+  - [x] GREEN: wire `SQLAlchemyUserRepository` in `get_article_catalog_orchestrator` and pass `tenant_id` in `backend/api/v1/articles.py`.
 - **Verification Command:**
   ```bash
   cd backend && pytest tests/domain/test_article_catalog_orchestrator.py tests/api/test_articles_routes.py && ruff check . && ruff format --check .
   ```
-- **Status:** `[ ] pending`
+- **Status:** `[x] done`
 
 ---
 

@@ -52,7 +52,7 @@ def test_search_articles_endpoint_as_admin(
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "admin@example.com",
         "role": "administrador",
-        "tenant_id": "tenant-01",
+        "tenant_id": 1,
     }
 
     mock_article = Articulo(
@@ -89,7 +89,7 @@ def test_search_articles_endpoint_as_admin(
     assert Decimal(str(data[0]["pcio_com_siva"])) == Decimal("150.00")
     assert data[0]["stock_real"] == 194
     mock_orchestrator.search_and_enrich_articles.assert_awaited_once_with(
-        query="Ibuprofeno", deposit_id=1, active_session_id=1
+        query="Ibuprofeno", deposit_id=1, active_session_id=1, tenant_id=1
     )
 
     app.dependency_overrides.clear()
@@ -104,7 +104,7 @@ def test_search_articles_endpoint_as_auditor(
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
-        "tenant_id": "tenant-01",
+        "tenant_id": 1,
     }
 
     mock_article = Articulo(
@@ -150,7 +150,7 @@ def test_search_articles_forwards_id_deposito(
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
-        "tenant_id": "tenant-01",
+        "tenant_id": 1,
     }
     mock_orchestrator.search_and_enrich_articles.return_value = []
     app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
@@ -167,7 +167,7 @@ def test_search_articles_forwards_id_deposito(
     assert response.status_code == 200
     assert response.json() == []
     mock_orchestrator.search_and_enrich_articles.assert_awaited_once_with(
-        query="Ibu", deposit_id=3, active_session_id=1
+        query="Ibu", deposit_id=3, active_session_id=1, tenant_id=1
     )
     assert invalid.status_code == 422
 
@@ -180,7 +180,7 @@ def _override_search_deps(role, mock_orchestrator, mock_work_session_service):
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": f"{role}@example.com",
         "role": role,
-        "tenant_id": "tenant-01",
+        "tenant_id": 1,
     }
     app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
         mock_orchestrator
@@ -252,7 +252,7 @@ def test_search_articles_no_matches_returns_empty_list(
     assert response.status_code == 200
     assert response.json() == []
     mock_orchestrator.search_and_enrich_articles.assert_awaited_once_with(
-        query="nonexistent", deposit_id=1, active_session_id=1
+        query="nonexistent", deposit_id=1, active_session_id=1, tenant_id=1
     )
 
     app.dependency_overrides.clear()
@@ -266,7 +266,7 @@ def test_get_article_by_id_endpoint_as_admin_with_stock(mock_work_session_servic
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "admin@example.com",
         "role": "administrador",
-        "tenant_id": "tenant-01",
+        "tenant_id": 1,
         "branch_id": 1,
     }
 
@@ -307,6 +307,7 @@ def test_get_article_by_id_endpoint_as_admin_with_stock(mock_work_session_servic
         id_articulo="1042",
         deposit_id=2,
         active_session_id=1,
+        tenant_id=1,
     )
 
     app.dependency_overrides.clear()
@@ -322,7 +323,7 @@ def test_get_article_by_id_endpoint_as_auditor_with_stock_masked(
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
-        "tenant_id": "tenant-01",
+        "tenant_id": 1,
         "branch_id": 1,
     }
 
@@ -362,6 +363,7 @@ def test_get_article_by_id_endpoint_as_auditor_with_stock_masked(
         id_articulo="1042",
         deposit_id=3,
         active_session_id=1,
+        tenant_id=1,
     )
 
     app.dependency_overrides.clear()
@@ -375,7 +377,7 @@ def test_get_article_by_id_default_deposit(mock_work_session_service):
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
-        "tenant_id": "tenant-01",
+        "tenant_id": 1,
         "branch_id": 1,
     }
 
@@ -402,6 +404,7 @@ def test_get_article_by_id_default_deposit(mock_work_session_service):
         id_articulo="1042",
         deposit_id=1,
         active_session_id=1,
+        tenant_id=1,
     )
 
     app.dependency_overrides.clear()
@@ -428,7 +431,7 @@ def test_list_articles_endpoint_as_admin_with_stock(mock_work_session_service):
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "admin@example.com",
         "role": "administrador",
-        "tenant_id": "tenant-01",
+        "tenant_id": 1,
         "branch_id": 1,
     }
 
@@ -483,7 +486,7 @@ def test_list_articles_endpoint_as_auditor_with_stock_masked(mock_work_session_s
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
-        "tenant_id": "tenant-01",
+        "tenant_id": 1,
         "branch_id": 1,
     }
 
@@ -554,7 +557,7 @@ def test_list_families_endpoint(mock_search_service):
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
-        "tenant_id": "tenant-01",
+        "tenant_id": 1,
         "branch_id": 1,
     }
     mock_search_service.list_families.return_value = [
@@ -581,7 +584,7 @@ def test_list_articles_forwards_barcode_search(mock_work_session_service):
     app.dependency_overrides[get_current_user_claims] = lambda: {
         "sub": "auditor@example.com",
         "role": "auditor",
-        "tenant_id": "tenant-01",
+        "tenant_id": 1,
         "branch_id": 1,
     }
     mock_orchestrator = AsyncMock(spec=ArticleCatalogOrchestrator)
@@ -663,3 +666,58 @@ async def test_repository_list_families_maps_rows():
         ("02", "Perfumería"),
     ]
     assert "ORDER BY familias.id_familia" in _compiled_sql(session.statements[0])
+
+
+def test_list_articles_serializes_audited_by_for_supervisor(
+    mock_orchestrator, mock_work_session_service
+):
+    from backend.api.dependencies.auth import get_current_user_claims
+
+    app.dependency_overrides[get_current_user_claims] = lambda: {
+        "sub": "supervisor@example.com",
+        "role": "supervisor",
+        "tenant_id": 1,
+        "branch_id": 1,
+    }
+    audited = _audited_article().model_copy(update={"audited_by": "Carlos Auditor"})
+    unaudited = _audited_article().model_copy(
+        update={"id_articulo": "ART-002", "fue_auditado": False}
+    )
+    mock_orchestrator.get_enriched_catalog.return_value = ([audited, unaudited], 2)
+    app.dependency_overrides[get_article_catalog_orchestrator] = lambda: (
+        mock_orchestrator
+    )
+    app.dependency_overrides[get_work_session_service] = lambda: (
+        mock_work_session_service
+    )
+
+    response = TestClient(app).get("/api/v1/articles")
+
+    assert response.status_code == 200
+    first, second = response.json()["items"]
+    assert first["audited_by"] == "Carlos Auditor"
+    assert first["fue_auditado"] is True
+    assert "pcio_com_siva" not in first
+    assert second["audited_by"] is None
+    assert second["fue_auditado"] is False
+    assert mock_orchestrator.get_enriched_catalog.await_args.kwargs["tenant_id"] == 1
+
+    app.dependency_overrides.clear()
+
+
+def test_search_and_get_article_forward_tenant_id(
+    mock_orchestrator, mock_work_session_service
+):
+    _override_search_deps("auditor", mock_orchestrator, mock_work_session_service)
+    mock_orchestrator.search_and_enrich_articles.return_value = []
+    mock_orchestrator.get_enriched_article.return_value = _audited_article()
+    client = TestClient(app)
+
+    assert client.get("/api/v1/articles/search?query=x").status_code == 200
+    assert client.get("/api/v1/articles/ART-00002").status_code == 200
+
+    search_kwargs = mock_orchestrator.search_and_enrich_articles.await_args.kwargs
+    assert search_kwargs["tenant_id"] == 1
+    assert mock_orchestrator.get_enriched_article.await_args.kwargs["tenant_id"] == 1
+
+    app.dependency_overrides.clear()

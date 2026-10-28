@@ -36,9 +36,16 @@
 - `tasks.md` header said `Status: Draft` while `spec.md` is Approved; header corrected.
 - S4 is covered at model level in T1 (`audited_by` defaults to `null`); endpoint-level S4 is verified in T2.
 
+### Build Spec-Challenge Notes (Claude Code, T2)
+
+- §4.4 mandates `int(claims.get("tenant_id", 1))` (matching `api/v1/users.py`, `api/v1/stock.py`), but `tests/api/test_articles_routes.py` used `"tenant_id": "tenant-01"`; fixtures updated to `1` to mirror real JWT claims. No production fallback added.
+- A5 enforced in the orchestrator: `audited_by` is set only when `fue_auditado` is True.
+- §6.4: `list_by_tenant` is skipped when there is no repository, session, tenant, or no audited article; at most one call per request.
+
 ### Progress
 
 - `T1` done: `get_latest_audit_users_for_articles` (port + SQLAlchemy adapter), `StockLookupService.get_session_auditors_batch`, `audited_by` on `ArticuloBase`/`ArticuloPublicOut` (inherited by `Articulo`/`ArticuloAdminOut`). Full backend suite: 415 passed; ruff clean.
+- `T2` done: `ArticleCatalogOrchestrator` takes optional `user_repository` and `tenant_id`, resolving `audited_by` in catalog, search, and single-article flows; `get_article_catalog_orchestrator` wires `SQLAlchemyUserRepository`; router forwards `tenant_id`. Full backend suite: 425 passed; ruff clean.
 
 ## 4. Open Questions & Blockers
 
@@ -46,4 +53,4 @@
 
 ## 5. Next Action
 
-- Ready for **Claude Code** (the Build Agent) to continue with `T2` using TDD (`Red -> Green -> Refactor`) following [`specs/catalog-audited-by-attribution/tasks.md`](file:///home/fede/Proyectos/SaaSStockDepositControl/specs/catalog-audited-by-attribution/tasks.md).
+- Ready for **Claude Code** (the Build Agent) to continue with `T3`/`T4` using TDD (`Red -> Green -> Refactor`) following [`specs/catalog-audited-by-attribution/tasks.md`](file:///home/fede/Proyectos/SaaSStockDepositControl/specs/catalog-audited-by-attribution/tasks.md).
