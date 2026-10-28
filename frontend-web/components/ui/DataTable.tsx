@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { ArticuloPublicView, ArticuloAdminView, UserRole } from "@/lib/types/domain";
+import { ArticuloPublicView, ArticuloAdminView, ArticleFamily, UserRole } from "@/lib/types/domain";
 import { useDataClient } from "@/lib/hooks/useDataClient";
 import { Search, ChevronDown, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
@@ -9,9 +9,32 @@ export interface DataTableProps {
   articles: (ArticuloPublicView | ArticuloAdminView)[];
   currentRole: UserRole;
   isLoading?: boolean;
+  /** When set, filtering and pagination are delegated to the server and `articles` is the current page. */
+  server?: DataTableServerControls;
 }
 
-export function DataTable({ articles, currentRole, isLoading = false }: DataTableProps) {
+export interface DataTableServerControls {
+  page: number;
+  pages: number;
+  total: number;
+  limit: number;
+  search: string;
+  idFamilia: string | undefined;
+  status: boolean | undefined;
+  families: ArticleFamily[];
+  onPageChange: (page: number) => void;
+  onSearchChange: (term: string) => void;
+  onFamilyChange: (idFamilia: string | undefined) => void;
+  onStatusChange: (status: boolean | undefined) => void;
+}
+
+const statusToFilter = (status: boolean | undefined) =>
+  status === undefined ? "all" : status ? "audited" : "pending";
+
+const filterToStatus = (value: string) =>
+  value === "audited" ? true : value === "pending" ? false : undefined;
+
+export function DataTable({ articles, currentRole, isLoading = false, server }: DataTableProps) {
   const emptyMessage = isLoading ? "Cargando artículos..." : "No se encontraron resultados.";
   const { users } = useDataClient();
   const [searchTerm, setSearchTerm] = useState("");
@@ -54,11 +77,26 @@ export function DataTable({ articles, currentRole, isLoading = false }: DataTabl
     });
   }, [articles, searchTerm, familyFilter, statusFilter]);
 
-  const totalPages = Math.ceil(filteredArticles.length / itemsPerPage);
-  const paginatedArticles = filteredArticles.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const view = server
+    ? {
+        rows: articles,
+        page: server.page,
+        totalPages: server.pages,
+        totalItems: server.total,
+        pageSize: server.limit,
+        goTo: server.onPageChange,
+      }
+    : {
+        rows: filteredArticles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
+        page: currentPage,
+        totalPages: Math.ceil(filteredArticles.length / itemsPerPage),
+        totalItems: filteredArticles.length,
+        pageSize: itemsPerPage,
+        goTo: setCurrentPage,
+      };
+  const paginatedArticles = view.rows;
+  const rangeStart = view.totalItems === 0 ? 0 : (view.page - 1) * view.pageSize + 1;
+  const rangeEnd = Math.min(view.page * view.pageSize, view.totalItems);
 
   // Helper for deterministic mock auditor
   const getAuditorForArticle = (articleId: string) => {
@@ -78,8 +116,12 @@ export function DataTable({ articles, currentRole, isLoading = false }: DataTabl
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+              value={server ? server.search : searchTerm}
+              onChange={(e) =>
+                server
+                  ? server.onSearchChange(e.target.value)
+                  : (setSearchTerm(e.target.value), setCurrentPage(1))
+              }
               placeholder="Buscar código de barras o nombre..."
               className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] transition"
             />
@@ -88,14 +130,22 @@ export function DataTable({ articles, currentRole, isLoading = false }: DataTabl
           {/* Family Filter */}
           <div className="relative w-full sm:w-48">
             <select
-              value={familyFilter}
-              onChange={(e) => { setFamilyFilter(e.target.value); setCurrentPage(1); }}
+              value={server ? server.idFamilia ?? "" : familyFilter}
+              onChange={(e) =>
+                server
+                  ? server.onFamilyChange(e.target.value || undefined)
+                  : (setFamilyFilter(e.target.value), setCurrentPage(1))
+              }
               className="w-full appearance-none pl-3 pr-8 py-2 text-sm bg-white border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] transition cursor-pointer"
             >
-              <option value="all">Todas las Familias</option>
-              {families.map((f) => (
-                <option key={f} value={f}>{f}</option>
-              ))}
+              <option value={server ? "" : "all"}>Todas las Familias</option>
+              {server
+                ? server.families.map((f) => (
+                    <option key={f.id_familia} value={f.id_familia}>{f.des_familia}</option>
+                  ))
+                : families.map((f) => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
             </select>
             <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
@@ -103,8 +153,12 @@ export function DataTable({ articles, currentRole, isLoading = false }: DataTabl
           {/* Status Filter */}
           <div className="relative w-full sm:w-40">
             <select
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              value={server ? statusToFilter(server.status) : statusFilter}
+              onChange={(e) =>
+                server
+                  ? server.onStatusChange(filterToStatus(e.target.value))
+                  : (setStatusFilter(e.target.value), setCurrentPage(1))
+              }
               className="w-full appearance-none pl-3 pr-8 py-2 text-sm bg-white border border-slate-300 rounded-lg text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] transition cursor-pointer"
             >
               <option value="all">Todos los estados</option>
@@ -117,7 +171,7 @@ export function DataTable({ articles, currentRole, isLoading = false }: DataTabl
 
         {/* Results count */}
         <div className="text-sm text-slate-500 font-medium whitespace-nowrap">
-          {filteredArticles.length} resultados
+          {view.totalItems} resultados
         </div>
       </div>
 
@@ -334,23 +388,23 @@ export function DataTable({ articles, currentRole, isLoading = false }: DataTabl
       </div>
 
       {/* Pagination Footer */}
-      {totalPages > 0 && (
+      {(server || view.totalPages > 0) && (
         <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white text-sm">
           <div className="text-slate-500 text-xs sm:text-sm">
-            {Math.min((currentPage - 1) * itemsPerPage + 1, filteredArticles.length)}-{Math.min(currentPage * itemsPerPage, filteredArticles.length)} de {filteredArticles.length} ítems
+            {rangeStart}-{rangeEnd} de {view.totalItems} ítems
           </div>
           <div className="flex items-center gap-1">
             <button
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(1)}
+              disabled={view.page <= 1}
+              onClick={() => view.goTo(1)}
               className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none active:scale-95 transition cursor-pointer"
               aria-label="Primera página"
             >
               <ChevronsLeft className="w-4 h-4" />
             </button>
             <button
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage((p) => p - 1)}
+              disabled={view.page <= 1}
+              onClick={() => view.goTo(view.page - 1)}
               className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none active:scale-95 transition cursor-pointer"
               aria-label="Página anterior"
             >
@@ -358,17 +412,17 @@ export function DataTable({ articles, currentRole, isLoading = false }: DataTabl
             </button>
             
             <div className="flex items-center gap-1 mx-1 sm:mx-2">
-              {Array.from({ length: totalPages }).map((_, i) => {
-                if (totalPages > 5 && i !== 0 && i !== totalPages - 1 && Math.abs(i + 1 - currentPage) > 1) {
-                  if (i + 1 === currentPage - 2 || i + 1 === currentPage + 2) return <span key={i} className="text-slate-400 px-1">...</span>;
+              {Array.from({ length: view.totalPages }).map((_, i) => {
+                if (view.totalPages > 5 && i !== 0 && i !== view.totalPages - 1 && Math.abs(i + 1 - view.page) > 1) {
+                  if (i + 1 === view.page - 2 || i + 1 === view.page + 2) return <span key={i} className="text-slate-400 px-1">...</span>;
                   return null;
                 }
                 return (
                   <button
                     key={i}
-                    onClick={() => setCurrentPage(i + 1)}
+                    onClick={() => view.goTo(i + 1)}
                     className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-semibold transition active:scale-95 cursor-pointer ${
-                      currentPage === i + 1
+                      view.page === i + 1
                         ? "bg-[#1a56db] text-white shadow-xs"
                         : "text-slate-600 hover:bg-slate-100"
                     }`}
@@ -380,16 +434,16 @@ export function DataTable({ articles, currentRole, isLoading = false }: DataTabl
             </div>
 
             <button
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage((p) => p + 1)}
+              disabled={view.page >= view.totalPages}
+              onClick={() => view.goTo(view.page + 1)}
               className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none active:scale-95 transition cursor-pointer"
               aria-label="Página siguiente"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
             <button
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(totalPages)}
+              disabled={view.page >= view.totalPages}
+              onClick={() => view.goTo(view.totalPages)}
               className="p-2 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none active:scale-95 transition cursor-pointer"
               aria-label="Última página"
             >
