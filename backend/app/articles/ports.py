@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
-from backend.app.articles.models import Articulo
+from backend.app.articles.models import Articulo, Familia
 
 
 class ArticleRepositoryPort(ABC):
@@ -60,5 +60,12 @@ class ArticleRepositoryPort(ABC):
     async def get_barcode_by_article_id(self, id_articulo: str) -> Optional[str]:
         """
         Retrieve primary or first associated barcode string for a given article ID.
+        """
+        pass
+
+    @abstractmethod
+    async def list_families(self) -> List[Familia]:
+        """
+        Retrieve all product families ordered by family ID.
         """
         pass

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { useArticles } from "./useArticles";
 import { useDataClient } from "./useDataClient";
@@ -148,5 +148,231 @@ describe("useArticles", () => {
 
     // Component is unmounted, verify no uncaught errors or leaks
     expect(getArticulos).toHaveBeenCalledTimes(1);
+  });
+});
+
+function setupClient(
+  client: Record<string, unknown>,
+  currentUser: unknown = { id: "1" },
+  currentRole: UserRole | null = UserRole.AUDITOR
+) {
+  mockedUseDataClient.mockReturnValue({
+    client,
+    currentUser,
+    currentRole,
+  } as unknown as ReturnType<typeof useDataClient>);
+}
+
+function pageResult(page: number, items: unknown[] = [{ id_articulo: `ART-P${page}` }]) {
+  return { items, total: 500, page, limit: 10, pages: 50 };
+}
+
+function makeClient(overrides: Record<string, unknown> = {}) {
+  return {
+    getArticulos: vi.fn().mockResolvedValue([]),
+    getPaginatedArticles: vi
+      .fn()
+      .mockImplementation((q: { page: number }) => Promise.resolve(pageResult(q.page))),
+    getFamilies: vi.fn().mockResolvedValue([
+      { id_familia: "01", des_familia: "Medicamentos" },
+      { id_familia: "02", des_familia: "Perfumería" },
+    ]),
+    ...overrides,
+  };
+}
+
+describe("useArticles paginated mode", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("fetches the first page with default limit and the current role", async () => {
+    const client = makeClient();
+    setupClient(client, { id: "1" }, UserRole.ADMINISTRADOR);
+
+    const { result } = renderHook(() => useArticles({ paginated: true }));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(client.getPaginatedArticles).toHaveBeenCalledTimes(1);
+    expect(client.getPaginatedArticles).toHaveBeenCalledWith(
+      { page: 1, limit: 10 },
+      UserRole.ADMINISTRADOR
+    );
+    expect(client.getArticulos).not.toHaveBeenCalled();
+    expect(result.current.articles).toEqual([{ id_articulo: "ART-P1" }]);
+    expect(result.current.total).toBe(500);
+    expect(result.current.pages).toBe(50);
+    expect(result.current.page).toBe(1);
+    expect(result.current.limit).toBe(10);
+  });
+
+  it("refetches with the new page when setPage is called", async () => {
+    const client = makeClient();
+    setupClient(client);
+
+    const { result } = renderHook(() => useArticles({ paginated: true }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.setPage(11));
+
+    await waitFor(() => expect(result.current.articles).toEqual([{ id_articulo: "ART-P11" }]));
+    expect(client.getPaginatedArticles).toHaveBeenLastCalledWith(
+      { page: 11, limit: 10 },
+      UserRole.AUDITOR
+    );
+    expect(result.current.page).toBe(11);
+  });
+
+  it("debounces search by 250ms, fetches once with the last term and resets page to 1", async () => {
+    vi.useFakeTimers();
+    const client = makeClient();
+    setupClient(client);
+
+    const { result } = renderHook(() => useArticles({ paginated: true }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    act(() => result.current.setPage(3));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    const callsBeforeTyping = client.getPaginatedArticles.mock.calls.length;
+
+    act(() => result.current.setSearch("A"));
+    act(() => result.current.setSearch("Am"));
+    act(() => result.current.setSearch("Amox"));
+    expect(result.current.search).toBe("Amox");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(249);
+    });
+    expect(client.getPaginatedArticles).toHaveBeenCalledTimes(callsBeforeTyping);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(client.getPaginatedArticles).toHaveBeenCalledTimes(callsBeforeTyping + 1);
+    expect(client.getPaginatedArticles).toHaveBeenLastCalledWith(
+      { page: 1, limit: 10, search: "Amox" },
+      UserRole.AUDITOR
+    );
+    expect(result.current.page).toBe(1);
+  });
+
+  it("resets page to 1 when the family or status filter changes", async () => {
+    const client = makeClient();
+    setupClient(client);
+
+    const { result } = renderHook(() => useArticles({ paginated: true }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.setPage(3));
+    await waitFor(() => expect(result.current.page).toBe(3));
+
+    act(() => result.current.setFamily("02"));
+    await waitFor(() =>
+      expect(client.getPaginatedArticles).toHaveBeenLastCalledWith(
+        { page: 1, limit: 10, id_familia: "02" },
+        UserRole.AUDITOR
+      )
+    );
+    expect(result.current.page).toBe(1);
+    expect(result.current.idFamilia).toBe("02");
+
+    act(() => result.current.setPage(4));
+    act(() => result.current.setStatus(true));
+    await waitFor(() =>
+      expect(client.getPaginatedArticles).toHaveBeenLastCalledWith(
+        { page: 1, limit: 10, id_familia: "02", fue_auditado: true },
+        UserRole.AUDITOR
+      )
+    );
+    expect(result.current.page).toBe(1);
+  });
+
+  it("discards out-of-order responses from superseded queries", async () => {
+    let resolvePage2: ((val: unknown) => void) | undefined;
+    const client = makeClient({
+      getPaginatedArticles: vi.fn().mockImplementation((q: { page: number }) => {
+        if (q.page === 2) {
+          return new Promise((res) => {
+            resolvePage2 = res;
+          });
+        }
+        return Promise.resolve(pageResult(q.page));
+      }),
+    });
+    setupClient(client);
+
+    const { result } = renderHook(() => useArticles({ paginated: true }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.setPage(2));
+    act(() => result.current.setPage(3));
+    await waitFor(() => expect(result.current.articles).toEqual([{ id_articulo: "ART-P3" }]));
+
+    await act(async () => {
+      resolvePage2?.(pageResult(2));
+    });
+
+    expect(result.current.articles).toEqual([{ id_articulo: "ART-P3" }]);
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it("fetches families once and exposes them", async () => {
+    const client = makeClient();
+    setupClient(client);
+
+    const { result } = renderHook(() => useArticles({ paginated: true }));
+
+    await waitFor(() => expect(result.current.families).toHaveLength(2));
+    act(() => result.current.setPage(2));
+    await waitFor(() => expect(result.current.page).toBe(2));
+    expect(client.getFamilies).toHaveBeenCalledTimes(1);
+    expect(result.current.families[1]).toEqual({ id_familia: "02", des_familia: "Perfumería" });
+  });
+
+  it("degrades to empty families without affecting articles when getFamilies fails", async () => {
+    const client = makeClient({ getFamilies: vi.fn().mockRejectedValue(new Error("boom")) });
+    setupClient(client);
+
+    const { result } = renderHook(() => useArticles({ paginated: true }));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(client.getFamilies).toHaveBeenCalledTimes(1));
+    expect(result.current.families).toEqual([]);
+    expect(result.current.error).toBeNull();
+    expect(result.current.articles).toEqual([{ id_articulo: "ART-P1" }]);
+  });
+
+  it("does not fetch pages or families when unauthenticated", async () => {
+    const client = makeClient();
+    setupClient(client, null);
+
+    const { result } = renderHook(() => useArticles({ paginated: true }));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(client.getPaginatedArticles).not.toHaveBeenCalled();
+    expect(client.getFamilies).not.toHaveBeenCalled();
+  });
+
+  it("keeps the legacy full-list path when called without options", async () => {
+    const client = makeClient({
+      getArticulos: vi.fn().mockResolvedValue([{ id_articulo: "ART-1" }, { id_articulo: "ART-2" }]),
+    });
+    setupClient(client);
+
+    const { result } = renderHook(() => useArticles());
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(client.getArticulos).toHaveBeenCalledTimes(1);
+    expect(client.getPaginatedArticles).not.toHaveBeenCalled();
+    expect(client.getFamilies).not.toHaveBeenCalled();
+    expect(result.current.total).toBe(2);
+    expect(result.current.families).toEqual([]);
   });
 });

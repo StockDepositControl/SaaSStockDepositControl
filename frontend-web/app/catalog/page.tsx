@@ -10,15 +10,31 @@ import { Lock } from "lucide-react";
 
 export default function CatalogPage() {
   const { currentRole } = useDataClient();
-  const { articles, isLoading, error } = useArticles();
+  const {
+    articles,
+    total,
+    page,
+    limit,
+    pages,
+    families,
+    search,
+    idFamilia,
+    status,
+    setPage,
+    setSearch,
+    setFamily,
+    setStatus,
+    isLoading,
+    error,
+  } = useArticles({ paginated: true });
   const isAdmin = currentRole === UserRole.ADMINISTRADOR;
   const isSupervisor = currentRole === UserRole.SUPERVISOR;
 
   const subtitle = isAdmin
-    ? `${articles.length} artículos · Precios visibles (Vista de administrador)`
+    ? `${total} artículos · Precios visibles (Vista de administrador)`
     : isSupervisor
-    ? `${articles.length} artículos · Stock, estado de auditoría y trazabilidad del auditor`
-    : `${articles.length} artículos · Stock y estado de auditoría`;
+    ? `${total} artículos · Stock, estado de auditoría y trazabilidad del auditor`
+    : `${total} artículos · Stock y estado de auditoría`;
 
   return (
     <DemoShell>
@@ -54,6 +70,20 @@ export default function CatalogPage() {
             articles={articles}
             currentRole={currentRole || UserRole.AUDITOR}
             isLoading={isLoading}
+            server={{
+              page,
+              pages,
+              total,
+              limit,
+              search,
+              idFamilia,
+              status,
+              families,
+              onPageChange: setPage,
+              onSearchChange: setSearch,
+              onFamilyChange: setFamily,
+              onStatusChange: setStatus,
+            }}
           />
         </div>
       </div>

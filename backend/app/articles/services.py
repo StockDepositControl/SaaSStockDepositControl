@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple
 
-from backend.app.articles.models import Articulo
+from backend.app.articles.models import Articulo, Familia
 from backend.app.articles.ports import ArticleRepositoryPort
 from backend.app.exceptions import (
     EntityNotFoundException,
@@ -83,3 +83,9 @@ class ArticleSearchService:
             page=1, limit=10000, active_session_id=None
         )
         return items
+
+    async def list_families(self) -> List[Familia]:
+        """
+        Retrieves all product families for catalog filtering.
+        """
+        return await self.article_repository.list_families()

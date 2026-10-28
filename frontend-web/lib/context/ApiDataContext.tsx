@@ -81,6 +81,8 @@ export function ApiDataProvider({ children }: ApiDataProviderProps) {
   const wrappedClient: DataClientPort = useMemo(() => {
     return {
       getArticulos: (role) => client.getArticulos(role),
+      getPaginatedArticles: (query, role) => client.getPaginatedArticles(query, role),
+      getFamilies: () => client.getFamilies(),
       getArticuloByBarcode: (barcode, role) => client.getArticuloByBarcode(barcode, role),
       searchArticulos: (query, role) => client.searchArticulos(query, role),
       registerAudit: async (entry: AuditEntry): Promise<AuditResult> => {

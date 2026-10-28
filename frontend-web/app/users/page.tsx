@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useDataClient } from "@/lib/hooks/useDataClient";
 import { DemoShell } from "@/components/layout/DemoShell";
 import { UserRole, MockUser } from "@/lib/types/domain";
@@ -14,26 +14,17 @@ export default function UsersPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const fetchUsers = useCallback(async () => {
-    if (!isAdmin) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    try {
-      const fetched = await client.getUsers(true);
-      setUsers(fetched);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Error al cargar la lista de usuarios";
-      setActionError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [client, isAdmin]);
-
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    if (!isAdmin) return;
+    client
+      .getUsers(true)
+      .then(setUsers)
+      .catch((err: unknown) => {
+        const message = err instanceof Error ? err.message : "Error al cargar la lista de usuarios";
+        setActionError(message);
+      })
+      .finally(() => setLoading(false));
+  }, [client, isAdmin]);
 
   const totalUsers = users.length;
   const activeUsers = useMemo(() => users.filter((u) => u.is_active !== false).length, [users]);
@@ -196,7 +187,7 @@ export default function UsersPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {loading ? (
+                    {isAdmin && loading ? (
                       <tr>
                         <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
                           Cargando usuarios...

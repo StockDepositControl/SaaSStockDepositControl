@@ -27,7 +27,7 @@
     - `list_families` added to repository port, service, and exposed at `GET /api/v1/articles/families`.
   - [ ] Differential checks clean: all 377+ backend tests pass with zero lint errors.
 - **Verification Command:** `pytest tests/api/test_articles_routes.py tests/domain/test_article_search_service.py && ruff check . && ruff format --check .`
-- **Status:** `[ ] pending`
+- **Status:** `[x] done`
 
 ---
 
@@ -51,7 +51,7 @@
   - [ ] Implement `getPaginatedArticles` and `getFamilies` in `MockDataContext` for seamless mock parity.
   - [ ] GREEN tests and clean typecheck.
 - **Verification Command:** `npx vitest run lib/adapters/ApiDataClient.test.ts && npx tsc --noEmit`
-- **Status:** `[ ] pending`
+- **Status:** `[x] done`
 
 ---
 
@@ -73,7 +73,7 @@
   - [ ] Backward compatibility preserved for unconfigured callers (e.g., reports tab).
   - [ ] GREEN tests and clean typecheck.
 - **Verification Command:** `npx vitest run lib/hooks/useArticles.test.ts && npx tsc --noEmit`
-- **Status:** `[ ] pending`
+- **Status:** `[x] done` (`57a5a2c`)
 
 ---
 
@@ -97,4 +97,4 @@
   - [ ] Verify pages 1 through 50 and search for "ART" items succeed.
   - [ ] All frontend test suites pass, TypeScript zero errors, ESLint zero errors.
 - **Verification Command:** `npm test && npx tsc --noEmit && npm run lint`
-- **Status:** `[ ] pending`
+- **Status:** `[x] done` (`e0156b7`)

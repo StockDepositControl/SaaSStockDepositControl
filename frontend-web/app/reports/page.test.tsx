@@ -52,7 +52,7 @@ const mockAuditLogsList: AuditResult[] = [
     audit_quantity: 10,
     monto_valorizado: 600,
     applied_vat_rate: 21,
-    scan_timestamp: "2026-10-20T10:00:00Z",
+    scan_timestamp: new Date().toISOString(),
   },
 ];
 

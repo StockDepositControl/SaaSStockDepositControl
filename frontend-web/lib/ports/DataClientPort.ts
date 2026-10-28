@@ -7,6 +7,9 @@ import {
   DashboardKPIsBase,
   DashboardKPIsAdmin,
   MockUser,
+  ArticleCatalogQuery,
+  PaginatedArticlesResult,
+  ArticleFamily,
 } from "../types/domain";
 
 export interface DataClientPort {
@@ -16,6 +19,20 @@ export interface DataClientPort {
    * If role is SUPERVISOR or AUDITOR, returns ArticuloPublicView[] without pcio_com_siva.
    */
   getArticulos(role?: UserRole): Promise<ArticuloPublicView[] | ArticuloAdminView[]>;
+
+  /**
+   * Returns one server-side page of the catalog, filtered by the query
+   * and projected according to the requester's role.
+   */
+  getPaginatedArticles(
+    query?: ArticleCatalogQuery,
+    role?: UserRole
+  ): Promise<PaginatedArticlesResult>;
+
+  /**
+   * Returns all product families available for catalog filtering.
+   */
+  getFamilies(): Promise<ArticleFamily[]>;
 
   /**
    * Search an article by its exact identifier or barcode.

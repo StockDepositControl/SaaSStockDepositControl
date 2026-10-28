@@ -136,3 +136,26 @@ export interface UserSession {
   expires_at: string;
 }
 
+
+export interface ArticleCatalogQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  id_familia?: string;
+  id_grupo?: string;
+  fue_auditado?: boolean;
+  id_deposito?: number;
+}
+
+export interface PaginatedArticlesResult {
+  items: (ArticuloPublicView | ArticuloAdminView)[];
+  total: number;
+  page: number;
+  limit: number;
+  pages: number;
+}
+
+export interface ArticleFamily {
+  id_familia: string;
+  des_familia: string;
+}

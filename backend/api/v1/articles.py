@@ -7,7 +7,7 @@ from backend.api.dependencies.services import (
     get_article_search_service,
     get_work_session_service,
 )
-from backend.app.articles.models import ArticuloAdminOut, ArticuloPublicOut
+from backend.app.articles.models import ArticuloAdminOut, ArticuloPublicOut, Familia
 from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
 from backend.app.articles.services import ArticleSearchService
 from backend.app.work_sessions.services import WorkSessionService
@@ -119,6 +119,19 @@ async def list_articles(
         "limit": limit,
         "pages": pages,
     }
+
+
+@router.get(
+    "/families",
+    response_model=List[Familia],
+    summary="List all product families",
+    description="Returns all product families for catalog filtering.",
+)
+async def list_families(
+    claims: dict = Depends(get_current_user_claims),
+    search_service: ArticleSearchService = Depends(get_article_search_service),
+) -> List[Familia]:
+    return await search_service.list_families()
 
 
 @router.get(
