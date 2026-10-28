@@ -30,10 +30,20 @@
 | `2026-10-28` | Antigravity | Window function `get_latest_audit_users_for_articles` in `SQLAlchemyAuditRepository` | Efficient single-query retrieval of the latest auditor per article for the active session, identical to the stock lookup pattern. | `specs/catalog-audited-by-attribution/spec.md` |
 | `2026-10-28` | Antigravity | Removal of `getAuditorForArticle` mock hash in `DataTable.tsx` | Eliminates false attribution of all audited articles to the logged-in supervisor in zero-prefetch setup. | `specs/catalog-audited-by-attribution/spec.md` |
 
+### Build Spec-Challenge Notes (Claude Code, T1)
+
+- `tests/adapters/test_audit_repository.py` did not exist and the in-memory DB fixture (`db_engines`) lives in `tests/db/conftest.py`; T1 tests were placed in `backend/tests/db/test_audit_repository.py`.
+- `tasks.md` header said `Status: Draft` while `spec.md` is Approved; header corrected.
+- S4 is covered at model level in T1 (`audited_by` defaults to `null`); endpoint-level S4 is verified in T2.
+
+### Progress
+
+- `T1` done: `get_latest_audit_users_for_articles` (port + SQLAlchemy adapter), `StockLookupService.get_session_auditors_batch`, `audited_by` on `ArticuloBase`/`ArticuloPublicOut` (inherited by `Articulo`/`ArticuloAdminOut`). Full backend suite: 415 passed; ruff clean.
+
 ## 4. Open Questions & Blockers
 
 - None.
 
 ## 5. Next Action
 
-- Ready for **Claude Code** (the Build Agent) to begin execution starting at `T1` using TDD (`Red -> Green -> Refactor`) following [`specs/catalog-audited-by-attribution/tasks.md`](file:///home/fede/Proyectos/SaaSStockDepositControl/specs/catalog-audited-by-attribution/tasks.md).
+- Ready for **Claude Code** (the Build Agent) to continue with `T2` using TDD (`Red -> Green -> Refactor`) following [`specs/catalog-audited-by-attribution/tasks.md`](file:///home/fede/Proyectos/SaaSStockDepositControl/specs/catalog-audited-by-attribution/tasks.md).

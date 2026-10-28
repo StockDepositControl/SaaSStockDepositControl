@@ -98,3 +98,19 @@ async def test_get_effective_stocks_batch_no_session(
         deposit_id=1,
         article_ids=["A1", "A2"],
     )
+
+
+@pytest.mark.asyncio
+async def test_get_session_auditors_batch_delegates_to_audit_repository(
+    stock_lookup_service, mock_audit_repo
+):
+    mock_audit_repo.get_latest_audit_users_for_articles.return_value = {"ART-001": 42}
+
+    result = await stock_lookup_service.get_session_auditors_batch(
+        session_id=10, article_ids=["ART-001"]
+    )
+
+    assert result == {"ART-001": 42}
+    mock_audit_repo.get_latest_audit_users_for_articles.assert_awaited_once_with(
+        session_id=10, article_ids=["ART-001"]
+    )

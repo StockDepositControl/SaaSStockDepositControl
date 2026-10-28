@@ -1,6 +1,6 @@
 # Implementation Tasks: Auditor Attribution in Item Catalog
 
-- **Spec Reference:** `specs/catalog-audited-by-attribution/spec.md` (`Status: Draft` — requires human sign-off before execution)
+- **Spec Reference:** `specs/catalog-audited-by-attribution/spec.md` (`Status: Approved`)
 - **Delivery Strategy:** Vertical slices (`<= 400` changed lines per commit), TDD (`Red -> Green -> Refactor`), dependency-ordered.
 
 ---
@@ -17,17 +17,18 @@
   - `backend/adapters/repositories/audit_repository.py`
   - `backend/app/movements/services.py`
   - `backend/app/articles/models.py`
-  - `backend/tests/adapters/test_audit_repository.py`
+  - `backend/tests/db/test_audit_repository.py` (moved from `tests/adapters/`: in-memory DB fixture lives in `tests/db/conftest.py`)
+  - `backend/tests/domain/test_stock_lookup_batch.py`
 - **Acceptance Criteria:**
-  - [ ] RED test: write a test in `tests/adapters/test_audit_repository.py` for `get_latest_audit_users_for_articles` asserting mapping `{article_code: user_id}` for latest audit in session.
-  - [ ] GREEN: implement `get_latest_audit_users_for_articles` in `SQLAlchemyAuditRepository` and `AuditRepositoryPort`.
-  - [ ] GREEN: add `get_session_auditors_batch` in `StockLookupService`.
-  - [ ] GREEN: add `audited_by: Optional[str] = None` to `ArticuloBase`, `Articulo`, `ArticuloPublicOut`, `ArticuloAdminOut` in `backend/app/articles/models.py`.
+  - [x] RED test: write a test in `tests/db/test_audit_repository.py` for `get_latest_audit_users_for_articles` asserting mapping `{article_code: user_id}` for latest audit in session.
+  - [x] GREEN: implement `get_latest_audit_users_for_articles` in `SQLAlchemyAuditRepository` and `AuditRepositoryPort`.
+  - [x] GREEN: add `get_session_auditors_batch` in `StockLookupService`.
+  - [x] GREEN: add `audited_by: Optional[str] = None` to `ArticuloBase`, `Articulo`, `ArticuloPublicOut`, `ArticuloAdminOut` in `backend/app/articles/models.py`.
 - **Verification Command:**
   ```bash
-  cd backend && pytest tests/adapters/test_audit_repository.py tests/domain/test_article_catalog_orchestrator.py && ruff check . && ruff format --check .
+  cd backend && pytest tests/db/test_audit_repository.py tests/domain/test_article_catalog_orchestrator.py && ruff check . && ruff format --check .
   ```
-- **Status:** `[ ] pending`
+- **Status:** `[x] done`
 
 ---
 
