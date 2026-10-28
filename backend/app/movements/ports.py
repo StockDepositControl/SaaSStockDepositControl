@@ -97,6 +97,17 @@ class AuditRepositoryPort(ABC):
         pass
 
     @abstractmethod
+    async def get_latest_audit_users_for_articles(
+        self, session_id: int, article_ids: List[str]
+    ) -> Dict[str, int]:
+        """
+        Retrieves the latest audit user_id for multiple articles within a specific
+        session.
+        Returns a mapping of {article_code: user_id}.
+        """
+        pass
+
+    @abstractmethod
     async def get_session_audit_aggregates(
         self, tenant_id: int, branch_id: int, deposit_id: int, session_id: int
     ) -> SessionAuditAggregates:

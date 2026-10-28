@@ -51,6 +51,16 @@ describe("mappers - RBAC Field Stripping & Conversions", () => {
     expect(Object.keys(publicView)).not.toContain("pcio_com_siva");
   });
 
+  it("mapToArticuloPublicView maps audited_by from the raw API response", () => {
+    const publicView = mapToArticuloPublicView({ ...rawAdminArticle, audited_by: "Carlos Auditor" });
+    expect(publicView.audited_by).toBe("Carlos Auditor");
+  });
+
+  it("mapToArticuloPublicView defaults audited_by to null when absent", () => {
+    const publicView = mapToArticuloPublicView(rawAdminArticle);
+    expect(publicView.audited_by).toBeNull();
+  });
+
   it("maps ApiAuditEntryResult correctly to domain AuditResult", () => {
     const apiAudit: ApiAuditEntryResult = {
       client_uuid: "uuid-1234",

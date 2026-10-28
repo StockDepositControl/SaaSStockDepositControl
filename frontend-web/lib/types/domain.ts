@@ -40,6 +40,7 @@ export interface ArticuloBase {
   fue_auditado: boolean;
   ultimo_conteo_fisico?: number | null;
   vencimiento?: string | null;
+  audited_by?: string | null;
 }
 
 // Supervisor & Auditor view (NO pcio_com_siva field)

@@ -96,6 +96,17 @@ class StockLookupService:
 
         return {**stock_map, **audit_map}
 
+    async def get_session_auditors_batch(
+        self, session_id: int, article_ids: List[str]
+    ) -> Dict[str, int]:
+        """
+        Resolves the user_id of the latest audit per article within a session.
+        Returns a mapping of {article_code: user_id}.
+        """
+        return await self.audit_repository.get_latest_audit_users_for_articles(
+            session_id=session_id, article_ids=article_ids
+        )
+
 
 class AuditService:
     """

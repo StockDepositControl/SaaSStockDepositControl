@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo } from "react";
 import { ArticuloPublicView, ArticuloAdminView, ArticleFamily, UserRole } from "@/lib/types/domain";
-import { useDataClient } from "@/lib/hooks/useDataClient";
 import { Search, ChevronDown, AlertTriangle, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 
 export interface DataTableProps {
@@ -31,12 +30,14 @@ export interface DataTableServerControls {
 const statusToFilter = (status: boolean | undefined) =>
   status === undefined ? "all" : status ? "audited" : "pending";
 
+const getInitials = (name: string) =>
+  name.trim().split(/\s+/).map((n) => n[0]).join("").substring(0, 2).toUpperCase();
+
 const filterToStatus = (value: string) =>
   value === "audited" ? true : value === "pending" ? false : undefined;
 
 export function DataTable({ articles, currentRole, isLoading = false, server }: DataTableProps) {
   const emptyMessage = isLoading ? "Cargando artículos..." : "No se encontraron resultados.";
-  const { users } = useDataClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [familyFilter, setFamilyFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -97,14 +98,6 @@ export function DataTable({ articles, currentRole, isLoading = false, server }: 
   const paginatedArticles = view.rows;
   const rangeStart = view.totalItems === 0 ? 0 : (view.page - 1) * view.pageSize + 1;
   const rangeEnd = Math.min(view.page * view.pageSize, view.totalItems);
-
-  // Helper for deterministic mock auditor
-  const getAuditorForArticle = (articleId: string) => {
-    const auditors = users.filter(u => u.role === UserRole.AUDITOR || u.role === UserRole.SUPERVISOR);
-    if (auditors.length === 0) return null;
-    const index = articleId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return auditors[index % auditors.length];
-  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
@@ -184,10 +177,7 @@ export function DataTable({ articles, currentRole, isLoading = false, server }: 
         ) : (
           paginatedArticles.map((art) => {
             const isOutOfStock = art.stock_real === 0;
-            const auditor = isSupervisor && art.fue_auditado ? getAuditorForArticle(art.id_articulo) : null;
-            const auditorInitials = auditor
-              ? auditor.name.split(" ").map((n) => n[0]).join("").substring(0, 2).toUpperCase()
-              : "";
+            const auditorName = isSupervisor && art.fue_auditado ? art.audited_by : null;
 
             return (
               <div key={art.id_articulo} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
@@ -248,15 +238,19 @@ export function DataTable({ articles, currentRole, isLoading = false, server }: 
                     </div>
                   )}
 
-                  {isSupervisor && auditor && (
-                    <div className="flex items-center gap-1.5 text-slate-600">
-                      <div className="w-5 h-5 rounded-full bg-[#1a56db] text-white flex items-center justify-center text-[9px] font-bold">
-                        {auditorInitials}
+                  {isSupervisor && (
+                    auditorName ? (
+                      <div className="flex items-center gap-1.5 text-slate-600">
+                        <div className="w-5 h-5 rounded-full bg-[#1a56db] text-white flex items-center justify-center text-[9px] font-bold">
+                          {getInitials(auditorName)}
+                        </div>
+                        <span className="text-[11px] font-medium truncate max-w-[90px]">
+                          {auditorName}
+                        </span>
                       </div>
-                      <span className="text-[11px] font-medium truncate max-w-[90px]">
-                        {auditor.name}
-                      </span>
-                    </div>
+                    ) : (
+                      <span className={art.fue_auditado ? "text-slate-400" : "text-slate-300"}>—</span>
+                    )
                   )}
                 </div>
               </div>
@@ -358,22 +352,17 @@ export function DataTable({ articles, currentRole, isLoading = false, server }: 
                     {/* Audited By (Supervisor only) */}
                     {isSupervisor && (
                       <td className="px-6 py-4">
-                        {art.fue_auditado ? (
-                          (() => {
-                            const auditor = getAuditorForArticle(art.id_articulo);
-                            if (!auditor) return <span className="text-slate-400">—</span>;
-                            const initials = auditor.name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase();
-                            return (
-                              <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-full bg-[#1a56db] flex items-center justify-center text-[10px] font-bold text-white shrink-0">
-                                  {initials}
-                                </div>
-                                <span className="text-slate-900 font-medium truncate max-w-[120px]" title={auditor.name}>
-                                  {auditor.name}
-                                </span>
-                              </div>
-                            );
-                          })()
+                        {art.fue_auditado && art.audited_by ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-full bg-[#1a56db] flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                              {getInitials(art.audited_by)}
+                            </div>
+                            <span className="text-slate-900 font-medium truncate max-w-[120px]" title={art.audited_by}>
+                              {art.audited_by}
+                            </span>
+                          </div>
+                        ) : art.fue_auditado ? (
+                          <span className="text-slate-400">—</span>
                         ) : (
                           <span className="text-slate-300">—</span>
                         )}

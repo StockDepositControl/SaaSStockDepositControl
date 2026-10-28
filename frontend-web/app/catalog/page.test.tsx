@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import React from "react";
 import CatalogPage from "./page";
 import { UserRole } from "@/lib/types/domain";
@@ -270,5 +270,34 @@ describe("CatalogPage integration", () => {
     );
     render(<CatalogPage />);
     expect(screen.getByText("COSTO")).toBeDefined();
+  });
+
+  it("shows the actual auditor in AUDITADO POR for SUPERVISOR, not the logged-in supervisor (S5)", () => {
+    const supervisor = { id: "USR-SUP", name: "Silvia Supervisora", role: UserRole.SUPERVISOR };
+    mockUseDataClient.mockReturnValue({
+      currentUser: supervisor,
+      currentRole: UserRole.SUPERVISOR,
+      users: [supervisor],
+      client: {},
+      logout: vi.fn(),
+    });
+    mockUseArticles.mockReturnValue(
+      makeArticlesState({
+        articles: [
+          { ...makeArticle(1), fue_auditado: true, audited_by: "Carlos Auditor" },
+          { ...makeArticle(2), fue_auditado: true, audited_by: null },
+        ],
+      })
+    );
+
+    render(<CatalogPage />);
+
+    // The sidebar shows the logged-in user, so scope assertions to the table.
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("AUDITADO POR")).toBeDefined();
+    expect(table.getByText("Carlos Auditor")).toBeDefined();
+    expect(table.getByText("CA")).toBeDefined();
+    expect(table.queryByText("Silvia Supervisora")).toBeNull();
+    expect(table.getByText("—")).toBeDefined();
   });
 });

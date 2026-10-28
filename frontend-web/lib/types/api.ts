@@ -28,6 +28,7 @@ export interface ApiArticuloBase {
   des_grupo?: string | null;
   stock_real?: number | null;
   fue_auditado?: boolean;
+  audited_by?: string | null;
 }
 
 export interface ApiArticuloPublicOut extends ApiArticuloBase {

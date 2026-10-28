@@ -174,6 +174,42 @@ class SQLAlchemyAuditRepository(AuditRepositoryPort):
                 for row in rows
             }
 
+    async def get_latest_audit_users_for_articles(
+        self, session_id: int, article_ids: List[str]
+    ) -> Dict[str, int]:
+        if not article_ids:
+            return {}
+
+        async with self.session_factory() as session:
+            rn = (
+                func.row_number()
+                .over(
+                    partition_by=AuditRecordORM.article_code,
+                    order_by=(
+                        AuditRecordORM.scan_timestamp.desc(),
+                        AuditRecordORM.audit_id.desc(),
+                    ),
+                )
+                .label("rn")
+            )
+
+            subq = (
+                select(AuditRecordORM.article_code, AuditRecordORM.user_id, rn)
+                .where(
+                    AuditRecordORM.session_id == session_id,
+                    AuditRecordORM.article_code.in_(article_ids),
+                )
+                .subquery()
+            )
+
+            stmt = select(subq.c.article_code, subq.c.user_id).where(subq.c.rn == 1)
+            result = await session.execute(stmt)
+            return {
+                str(row[0]).strip(): int(row[1])
+                for row in result.all()
+                if row[1] is not None
+            }
+
     async def get_session_audit_aggregates(
         self, tenant_id: int, branch_id: int, deposit_id: int, session_id: int
     ) -> SessionAuditAggregates:

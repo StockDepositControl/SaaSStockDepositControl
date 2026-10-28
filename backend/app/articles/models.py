@@ -71,6 +71,7 @@ class ArticuloBase(BaseModel):
     pcio_com_siva: Decimal
     fue_auditado: bool = False
     stock_real: Optional[int] = None
+    audited_by: Optional[str] = None
 
 
 class ArticuloCreate(ArticuloBase):
@@ -105,6 +106,7 @@ class ArticuloPublicOut(BaseModel):
     des_grupo: Optional[str] = None
     fue_auditado: bool = False
     stock_real: Optional[int] = None
+    audited_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

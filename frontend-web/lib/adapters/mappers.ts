@@ -35,6 +35,7 @@ export function mapToArticuloPublicView(
     stock_real: raw.stock_real !== null && raw.stock_real !== undefined ? Number(raw.stock_real) : 0,
     lotes: [],
     fue_auditado: Boolean(raw.fue_auditado),
+    audited_by: raw.audited_by ?? null,
     ultimo_conteo_fisico: null,
     vencimiento: null,
   };

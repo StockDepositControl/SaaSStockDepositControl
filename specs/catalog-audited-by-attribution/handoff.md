@@ -1,0 +1,60 @@
+# Handoff Log: Auditor Attribution in Item Catalog
+
+- **Spec:** `specs/catalog-audited-by-attribution/spec.md`
+- **Tasks:** `specs/catalog-audited-by-attribution/tasks.md`
+- **Current Phase:** `Build complete (T1-T4)`
+- **Engram Topic Key:** `spec/catalog-audited-by-attribution/decisions`
+
+---
+
+## 1. Handoff Status
+
+- **Spec Status:** `Approved`
+- **Last Updated By:** `Claude Code`
+- **Completed Tasks:** `T1`, `T2`, `T3`, `T4`
+- **Pending Tasks:** `None`
+
+## 2. Spec-Challenge Notes (Filled by Claude Code in Plan Mode Before Coding)
+
+- **Contradictions Found:** `None`
+- **Missing Edge Cases / Failure Modes:** Unaudited items (`audited_by = null`), unresolvable user ID (`audited_by = null`), and single-word user names (`initials.substring(0, 2)`) accounted for.
+- **Untestable Criteria:** `None` (all criteria S1..S6 map to automated pytest and vitest test cases).
+- **Resolution:** `Cleared to build. Approved by human (fede) on 2026-10-28.`
+
+## 3. Durable Decisions & Rationale
+
+| Date | Actor | Decision | Rationale / Tradeoff | Engram / ADR Ref |
+|---|---|---|---|---|
+| `2026-10-28` | Human (`fede`) | Approved full-stack auditor attribution | End-to-end truth in audit authorship across backend and frontend, resolving root cause in both real API and mock mode. | `docs/adr/0001-catalog-audited-by-attribution.md` |
+| `2026-10-28` | Antigravity | Cross-context user resolution in `ArticleCatalogOrchestrator` | Adheres strictly to Hexagonal Architecture; avoids cross-database SQL joins across isolated DB connection pools. | `docs/adr/0001-catalog-audited-by-attribution.md` |
+| `2026-10-28` | Antigravity | Window function `get_latest_audit_users_for_articles` in `SQLAlchemyAuditRepository` | Efficient single-query retrieval of the latest auditor per article for the active session, identical to the stock lookup pattern. | `specs/catalog-audited-by-attribution/spec.md` |
+| `2026-10-28` | Antigravity | Removal of `getAuditorForArticle` mock hash in `DataTable.tsx` | Eliminates false attribution of all audited articles to the logged-in supervisor in zero-prefetch setup. | `specs/catalog-audited-by-attribution/spec.md` |
+
+### Build Spec-Challenge Notes (Claude Code, T1)
+
+- `tests/adapters/test_audit_repository.py` did not exist and the in-memory DB fixture (`db_engines`) lives in `tests/db/conftest.py`; T1 tests were placed in `backend/tests/db/test_audit_repository.py`.
+- `tasks.md` header said `Status: Draft` while `spec.md` is Approved; header corrected.
+- S4 is covered at model level in T1 (`audited_by` defaults to `null`); endpoint-level S4 is verified in T2.
+
+### Build Spec-Challenge Notes (Claude Code, T2)
+
+- §4.4 mandates `int(claims.get("tenant_id", 1))` (matching `api/v1/users.py`, `api/v1/stock.py`), but `tests/api/test_articles_routes.py` used `"tenant_id": "tenant-01"`; fixtures updated to `1` to mirror real JWT claims. No production fallback added.
+- A5 enforced in the orchestrator: `audited_by` is set only when `fue_auditado` is True.
+- §6.4: `list_by_tenant` is skipped when there is no repository, session, tenant, or no audited article; at most one call per request.
+
+### Progress
+
+- `T1` done: `get_latest_audit_users_for_articles` (port + SQLAlchemy adapter), `StockLookupService.get_session_auditors_batch`, `audited_by` on `ArticuloBase`/`ArticuloPublicOut` (inherited by `Articulo`/`ArticuloAdminOut`). Full backend suite: 415 passed; ruff clean.
+- `T2` done: `ArticleCatalogOrchestrator` takes optional `user_repository` and `tenant_id`, resolving `audited_by` in catalog, search, and single-article flows; `get_article_catalog_orchestrator` wires `SQLAlchemyUserRepository`; router forwards `tenant_id`. Full backend suite: 425 passed; ruff clean.
+- Post-review hardening (RDD lineage `review-ccdaa6251f263218` advisory findings): auditor-name lookup failures degrade to `audited_by=None` with a logged warning; tenant claim coerced defensively (missing/null/non-numeric -> 1); latest-auditor window function tie-breaks on `audit_id DESC`. Full backend suite: 432 passed; ruff clean.
+- Second review (`review-81a0b23f432ae6d8`) follow-up: tenant claim is now strict. Absent defaults to 1 per §4.4; null/empty/non-numeric -> 401. Added a DI wiring test for `SQLAlchemyUserRepository`. Full backend suite: 436 passed.
+- `T3` done: `audited_by?: string | null` on `ArticuloBase`/`ApiArticuloBase`; `mapToArticuloPublicView` maps `raw.audited_by ?? null` (admin view inherits via spread); seeds ART-00101/102/103 carry `"Usuario Test (Auditor)"`; mock `registerAudit` sets `currentUser?.name || "Auditor"` and now lists `currentUser` in its `useCallback` deps (avoids a stale auditor name). Web suite: 151 passed; tsc clean; lint 0 errors.
+- `T4` done: removed `getAuditorForArticle` (and the now-unused `useDataClient` dependency) from `DataTable.tsx`; desktop and mobile supervisor views render `art.audited_by` with initials via a shared `getInitials` helper (`trim` + `split(/\s+/)`), `—` slate-400 when audited without a resolvable name, `—` slate-300 when not audited. S5 test in `app/catalog/page.test.tsx` scopes assertions to the table because the sidebar legitimately shows the logged-in supervisor's name. Web suite: 152 passed; tsc clean; lint 0 errors.
+
+## 4. Open Questions & Blockers
+
+- None.
+
+## 5. Next Action
+
+- All tasks done. Optional: human-invoked Antigravity diff review against `spec.md` (S1..S6), then PR to `main`.

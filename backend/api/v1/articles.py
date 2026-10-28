@@ -11,9 +11,22 @@ from backend.app.articles.models import ArticuloAdminOut, ArticuloPublicOut, Fam
 from backend.app.articles.orchestrator import ArticleCatalogOrchestrator
 from backend.app.articles.services import ArticleSearchService
 from backend.app.work_sessions.services import WorkSessionService
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 router = APIRouter()
+
+
+def _tenant_id_from_claims(claims: dict) -> int:
+    """Returns the numeric tenant_id claim (defaulting to 1 when absent, per spec
+    section 4.4). A present but null or non-numeric claim is rejected with 401 so a
+    malformed token is never attached to another tenant's data."""
+    try:
+        return int(claims.get("tenant_id", 1))
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid tenant claim",
+        )
 
 
 @router.get(
@@ -43,14 +56,17 @@ async def search_articles(
     """
     Search articles catalog enriched with effective stock.
     """
-    tenant_id = claims.get("tenant_id")
+    tenant_id = _tenant_id_from_claims(claims)
     branch_id = claims.get("branch_id") or 1
 
     session = await work_session_service.get_or_create_active_session(
         tenant_id=tenant_id, branch_id=branch_id
     )
     results = await orchestrator.search_and_enrich_articles(
-        query=query, deposit_id=id_deposito, active_session_id=session.session_id
+        query=query,
+        deposit_id=id_deposito,
+        active_session_id=session.session_id,
+        tenant_id=tenant_id,
     )
 
     user_role = claims.get("role", "").lower()
@@ -86,7 +102,7 @@ async def list_articles(
     ),
     work_session_service: WorkSessionService = Depends(get_work_session_service),
 ) -> dict:
-    tenant_id = claims.get("tenant_id")
+    tenant_id = _tenant_id_from_claims(claims)
     branch_id = claims.get("branch_id") or 1
 
     session = await work_session_service.get_or_create_active_session(
@@ -101,6 +117,7 @@ async def list_articles(
         fue_auditado=fue_auditado,
         deposit_id=id_deposito,
         active_session_id=session.session_id,
+        tenant_id=tenant_id,
     )
 
     user_role = claims.get("role", "").lower()
@@ -159,7 +176,7 @@ async def get_article(
     ),
     work_session_service: WorkSessionService = Depends(get_work_session_service),
 ) -> Any:
-    tenant_id = claims.get("tenant_id")
+    tenant_id = _tenant_id_from_claims(claims)
     branch_id = claims.get("branch_id", 1)
 
     session = await work_session_service.get_or_create_active_session(
@@ -169,6 +186,7 @@ async def get_article(
         id_articulo=id_articulo,
         deposit_id=id_deposito,
         active_session_id=session.session_id,
+        tenant_id=tenant_id,
     )
 
     user_role = claims.get("role", "").lower()
