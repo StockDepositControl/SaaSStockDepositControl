@@ -13,9 +13,12 @@ from backend.adapters.repositories.models.articles import (
     CodigoBarraArticulo as CodigoBarraArticuloORM,
 )
 from backend.adapters.repositories.models.articles import (
+    Familia as FamiliaORM,
+)
+from backend.adapters.repositories.models.articles import (
     Grupo as GrupoORM,
 )
-from backend.app.articles.models import Articulo
+from backend.app.articles.models import Articulo, Familia
 from backend.app.articles.ports import ArticleRepositoryPort
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -203,8 +206,17 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
             token_conditions = [
                 ArticuloORM.des_articulo.ilike(f"%{t}%") for t in tokens
             ]
+            barcode_match = ArticuloORM.id_articulo.in_(
+                select(CodigoBarraArticuloORM.id_articulo).where(
+                    CodigoBarraArticuloORM.cod_barra == clean_search
+                )
+            )
             conditions.append(
-                or_(ArticuloORM.id_articulo == clean_search, and_(*token_conditions))
+                or_(
+                    ArticuloORM.id_articulo == clean_search,
+                    barcode_match,
+                    and_(*token_conditions),
+                )
             )
         if fue_auditado is True:
             if not audited_codes:
@@ -245,6 +257,18 @@ class SQLAlchemyArticleRepository(ArticleRepositoryPort):
                 for art in art_orms
             ]
             return items, total
+
+    async def list_families(self) -> List[Familia]:
+        async with self.session_factory() as session:
+            stmt = select(FamiliaORM).order_by(FamiliaORM.id_familia)
+            result = await session.execute(stmt)
+            return [
+                Familia(
+                    id_familia=str(fam.id_familia).strip(),
+                    des_familia=fam.des_familia.strip() if fam.des_familia else "",
+                )
+                for fam in result.scalars().all()
+            ]
 
     async def get_barcode_by_article_id(self, id_articulo: str) -> Optional[str]:
         async with self.session_factory() as session:
